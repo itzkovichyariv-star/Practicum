@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232f6df6'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white' font-family='Arial'%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"מערכת ניהול פרקטיקום","short_name":"פרקטיקום","start_url":".","display":"standalone","orientation":"portrait","theme_color":"%232f6df6","background_color":"%23f7f8fa","dir":"rtl","lang":"he","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 rx=%2796%27 fill=%27%232f6df6%27/%3E%3Ctext x=%27256%27 y=%27350%27 font-size=%27280%27 text-anchor=%27middle%27 fill=%27white%27 font-family=%27Arial%27%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}'>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -216,6 +217,7 @@ input[type=file]{display:none}
 </div>
 <div class="context-bar">
   <div class="backup-indicator"><span class="dot" id="backup-dot"></span> <span id="backup-status">לא גובה</span></div>
+  <div class="backup-indicator" style="margin-right:8px"><span id="sync-indicator" style="font-size:11px">⚠️ סנכרון כבוי</span></div>
   <label>קורס:</label>
   <select id="ctx-course" onchange="switchContext()"></select>
   <button class="btn btn-sm btn-outline" onclick="showAddCourse()">+ קורס</button>
@@ -430,6 +432,14 @@ input[type=file]{display:none}
 
 <!-- SETTINGS -->
 <div id="settings" class="page">
+  <div class="card" style="border:2px solid var(--primary);background:rgba(47,109,246,.03)">
+    <h2 style="color:var(--primary)">☁️ סנכרון ענן (שיתוף עם רחל)</h2>
+    <div id="cloud-sync-section">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">מאפשר שיתוף וסנכרון נתונים בזמן אמת בין מכשירים ומשתמשים.</p>
+      <div id="cloud-sync-status" style="padding:10px;border-radius:8px;margin-bottom:10px"></div>
+      <div id="cloud-sync-buttons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+  </div>
   <div class="card">
     <h2>ניהול קורסים ושנים</h2>
     <div class="section">
@@ -946,6 +956,8 @@ window.onload = function(){
   renderEmailPage();
   updateBackupIndicator();
   updateHeaderUser();
+  // Auto-connect cloud sync if enabled
+  setTimeout(() => { autoConnectCloud().catch(err => console.warn('Cloud sync auto-connect failed:', err)); }, 500);
   document.addEventListener('click', function(e){
     if(!e.target.closest('.global-search')) document.getElementById('global-search-results').classList.remove('active');
     if(!e.target.closest('.item.clickable') && !e.target.closest('.tooltip-box')) hideTooltip();
@@ -1486,7 +1498,36 @@ function showPage(page){
   if(page === 'email') renderEmailPage();
 }
 
+function renderCloudSyncSection(){
+  const statusEl = document.getElementById('cloud-sync-status');
+  const btnEl = document.getElementById('cloud-sync-buttons');
+  if(!statusEl || !btnEl) return;
+
+  if(supabaseEnabled && supabaseUser){
+    statusEl.innerHTML = '<div style="background:rgba(32,201,151,.1);border:1px solid var(--success);padding:10px;border-radius:8px">' +
+      '<strong style="color:var(--success)">✅ סנכרון פעיל</strong><br>' +
+      '<span style="font-size:12px;color:var(--muted)">מחובר כ: <strong>' + supabaseUser.email + '</strong></span><br>' +
+      '<span style="font-size:11px;color:var(--muted)">שינויים נשמרים אוטומטית ומסונכרנים בזמן אמת עם משתמשים אחרים</span>' +
+      '</div>';
+    btnEl.innerHTML = '<button class="btn btn-danger" onclick="cloudSyncLogout()">נתק סנכרון</button>' +
+      '<button class="btn btn-outline" onclick="cloudSyncMerge()">רענן נתונים מענן</button>';
+  } else if(supabaseEnabled){
+    statusEl.innerHTML = '<div style="background:rgba(246,177,0,.1);border:1px solid var(--warn);padding:10px;border-radius:8px">' +
+      '<strong style="color:#856404">⚠️ סנכרון דרוש התחברות</strong><br>' +
+      '<span style="font-size:12px;color:var(--muted)">היה מחובר בעבר, יש להתחבר מחדש</span>' +
+      '</div>';
+    btnEl.innerHTML = '<button class="btn btn-primary" onclick="cloudSyncLogin()">התחבר לענן</button>';
+  } else {
+    statusEl.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);padding:10px;border-radius:8px">' +
+      '<strong>❌ סנכרון כבוי</strong><br>' +
+      '<span style="font-size:12px;color:var(--muted)">הנתונים נשמרים רק במכשיר הזה</span>' +
+      '</div>';
+    btnEl.innerHTML = '<button class="btn btn-primary" onclick="cloudSyncLogin()">הפעל סנכרון ענן</button>';
+  }
+}
+
 function renderSettingsPage(){
+  renderCloudSyncSection();
   document.getElementById('base-path').value = DB.settings.basePath || '';
   document.getElementById('cv-folder-link').value = DB.settings.cvFolderLink || '';
   document.getElementById('form-folder-link').value = DB.settings.formFolderLink || '';
@@ -3915,6 +3956,269 @@ function closeModal(id){document.getElementById(id).classList.remove('active');}
 document.querySelectorAll('.modal').forEach(m => {
   m.addEventListener('click', function(e){if(e.target===this) this.classList.remove('active');});
 });
+
+// ============ SUPABASE SYNC ============
+const SUPABASE_URL = 'https://vpqgmcmavnszcnakhiat.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_qzAiDZ6UTTaT-9xR_TxK0g_QKUIUsRt';
+let supabaseClient = null;
+let supabaseUser = null;
+let supabaseEnabled = false;
+let supabaseRecordId = null;
+let supabaseVersion = 0;
+let supabaseRealtimeChannel = null;
+let pendingSync = false;
+let syncInProgress = false;
+
+function initSupabase(){
+  if(!window.supabase || !window.supabase.createClient){ console.warn('Supabase lib not loaded'); return; }
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseEnabled = localStorage.getItem('supabase_enabled') === '1';
+}
+
+async function supabaseSignIn(email, password){
+  if(!supabaseClient) initSupabase();
+  const {data, error} = await supabaseClient.auth.signInWithPassword({email, password});
+  if(error) throw error;
+  supabaseUser = data.user;
+  return data.user;
+}
+
+async function supabaseSignOut(){
+  if(!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  supabaseUser = null;
+  if(supabaseRealtimeChannel){ supabaseRealtimeChannel.unsubscribe(); supabaseRealtimeChannel = null; }
+}
+
+async function supabaseCheckSession(){
+  if(!supabaseClient) initSupabase();
+  if(!supabaseClient) return null;
+  const {data} = await supabaseClient.auth.getSession();
+  if(data.session){ supabaseUser = data.session.user; return data.session.user; }
+  return null;
+}
+
+async function supabaseLoadData(){
+  if(!supabaseClient || !supabaseUser) return null;
+  const {data, error} = await supabaseClient.from('practicum_data').select('*').eq('org_id','default').order('updated_at',{ascending:false}).limit(1).single();
+  if(error){
+    if(error.code === 'PGRST116'){ // No rows
+      // Create initial record
+      const {data:created, error:createErr} = await supabaseClient.from('practicum_data').insert({org_id:'default', data:{}, last_editor_name:DB.currentUser.name, last_editor_email:DB.currentUser.email}).select().single();
+      if(createErr){ console.error(createErr); return null; }
+      supabaseRecordId = created.id;
+      supabaseVersion = created.version;
+      return created.data;
+    }
+    console.error('Load error:', error);
+    return null;
+  }
+  supabaseRecordId = data.id;
+  supabaseVersion = data.version;
+  return data.data;
+}
+
+async function supabaseSaveData(force){
+  if(!supabaseClient || !supabaseUser || !supabaseRecordId) return false;
+  if(syncInProgress && !force){ pendingSync = true; return false; }
+  syncInProgress = true;
+  try {
+    // Build clean DB snapshot (exclude runtime-only fields)
+    const snapshot = {
+      courses: DB.courses, academicYears: DB.academicYears,
+      currentCourse: DB.currentCourse, currentYear: DB.currentYear,
+      candidates: DB.candidates, students: DB.students, employers: DB.employers,
+      communications: DB.communications, settings: DB.settings,
+      version: '5.0'
+    };
+    const {data, error} = await supabaseClient.from('practicum_data')
+      .update({
+        data: snapshot,
+        last_editor_name: DB.currentUser.name || 'Unknown',
+        last_editor_email: DB.currentUser.email || ''
+      })
+      .eq('id', supabaseRecordId)
+      .select()
+      .single();
+    if(error){
+      console.error('Save error:', error);
+      alert('שגיאה בסנכרון: ' + error.message);
+      syncInProgress = false;
+      return false;
+    }
+    supabaseVersion = data.version;
+    updateSyncIndicator('synced');
+    syncInProgress = false;
+    if(pendingSync){ pendingSync = false; setTimeout(()=>supabaseSaveData(), 500); }
+    return true;
+  } catch(err){
+    console.error(err);
+    syncInProgress = false;
+    return false;
+  }
+}
+
+function updateSyncIndicator(status){
+  const el = document.getElementById('sync-indicator');
+  if(!el) return;
+  if(status === 'synced'){
+    el.innerHTML = '☁️ ' + (supabaseUser ? supabaseUser.email.split('@')[0] : '') + ' | מסונכרן ' + new Date().toLocaleTimeString('he-IL');
+    el.style.color = 'var(--success)';
+  } else if(status === 'syncing'){
+    el.innerHTML = '🔄 מסנכרן...';
+    el.style.color = 'var(--primary)';
+  } else if(status === 'offline'){
+    el.innerHTML = '⚠️ סנכרון כבוי';
+    el.style.color = 'var(--muted)';
+  } else if(status === 'error'){
+    el.innerHTML = '❌ שגיאת סנכרון';
+    el.style.color = 'var(--danger)';
+  }
+}
+
+// Subscribe to realtime changes
+async function supabaseSubscribe(){
+  if(!supabaseClient || !supabaseUser) return;
+  if(supabaseRealtimeChannel){ supabaseRealtimeChannel.unsubscribe(); }
+  supabaseRealtimeChannel = supabaseClient.channel('practicum-changes')
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'practicum_data'}, async (payload) => {
+      const newData = payload.new;
+      // Ignore our own updates
+      if(newData.last_editor_email === DB.currentUser.email && newData.version === supabaseVersion + 1){
+        supabaseVersion = newData.version;
+        return;
+      }
+      // Conflict detection
+      if(newData.last_editor_email !== DB.currentUser.email){
+        // Another user edited - notify and reload
+        const editor = newData.last_editor_name || 'משתמש אחר';
+        showConflictNotice(editor);
+      }
+      // Merge: newest wins
+      const remote = newData.data;
+      if(remote){
+        applySupabaseData(remote);
+        supabaseVersion = newData.version;
+        renderAll();
+      }
+    })
+    .subscribe();
+}
+
+function applySupabaseData(data){
+  if(!data) return;
+  if(data.courses) DB.courses = data.courses;
+  if(data.academicYears) DB.academicYears = data.academicYears.map(normalizeYear);
+  if(data.candidates) DB.candidates = data.candidates;
+  if(data.students) DB.students = data.students;
+  if(data.employers) DB.employers = data.employers;
+  if(data.communications) DB.communications = data.communications;
+  if(data.settings) DB.settings = {...DB.settings, ...data.settings};
+  if(data.currentCourse) DB.currentCourse = data.currentCourse;
+  if(data.currentYear) DB.currentYear = normalizeYear(data.currentYear);
+  localStorage.setItem('practicum_db_v5', JSON.stringify(DB));
+}
+
+function showConflictNotice(editorName){
+  const notice = document.createElement('div');
+  notice.style.cssText = 'position:fixed;top:70px;left:20px;right:20px;max-width:500px;margin:0 auto;background:#fff3cd;border:2px solid #f6b100;color:#856404;padding:12px 16px;border-radius:10px;z-index:9999;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.15);font-family:Inter,Heebo,sans-serif;direction:rtl';
+  notice.innerHTML = `⚠️ <strong>${editorName}</strong> עדכן/ה את הנתונים. המערכת מתעדכנת אוטומטית.
+    <button onclick="this.parentNode.remove()" style="float:left;background:transparent;border:none;cursor:pointer;font-weight:700">✕</button>`;
+  document.body.appendChild(notice);
+  setTimeout(() => { if(notice.parentNode) notice.remove(); }, 6000);
+}
+
+// Hook into saveToStorage to also save to Supabase
+const originalSaveToStorage = saveToStorage;
+saveToStorage = function(){
+  originalSaveToStorage.apply(this, arguments);
+  if(supabaseEnabled && supabaseUser){
+    updateSyncIndicator('syncing');
+    supabaseSaveData();
+  }
+};
+
+// ============ CLOUD SYNC LOGIN UI ============
+async function cloudSyncLogin(){
+  const email = prompt('כתובת מייל לסנכרון ענן:', DB.currentUser.email || 'yarivi@ariel.ac.il');
+  if(!email) return;
+  const password = prompt('סיסמה (Supabase - שונה מסיסמת המערכת):');
+  if(!password) return;
+  try {
+    if(!supabaseClient) initSupabase();
+    await supabaseSignIn(email, password);
+    localStorage.setItem('supabase_enabled', '1');
+    supabaseEnabled = true;
+    alert('התחברת בהצלחה! מסנכרן נתונים...');
+    await cloudSyncMerge();
+    await supabaseSubscribe();
+    updateSyncIndicator('synced');
+    renderSettingsPage();
+  } catch(err){
+    alert('שגיאת התחברות: ' + err.message);
+  }
+}
+
+async function cloudSyncLogout(){
+  if(!confirm('לנתק סנכרון ענן? הנתונים המקומיים נשמרים.'))return;
+  localStorage.setItem('supabase_enabled', '0');
+  supabaseEnabled = false;
+  await supabaseSignOut();
+  updateSyncIndicator('offline');
+  renderSettingsPage();
+}
+
+async function cloudSyncMerge(){
+  // Load cloud data and merge with local
+  const cloudData = await supabaseLoadData();
+  if(!cloudData || Object.keys(cloudData).length === 0){
+    // Cloud is empty - push local to cloud
+    await supabaseSaveData(true);
+    return;
+  }
+  // Check if cloud has more data than local or is more recent
+  const localCount = (DB.students?.length||0) + (DB.employers?.length||0) + (DB.candidates?.length||0);
+  const cloudCount = (cloudData.students?.length||0) + (cloudData.employers?.length||0) + (cloudData.candidates?.length||0);
+  if(cloudCount > 0 && localCount === 0){
+    // Local is empty, pull from cloud
+    applySupabaseData(cloudData);
+    renderAll();
+    alert('נתונים נטענו מהענן: ' + cloudCount + ' רשומות');
+  } else if(localCount > cloudCount){
+    // Local has more, push up
+    if(confirm('מקומי: ' + localCount + ' רשומות | ענן: ' + cloudCount + '.\nלעדכן את הענן עם הנתונים המקומיים?')){
+      await supabaseSaveData(true);
+    } else {
+      applySupabaseData(cloudData);
+      renderAll();
+    }
+  } else if(cloudCount > localCount){
+    // Cloud has more, pull down
+    if(confirm('ענן: ' + cloudCount + ' רשומות | מקומי: ' + localCount + '.\nלטעון מהענן?')){
+      applySupabaseData(cloudData);
+      renderAll();
+    }
+  } else {
+    // Same count - take cloud version
+    applySupabaseData(cloudData);
+    renderAll();
+  }
+}
+
+// Auto-connect if previously enabled
+async function autoConnectCloud(){
+  if(localStorage.getItem('supabase_enabled') !== '1') return;
+  initSupabase();
+  const session = await supabaseCheckSession();
+  if(session){
+    supabaseEnabled = true;
+    await cloudSyncMerge();
+    await supabaseSubscribe();
+    updateSyncIndicator('synced');
+  } else {
+    updateSyncIndicator('offline');
+  }
+}
 
 // ============ PASSWORD GATE ============
 // Simple SHA-256 hashing for password storage
