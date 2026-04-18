@@ -400,6 +400,9 @@ input[type=file]{display:none}
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
     </div>
 
+    <!-- Upcoming reminders banner (auto-shown if any lectures 7-14 days away) -->
+    <div id="lecture-reminders-banner" style="display:none;padding:14px 16px;margin-bottom:12px;background:linear-gradient(90deg,#fef3c7,#fffbeb);border:1px solid #fbbf24;border-radius:10px"></div>
+
     <!-- Action toolbar - operates on selected lecture -->
     <div id="lecture-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
       <span id="lecture-toolbar-label" style="font-size:13px;color:var(--muted);font-weight:600">בחר הרצאה לפעולה ◀</span>
@@ -1901,8 +1904,16 @@ function renderLectures(){
       // Phone
       html += '<div style="font-size:12px;line-height:1.3" dir="ltr">'+(l.phone?'<a href="tel:'+escHtml(l.phone)+'" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none">'+escHtml(l.phone)+'</a>':'—')+'</div>';
 
-      // Status
-      html += '<div><span style="background:'+statusBg+';color:'+statusFg+';padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">'+escHtml(l.status||'')+'</span></div>';
+      // Status + urgency (days until)
+      let urgTag = '';
+      if(daysUntil !== null && !isCancelled){
+        if(daysUntil < 0) urgTag = '<div style="font-size:10px;color:#9ca3af;margin-top:3px">עבר '+Math.abs(daysUntil)+' ימים</div>';
+        else if(daysUntil === 0) urgTag = '<div style="font-size:10px;color:#b91c1c;font-weight:700;margin-top:3px">⚡ היום!</div>';
+        else if(daysUntil <= 3) urgTag = '<div style="font-size:10px;color:#b91c1c;font-weight:700;margin-top:3px">⚡ עוד '+daysUntil+' ימים</div>';
+        else if(daysUntil <= 14) urgTag = '<div style="font-size:10px;color:#b45309;font-weight:600;margin-top:3px">עוד '+daysUntil+' ימים</div>';
+        else urgTag = '<div style="font-size:10px;color:#6b7280;margin-top:3px">עוד '+daysUntil+' ימים</div>';
+      }
+      html += '<div><span style="background:'+statusBg+';color:'+statusFg+';padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">'+escHtml(l.status||'')+'</span>'+urgTag+'</div>';
 
       // Details toggle
       html += '<div style="text-align:center"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();toggleLectureDetails('+l.id+')" style="font-size:11px;padding:4px 8px">פרטים ▼</button></div>';
@@ -1949,6 +1960,8 @@ function renderLectures(){
 
   // Update toolbar button states
   updateLectureToolbar();
+  // Render prep reminders banner (7-14 day window)
+  renderPrepReminders();
 
   // Lecturer DB - card grid
   rebuildLecturerDB();
@@ -2069,6 +2082,26 @@ function saveLecture(){
 
   let savedLecture;
   const isNew = !editId;
+
+  // Duplicate detection - same date + lecturer + course + startTime
+  if(data.date && data.lecturer){
+    const dup = DB.lectures.find(x =>
+      x.id !== parseInt(editId||0) &&
+      x.date === data.date &&
+      (x.lecturer||'').trim() === data.lecturer.trim() &&
+      (x.course||'').trim() === data.course.trim() &&
+      (x.startTime||'') === (data.startTime||'')
+    );
+    if(dup){
+      if(!confirm('⚠️ זוהתה כפילות!\n\nכבר קיימת הרצאה זהה:\n'+
+        '• קורס: '+dup.course+'\n'+
+        '• מרצה: '+dup.lecturer+'\n'+
+        '• תאריך: '+dup.date+' '+(dup.startTime||'')+'\n'+
+        (dup.topic?'• נושא: '+dup.topic+'\n':'')+
+        '\nלשמור בכל זאת?')) return;
+    }
+  }
+
   if(editId){
     const idx = DB.lectures.findIndex(x => x.id === parseInt(editId));
     if(idx >= 0){ DB.lectures[idx] = {...DB.lectures[idx], ...data}; savedLecture = DB.lectures[idx]; }
@@ -2146,6 +2179,122 @@ function toggleLecturerDB(){
   const shown = list.style.display !== 'none';
   list.style.display = shown ? 'none' : 'block';
   btn.textContent = shown ? 'הצג מאגר ▼' : 'הסתר מאגר ▲';
+}
+
+// ============ LECTURE PREP REMINDERS ============
+// Find lectures that are 7-14 days away and need prep - show banner with 1-click Outlook email
+function getLecturesDueForPrep(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  return (DB.lectures || []).filter(l => {
+    if(!l.date || l.status === 'בוטל') return false;
+    const days = Math.floor((new Date(l.date) - today) / (1000*60*60*24));
+    if(days < 7 || days > 14) return false;
+    // Not yet marked as prep-done by user
+    if(l.prepReminderDismissed) return false;
+    return true;
+  }).sort((a,b) => (a.date||'').localeCompare(b.date||''));
+}
+
+function renderPrepReminders(){
+  const banner = document.getElementById('lecture-reminders-banner');
+  if(!banner) return;
+  const due = getLecturesDueForPrep();
+  if(due.length === 0){ banner.style.display = 'none'; return; }
+
+  let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">';
+  html += '<span style="font-size:20px">🔔</span>';
+  html += '<strong style="font-size:14px;color:#92400e">'+due.length+' הרצאות מתקרבות - יש לבצע הכנות</strong>';
+  html += '</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+
+  due.forEach(l => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const days = Math.floor((new Date(l.date) - today) / (1000*60*60*24));
+    html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.7);border-radius:8px;flex-wrap:wrap">';
+    html += '<span style="background:#fbbf24;color:#78350f;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">עוד '+days+' י׳</span>';
+    html += '<div style="flex:1;min-width:180px">';
+    html += '<div style="font-weight:700;font-size:13px">'+escHtml(l.course||'')+(l.topic?' · '+escHtml(l.topic):'')+'</div>';
+    html += '<div style="font-size:11px;color:var(--muted)">'+escHtml(l.date)+' · '+escHtml(l.lecturer||'ללא מרצה')+' · '+escHtml(l.institution||'')+'</div>';
+    html += '</div>';
+    html += '<button class="btn btn-sm btn-primary" onclick="sendPrepReminderEmail('+l.id+')">📧 שלח צ\'ק-ליסט הכנות</button>';
+    html += '<button class="btn btn-sm btn-outline" onclick="dismissPrepReminder('+l.id+')" title="סמן כבוצע">✓ טופל</button>';
+    html += '</div>';
+  });
+
+  html += '</div>';
+  banner.innerHTML = html;
+  banner.style.display = 'block';
+}
+
+function dismissPrepReminder(id){
+  const l = DB.lectures.find(x=>x.id===id);
+  if(!l) return;
+  l.prepReminderDismissed = true;
+  saveToStorage();
+  renderPrepReminders();
+}
+
+// Build a prep-checklist email and open Outlook compose
+function sendPrepReminderEmail(id){
+  const l = DB.lectures.find(x=>x.id===id);
+  if(!l) return;
+  const myEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = Math.floor((new Date(l.date) - today) / (1000*60*60*24));
+  const isZoom = l.deliveryMethod === 'זום';
+
+  const subject = '🔔 הכנות ל'+l.type+': '+l.course+' ('+l.date+') - עוד '+days+' ימים';
+
+  const lines = [
+    'תזכורת: '+l.type+' מתקרבת - נדרשות הכנות',
+    '═══════════════════════════════════════',
+    '',
+    '📚 קורס: '+(l.course||''),
+    '💡 נושא: '+(l.topic||''),
+    '🎓 סוג: '+(l.type||''),
+    '📅 תאריך: '+(l.date||'')+(l.day?' ('+l.day+')':''),
+    '🕐 שעה: '+(l.startTime||'')+' - '+(l.endTime||''),
+    '🏛️ מוסד: '+(l.institution||''),
+    '📡 אופן העברה: '+(l.deliveryMethod||'פרונטלי'),
+    isZoom ? '' : '📍 מיקום: '+(l.physicalLocation||'לא צוין'),
+    '',
+    '👤 מרצה: '+(l.lecturer||'לא צוין'),
+    l.email ? '✉️ אימייל: '+l.email : '',
+    l.phone ? '📞 טלפון: '+l.phone : '',
+    '',
+    '═══════════════════════════════════════',
+    '☑️ צ׳ק-ליסט הכנות:',
+    '═══════════════════════════════════════',
+    '',
+    '☐ שיחת תיאום עם המרצה (טלפונית/במייל)',
+    '☐ אישור סופי של נושא ההרצאה',
+    '☐ קבלת מצגת / חומרים מהמרצה',
+    isZoom
+      ? '☐ שליחת קישור Zoom/Teams למרצה ולסטודנטים'
+      : '☐ תיאום כיתה / חדר הרצאות',
+    isZoom ? '' : '☐ הזמנת אישור כניסת רכב למרצה',
+    isZoom ? '' : '☐ וידוא זמינות ציוד (מקרן, מחשב, רמקולים, מיקרופון)',
+    '☐ הדפסת חומרי עזר / טופסי הערכה (אם נדרש)',
+    '☐ תזכורת לסטודנטים (שבוע לפני / יום לפני)',
+    '☐ הכנת רשימת נוכחות',
+    l.cost ? '☐ אישור תשלום עלות ₪'+parseFloat(l.cost).toLocaleString() : '',
+    '☐ שליחת הזמנה ליומן',
+    '',
+    l.notes ? '📝 הערות קודמות: '+l.notes : '',
+    '',
+    '---',
+    'נשלח אוטומטית ממערכת ניהול הרצאות ופרקטיקום'
+  ].filter(Boolean);
+
+  const body = lines.join('\n');
+
+  const params = new URLSearchParams({
+    path: '/mail/action/compose',
+    to: myEmail,
+    subject: subject,
+    body: body
+  });
+  window.open('https://outlook.office.com/mail/deeplink/compose?'+params.toString(), '_blank', 'noopener');
 }
 
 // Inline edit for table cells - updates a single field without full re-render
