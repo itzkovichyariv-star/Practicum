@@ -238,6 +238,7 @@ input[type=file]{display:none}
   <button onclick="showPage('communications')" id="btn-communications">תקשורת</button>
   <button onclick="showPage('reports')" id="btn-reports">דוחות</button>
   <button onclick="showPage('email')" id="btn-email">מייל</button>
+  <button onclick="showPage('documents')" id="btn-documents">מסמכים</button>
   <button onclick="showPage('settings')" id="btn-settings">הגדרות</button>
   <button onclick="showPage('backup')" id="btn-backup">גיבוי</button>
   <button onclick="undoLastAction()" class="btn btn-warning btn-sm" style="margin-right:auto">↶ ביטול</button>
@@ -431,6 +432,50 @@ input[type=file]{display:none}
 </div>
 
 <!-- SETTINGS -->
+<!-- DOCUMENTS PAGE -->
+<div id="documents" class="page">
+  <div class="card">
+    <h2>📄 יצירת מסמכים</h2>
+    <p style="color:var(--muted);font-size:13px">יצירת מסמכים מעוצבים להדפסה/PDF עם מילוי אוטומטי של פרטי סטודנט/מעסיק</p>
+
+    <div class="section" style="border:2px solid #7c3aed;background:rgba(139,92,246,.03);margin-top:14px">
+      <h3 style="color:#7c3aed">📋 טופס הערכת סטודנט בפרקטיקום (לחונך בארגון)</h3>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0">טופס הערכה מפורט המבוסס על הסילבוס - 50% מהציון הסופי</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-eval-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn" style="background:#7c3aed;color:#fff" onclick="generateEvaluationForm()">צור טופס הערכה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--primary)">
+      <h3 style="color:var(--primary)">✉️ מכתב המלצה</h3>
+      <p style="font-size:12px;color:var(--muted)">מכתב המלצה עבור סטודנט שסיים את הפרקטיקום</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-recommendation-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-primary" onclick="generateRecommendationLetter()">צור מכתב המלצה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--success)">
+      <h3 style="color:var(--success)">🎯 אישור השמה</h3>
+      <p style="font-size:12px;color:var(--muted)">אישור רשמי שסטודנט התקבל לפרקטיקום בארגון</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-placement-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-success" onclick="generatePlacementLetter()">צור אישור השמה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--warn)">
+      <h3 style="color:#856404">🤝 פנייה למעסיק</h3>
+      <p style="font-size:12px;color:var(--muted)">מכתב פנייה רשמי למעסיק להצטרפות לתכנית</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-employer-intro" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-warning" onclick="generateEmployerLetter()">צור מכתב פנייה</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="settings" class="page">
   <div class="card" style="border:2px solid var(--primary);background:rgba(47,109,246,.03)">
     <h2 style="color:var(--primary)">☁️ סנכרון ענן (שיתוף עם רחל)</h2>
@@ -1263,20 +1308,46 @@ function renderContextBar(){
   DB.employers.forEach(e => e.year = normalizeYear(e.year));
   DB.candidates.forEach(c => c.year = normalizeYear(c.year));
 
+  // Determine which courses have data in the current year
+  let availableCourses = DB.courses;
+  if(DB.currentYear !== '__all__'){
+    const courseIdsInYear = new Set();
+    DB.students.forEach(s => { if(s.year === DB.currentYear) courseIdsInYear.add(s.courseId); });
+    DB.employers.forEach(e => { if(e.year === DB.currentYear) courseIdsInYear.add(e.courseId); });
+    DB.candidates.forEach(c => { if(c.year === DB.currentYear) courseIdsInYear.add(c.courseId); });
+    availableCourses = DB.courses.filter(c => courseIdsInYear.has(c.id));
+    // Fallback: if no data yet, show all courses
+    if(availableCourses.length === 0) availableCourses = DB.courses;
+  }
+
+  // Determine which years have data for the current course
+  let availableYears = DB.academicYears;
+  if(DB.currentCourse !== '__all__'){
+    const yearsInCourse = new Set();
+    DB.students.forEach(s => { if(s.courseId === DB.currentCourse) yearsInCourse.add(s.year); });
+    DB.employers.forEach(e => { if(e.courseId === DB.currentCourse) yearsInCourse.add(e.year); });
+    DB.candidates.forEach(c => { if(c.courseId === DB.currentCourse) yearsInCourse.add(c.year); });
+    availableYears = DB.academicYears.filter(y => yearsInCourse.has(y));
+    if(availableYears.length === 0) availableYears = DB.academicYears;
+  }
+
   courseSelect.innerHTML = '<option value="__all__">כל הקורסים</option>' +
-    DB.courses.map(c =>
+    availableCourses.map(c =>
     '<option value="'+escHtml(c.id)+'"'+(c.id===DB.currentCourse?' selected':'')+'>'+escHtml(c.name)+'</option>'
   ).join('');
   yearSelect.innerHTML = '<option value="__all__">כל השנים</option>' +
-    DB.academicYears.map(y =>
+    availableYears.map(y =>
     '<option value="'+escHtml(y)+'"'+(y===DB.currentYear?' selected':'')+'>'+escHtml(y)+'</option>'
   ).join('');
 }
 
 function switchContext(){
-  DB.currentCourse = document.getElementById('ctx-course').value;
-  DB.currentYear = normalizeYear(document.getElementById('ctx-year').value);
+  const newCourse = document.getElementById('ctx-course').value;
+  const newYear = normalizeYear(document.getElementById('ctx-year').value);
+  DB.currentCourse = newCourse;
+  DB.currentYear = newYear;
   saveToStorage();
+  renderContextBar(); // Re-render to update the other dropdown
   renderAll();
   renderEmailPage();
 }
@@ -1490,12 +1561,250 @@ function openFile(type){
 // ============ NAVIGATION ============
 function showPage(page){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(page).classList.add('active');
+  const pageEl = document.getElementById(page);
+  if(pageEl) pageEl.classList.add('active');
   document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('btn-'+page);
   if(btn) btn.classList.add('active');
   if(page === 'settings') renderSettingsPage();
   if(page === 'email') renderEmailPage();
+  if(page === 'documents') renderDocumentsPage();
+}
+
+// ============ DOCUMENTS PAGE ============
+function renderDocumentsPage(){
+  const students = getFilteredStudents();
+  const employers = getFilteredEmployers();
+  const studentOpts = '<option value="">בחר סטודנט...</option>' + students.map(s => '<option value="'+s.id+'">'+escHtml(s.name)+'</option>').join('');
+  const studentAccOpts = '<option value="">בחר סטודנט...</option>' + students.filter(s=>s.acceptedOrg).map(s => '<option value="'+s.id+'">'+escHtml(s.name)+' ('+escHtml(s.acceptedOrg)+')</option>').join('');
+  const employerOpts = '<option value="">בחר מעסיק...</option>' + employers.map(e => '<option value="'+e.id+'">'+escHtml(e.name)+'</option>').join('');
+  const se = document.getElementById('doc-eval-student'); if(se) se.innerHTML = studentAccOpts;
+  const sr = document.getElementById('doc-recommendation-student'); if(sr) sr.innerHTML = studentOpts;
+  const sp = document.getElementById('doc-placement-student'); if(sp) sp.innerHTML = studentAccOpts;
+  const em = document.getElementById('doc-employer-intro'); if(em) em.innerHTML = employerOpts;
+}
+
+function openDocWindow(title, bodyHtml){
+  const w = window.open('','','width=900,height=1000');
+  w.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>'+escHtml(title)+'</title><style>'+
+    '@page { size: A4; margin: 2cm; }'+
+    '* { box-sizing: border-box; }'+
+    'body { font-family: Arial, "Heebo", sans-serif; direction: rtl; color: #222; line-height: 1.7; padding: 0; }'+
+    '.letterhead { border-bottom: 3px solid #2f6df6; padding-bottom: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }'+
+    '.letterhead h1 { color: #2f6df6; margin: 0; font-size: 22px; }'+
+    '.letterhead .sub { color: #64728a; font-size: 13px; margin-top: 4px; }'+
+    '.letterhead .date { color: #64728a; font-size: 12px; text-align: left; }'+
+    '.recipient { margin-bottom: 20px; font-size: 14px; }'+
+    'h2 { font-size: 17px; color: #2f6df6; margin: 18px 0 10px; }'+
+    'h3 { font-size: 14px; color: #333; margin: 14px 0 6px; }'+
+    'p { margin: 8px 0; font-size: 13px; }'+
+    '.signature { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; }'+
+    '.signature .name { font-weight: 700; font-size: 14px; }'+
+    '.footer { margin-top: 30px; padding-top: 8px; border-top: 1px solid #ddd; color: #64728a; font-size: 10px; text-align: center; }'+
+    'table.info { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }'+
+    'table.info td { padding: 6px 10px; border-bottom: 1px solid #eee; }'+
+    'table.info td:first-child { font-weight: 700; color: #555; width: 35%; background: #f7f8fa; }'+
+    'table.eval { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }'+
+    'table.eval th { background: #7c3aed; color: #fff; padding: 8px; text-align: right; border: 1px solid #6b2ed1; }'+
+    'table.eval td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }'+
+    'table.eval td:first-child { font-weight: 600; background: #f7f8fa; width: 35%; }'+
+    '.rating-row { display: flex; gap: 4px; margin-top: 4px; }'+
+    '.rating-box { width: 24px; height: 24px; border: 1px solid #999; display: inline-block; text-align: center; line-height: 24px; font-size: 11px; }'+
+    '.section-title { background: #7c3aed; color: #fff; padding: 6px 12px; margin: 18px 0 0; font-size: 14px; border-radius: 6px 6px 0 0; }'+
+    '@media screen { body { max-width: 800px; margin: 20px auto; background: #fff; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,.1); } .print-btn { position: fixed; top: 10px; left: 10px; padding: 10px 18px; background: #2f6df6; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; z-index:9999 } }'+
+    '@media print { .print-btn { display: none; } body { padding: 0; } }'+
+    '</style></head><body>'+
+    '<button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור כ-PDF</button>'+
+    bodyHtml+
+    '</body></html>');
+  w.document.close();
+}
+
+function generateEvaluationForm(){
+  const id = document.getElementById('doc-eval-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s) return;
+  const emp = DB.employers.find(e => e.name === s.acceptedOrg);
+  const date = new Date().toLocaleDateString('he-IL');
+  const ratingBoxes = (name) => '<div class="rating-row">'+
+    '<span style="margin-left:8px;font-size:11px;color:#666">1 (חלש) →</span>'+
+    [1,2,3,4,5,6,7,8,9,10].map(n => '<span class="rating-box">'+n+'</span>').join('')+
+    '<span style="margin-right:8px;font-size:11px;color:#666">← 10 (מצוין)</span></div>';
+
+  const body =
+    '<div class="letterhead">'+
+      '<div><h1>טופס הערכת סטודנט בפרקטיקום</h1><div class="sub">אוניברסיטת אריאל - פרקטיקום במשאבי אנוש</div></div>'+
+      '<div class="date">'+date+'</div>'+
+    '</div>'+
+
+    '<h2>פרטי הסטודנט/ית</h2>'+
+    '<table class="info">'+
+      '<tr><td>שם הסטודנט/ית:</td><td><strong>'+escHtml(s.name)+'</strong></td></tr>'+
+      '<tr><td>ארגון ההתנסות:</td><td><strong>'+escHtml(s.acceptedOrg||'-')+'</strong></td></tr>'+
+      (emp ? '<tr><td>תחום / מחלקה:</td><td>'+escHtml(emp.description||'-').substring(0,200)+'</td></tr>' : '')+
+      '<tr><td>שעות התנסות:</td><td>'+(s.hoursApproved||s.hoursReported||0)+' שעות</td></tr>'+
+      '<tr><td>שם החונך/ת בארגון:</td><td style="height:28px;border-bottom:1px dotted #999">'+escHtml(emp?emp.contact:'')+'</td></tr>'+
+      '<tr><td>תפקיד החונך/ת:</td><td style="height:28px;border-bottom:1px dotted #999">'+escHtml(emp?emp.role||'':'')+'</td></tr>'+
+      '<tr><td>תאריך מילוי הטופס:</td><td style="height:28px;border-bottom:1px dotted #999"></td></tr>'+
+    '</table>'+
+
+    '<p style="background:#fff3cd;border:1px solid #f6b100;padding:10px;border-radius:8px;font-size:12px;margin:20px 0">'+
+      '<strong>הנחיות למילוי:</strong> דרגו כל קריטריון בסולם 1-10 (1=חלש, 10=מצוין). בחרו על ידי הקפת המספר המתאים. '+
+      'חלק זה מהווה <strong>50% מהציון הסופי</strong> של הסטודנט (30% תרומה + 20% השתלבות).'+
+    '</p>'+
+
+    '<div class="section-title">א. הערכת התרומה ליחידה (30% מהציון הסופי)</div>'+
+    '<table class="eval">'+
+      '<tr><td>1. תרומה לעשייה הארגונית לאורך השנה</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>2. יכולת ההתמדה בפרויקט</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>3. איכות התוצרים והתפוקות של הסטודנט/ית</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>4. עמידה ביעדים ובלוחות זמנים</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>5. יכולת עבודה עצמאית ואחריות</td><td>'+ratingBoxes()+'</td></tr>'+
+    '</table>'+
+
+    '<div class="section-title">ב. הערכת תהליך ההשתלבות והתנהלות (20% מהציון הסופי)</div>'+
+    '<table class="eval">'+
+      '<tr><td>6. היכולת להשתלב בפעילות היחידה</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>7. מידת המוטיבציה של הסטודנט/ית</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>8. יכולת הלמידה של מיומנויות עבודה ביחידה<br><small>(גיוס, הדרכה, מכרזים, שכר וכו\')</small></td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>9. יחסים בין-אישיים ועבודת צוות</td><td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td>10. תקשורת, הצגת רעיונות ומוכנות לקבלת משוב</td><td>'+ratingBoxes()+'</td></tr>'+
+    '</table>'+
+
+    '<div class="section-title">ג. שאלות נוספות</div>'+
+    '<table class="eval">'+
+      '<tr><td>חוזקות בולטות של הסטודנט/ית:</td><td style="height:60px"></td></tr>'+
+      '<tr><td>תחומים לשיפור:</td><td style="height:60px"></td></tr>'+
+      '<tr><td>המלצה להעסקה עתידית (כן / לא / אולי) + נימוק:</td><td style="height:60px"></td></tr>'+
+      '<tr><td>הערות כלליות:</td><td style="height:80px"></td></tr>'+
+    '</table>'+
+
+    '<div class="section-title" style="background:#17a34a">ד. ציון סופי מסכם</div>'+
+    '<table class="eval">'+
+      '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון תרומה ליחידה (0-100)</strong><br><small>ממוצע סעיפים 1-5 × 10</small></td><td style="height:40px"></td></tr>'+
+      '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון השתלבות (0-100)</strong><br><small>ממוצע סעיפים 6-10 × 10</small></td><td style="height:40px"></td></tr>'+
+      '<tr><td style="background:rgba(23,163,74,.2)"><strong>ציון סופי של החונך (0-100)</strong></td><td style="height:40px;background:#e8f5e9"></td></tr>'+
+    '</table>'+
+
+    '<div class="signature" style="display:flex;justify-content:space-between;margin-top:40px">'+
+      '<div>'+
+        '<div style="border-top:1px solid #333;padding-top:6px;min-width:200px">חתימת החונך/ת:</div>'+
+        '<div style="min-height:50px"></div>'+
+      '</div>'+
+      '<div>'+
+        '<div style="border-top:1px solid #333;padding-top:6px;min-width:200px">תאריך:</div>'+
+      '</div>'+
+    '</div>'+
+
+    '<div class="footer">נא לשלוח את הטופס המלא ל: '+(DB.settings.senderEmail||'yarivi@ariel.ac.il')+' | הופק '+date+'</div>';
+
+  openDocWindow('טופס הערכה - '+s.name, body);
+}
+
+function generateRecommendationLetter(){
+  const id = document.getElementById('doc-recommendation-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s) return;
+  const date = new Date().toLocaleDateString('he-IL');
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body =
+    '<div class="letterhead">'+
+      '<div><h1>אוניברסיטת אריאל בשומרון</h1><div class="sub">המחלקה הרב תחומית</div></div>'+
+      '<div class="date">'+date+'</div>'+
+    '</div>'+
+    '<div class="recipient">לכבוד מי שמעוניין,</div>'+
+    '<h2>מכתב המלצה עבור '+escHtml(s.name)+'</h2>'+
+    '<p>הנני ממליץ בחום על '+escHtml(s.name)+' אשר השתתפ/ה בתכנית הפרקטיקום במשאבי אנוש באוניברסיטת אריאל.</p>'+
+    (s.acceptedOrg ? '<p>במהלך הפרקטיקום, ביצע/ה '+escHtml(s.name)+' את ההתנסות המעשית בארגון <strong>'+escHtml(s.acceptedOrg)+'</strong>'+(s.hoursApproved ? ' וצבר/ה <strong>'+s.hoursApproved+' שעות</strong> של עבודה מעשית' : '')+'.</p>' : '')+
+    (s.orgFeedback ? '<p>על פי חוות הדעת שהתקבלה מהארגון:<br><em style="display:block;padding:10px;background:#f7f8fa;border-right:3px solid #2f6df6;margin:10px 0">"'+escHtml(s.orgFeedback)+'"</em></p>' : '')+
+    '<p>במהלך הפרקטיקום גילה/גילתה '+escHtml(s.name)+' מחויבות, מקצועיות ויכולת להשתלב בסביבת עבודה מאתגרת.</p>'+
+    (s.hired ? '<p><strong>בסיום הפרקטיקום נקלט/ה לעבודה בארגון</strong> - עדות ליכולות ולתרומה.</p>' : '')+
+    '<p>אני בטוח/ה שיוסיף/תוסיף ערך רב לכל ארגון שיעסיק אותו/ה.</p>'+
+    '<div class="signature">'+
+      '<div class="name">'+escHtml(sender)+'</div>'+
+      '<div>אוניברסיטת אריאל בשומרון</div>'+
+      '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
+    '</div>'+
+    '<div class="footer">הופק אוטומטית מתוך מערכת ניהול הפרקטיקום | '+date+'</div>';
+  openDocWindow('מכתב המלצה - '+s.name, body);
+}
+
+function generatePlacementLetter(){
+  const id = document.getElementById('doc-placement-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s || !s.acceptedOrg){ alert('הסטודנט לא מוצב בארגון'); return; }
+  const date = new Date().toLocaleDateString('he-IL');
+  const emp = DB.employers.find(e => e.name === s.acceptedOrg);
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body =
+    '<div class="letterhead">'+
+      '<div><h1>אישור השמה לפרקטיקום</h1><div class="sub">אוניברסיטת אריאל בשומרון</div></div>'+
+      '<div class="date">'+date+'</div>'+
+    '</div>'+
+    '<h2>אישור הצבה</h2>'+
+    '<p>הנני מאשר/ת בזאת כי הסטודנט/ית <strong>'+escHtml(s.name)+'</strong> התקבל/ה ויבצע/תבצע את הפרקטיקום המעשי בארגון:</p>'+
+    '<table class="info">'+
+      '<tr><td>ארגון:</td><td><strong>'+escHtml(s.acceptedOrg)+'</strong></td></tr>'+
+      (emp ? '<tr><td>איש קשר:</td><td>'+escHtml(emp.contact||'-')+'</td></tr>'+
+             '<tr><td>תפקיד:</td><td>'+escHtml(emp.role||'-')+'</td></tr>'+
+             '<tr><td>טלפון:</td><td>'+escHtml(emp.phone||'-')+'</td></tr>'+
+             '<tr><td>מייל:</td><td>'+escHtml((emp.email||'').replace('mailto:',''))+'</td></tr>'+
+             '<tr><td>מיקום:</td><td>'+escHtml(emp.location||'-')+'</td></tr>' : '')+
+    '</table>'+
+    '<p>הפרקטיקום מהווה חלק בלתי נפרד מתכנית הלימודים (6 נ"ז) ובסיומו יוענקו נקודות זכות אקדמיות.</p>'+
+    '<p>היקף ההתנסות: <strong>120 שעות לפחות</strong>, יום בשבוע לאורך השנה האקדמית.</p>'+
+    '<div class="signature">'+
+      '<div class="name">'+escHtml(sender)+'</div>'+
+      '<div>מרכז הפרקטיקום - אוניברסיטת אריאל</div>'+
+      '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
+    '</div>'+
+    '<div class="footer">הופק '+date+'</div>';
+  openDocWindow('אישור השמה - '+s.name, body);
+}
+
+function generateEmployerLetter(){
+  const id = document.getElementById('doc-employer-intro').value;
+  if(!id){ alert('נא לבחור מעסיק'); return; }
+  const e = DB.employers.find(x => x.id == id);
+  if(!e) return;
+  const date = new Date().toLocaleDateString('he-IL');
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body =
+    '<div class="letterhead">'+
+      '<div><h1>אוניברסיטת אריאל בשומרון</h1><div class="sub">תכנית הפרקטיקום במשאבי אנוש</div></div>'+
+      '<div class="date">'+date+'</div>'+
+    '</div>'+
+    '<div class="recipient">'+
+      (e.contact ? 'לכבוד '+escHtml(e.contact) : 'לכבוד')+(e.role ? ',<br>'+escHtml(e.role) : '')+'<br>'+
+      escHtml(e.name)+
+    '</div>'+
+    '<h2>פנייה בנושא שיתוף פעולה בתכנית הפרקטיקום</h2>'+
+    '<p>שלום רב,</p>'+
+    '<p>אני פונה אליכם מטעם אוניברסיטת אריאל בשומרון בהצעה לשיתוף פעולה במסגרת תכנית הפרקטיקום למשאבי אנוש.</p>'+
+    '<p>התכנית מאפשרת לסטודנטים בשנה ג\' בתואר הראשון לבצע התנסות מעשית (120 שעות) בארגונים מובילים, ובכך לצבור ניסיון יישומי.</p>'+
+    '<p><strong>יתרונות עבור הארגון:</strong></p>'+
+    '<ul>'+
+      '<li>קבלת סטודנטים מוכשרים ומובחרים - ללא עלות</li>'+
+      '<li>סיוע בפרויקטים בתחומי גיוס, רווחה, למידה ופיתוח ועוד</li>'+
+      '<li>הזדמנות לאתר מועמדים פוטנציאליים לקליטה עתידית</li>'+
+    '</ul>'+
+    '<p>אשמח לתאם שיחה בה נדון בהתאמה לצרכי הארגון.</p>'+
+    '<div class="signature">'+
+      '<div class="name">'+escHtml(sender)+'</div>'+
+      '<div>מרכז/ת הפרקטיקום במשאבי אנוש</div>'+
+      '<div>אוניברסיטת אריאל בשומרון</div>'+
+      '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
+    '</div>';
+  openDocWindow('פנייה למעסיק - '+e.name, body);
 }
 
 function renderCloudSyncSection(){
