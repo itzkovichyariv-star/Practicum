@@ -425,7 +425,12 @@ input[type=file]{display:none}
     </div>
     <div class="form-group"><label>נושא</label><input id="email-subject"></div>
     <div class="form-group"><label>תוכן</label><textarea id="email-body" style="min-height:120px"></textarea></div>
+    <div style="margin:10px 0;padding:8px;background:rgba(47,109,246,.05);border-radius:8px;font-size:11px">
+      <strong>💡 Placeholders למיזוג נתונים</strong> (עובדים כשיש נמען אחד):<br>
+      <code style="font-size:10px">{name}</code> שם | <code style="font-size:10px">{email}</code> | <code style="font-size:10px">{phone}</code> | <code style="font-size:10px">{city}</code> | <code style="font-size:10px">{contact}</code> איש קשר (מעסיקים) | <code style="font-size:10px">{acceptedOrg}</code> | <code style="font-size:10px">{hoursApproved}</code> | <code style="font-size:10px">{interviewDate}</code> | <code style="font-size:10px">{status}</code> | <code style="font-size:10px">{senderName}</code>
+    </div>
     <div class="action-buttons">
+      <button class="btn btn-outline" onclick="previewMergedEmail()">👁️ תצוגה מקדימה</button>
       <button class="btn btn-primary" onclick="sendGroupEmail()">שלח דרך Outlook</button>
       <button class="btn btn-success" onclick="sendAndLog()">שלח ושמור בתקשורת</button>
     </div>
@@ -3768,14 +3773,41 @@ function deleteCommunication(idx){
 
 // ============ EMAIL PAGE ============
 const EMAIL_TEMPLATES = [
-  {id:'invite-prep', title:'הזמנה להכנה', subject:'הזמנה להכנת ראיון - פרקטיקום', body:'שלום {name},\n\nברצוני להזמינך לפגישת הכנה לקראת ראיון עבודה.\n\nנא ליצור קשר לתיאום.\n\nבברכה,'},
-  {id:'status-update', title:'עדכון סטטוס', subject:'עדכון בנוגע למועמדות - פרקטיקום', body:'שלום {name},\n\nברצוני לעדכן אותך בנוגע לסטטוס המועמדות שלך.\n\n\n\nבברכה,'},
-  {id:'reminder-submit', title:'תזכורת הגשה', subject:'תזכורת - הגשת מועמדות לפרקטיקום', body:'שלום {name},\n\nזוהי תזכורת להגיש מועמדות לארגון להתנסות בפרקטיקום.\n\nנא לטפל בהקדם.\n\nבברכה,'},
-  {id:'recommendation', title:'מכתב המלצה', subject:'מכתב המלצה - {name}', body:'שלום רב,\n\nהנני ממליץ בזאת על {name}, סטודנט/ית לתואר ראשון באוניברסיטת אריאל.\n\n\n\nבברכה,'},
-  {id:'employer-intro', title:'פנייה למעסיק', subject:'שיתוף פעולה בפרקטיקום - אוניברסיטת אריאל', body:'שלום {name},\n\nפונה אליכם מאוניברסיטת אריאל בנושא שיתוף פעולה בפרקטיקום משאבי אנוש.\n\n\n\nבברכה,'},
-  {id:'employer-update', title:'עדכון למעסיק', subject:'עדכון בנוגע לסטודנטים - פרקטיקום', body:'שלום {name},\n\nברצוני לעדכן אתכם בנוגע לסטודנטים שהופנו אליכם.\n\n\n\nבברכה,'},
-  {id:'custom', title:'מייל חופשי', subject:'', body:''}
+  {id:'invite-prep', title:'הזמנה להכנה', target:'students', subject:'הזמנה לסדנת הכנה - פרקטיקום', body:'שלום {name},\n\nברצוני להזמינך לסדנת הכנה לקראת ראיונות בארגונים.\n\nמועד הסדנה: [להשלים]\nמיקום: [להשלים]\n\nבסדנה נעבור על:\n- כתיבת קורות חיים\n- הכנה לראיון\n- סקירת הארגונים השותפים\n\nנא לאשר הגעה.\n\nבברכה,'},
+  {id:'status-update', title:'עדכון סטטוס', target:'students', subject:'עדכון מועמדות - {course}', body:'שלום {name},\n\nברצוני לעדכן אותך בנוגע לסטטוס המועמדות שלך.\n\nסטטוס נוכחי: {status}\nארגון: {acceptedOrg}\n\nלכל שאלה אני זמין/ה.\n\nבברכה,'},
+  {id:'reminder-submit', title:'תזכורת הגשה', target:'students', subject:'תזכורת - הגשת מועמדות לפרקטיקום', body:'שלום {name},\n\nזוהי תזכורת להגיש מועמדות לארגון להתנסות בפרקטיקום.\n\nנכון להיום טרם הגשת מועמדות. חשוב להגיש בהקדם כדי לא לפספס את המקומות הפנויים.\n\nרשימת הארגונים מצורפת למייל או זמינה במערכת.\n\nבברכה,'},
+  {id:'interview-scheduled', title:'זימון לראיון', target:'candidates', subject:'זימון לראיון פרקטיקום - {name}', body:'שלום {name},\n\nברצוני להזמינך לראיון קבלה לפרקטיקום.\n\nתאריך הראיון: {interviewDate}\nשעה: [להשלים]\nמיקום: אוניברסיטת אריאל / שיחת זום\n\nנא לאשר הגעה ולהגיע עם:\n- קורות חיים מעודכנים\n- טופס הגשת מועמדות חתום\n\nבברכה,'},
+  {id:'interview-passed', title:'התקבלת!', target:'candidates', subject:'מזל טוב! התקבלת לפרקטיקום - {name}', body:'שלום {name},\n\nשמח/ה לבשר לך שהתקבלת לפרקטיקום במשאבי אנוש.\n\nהשלב הבא: סדנת הכנה + בחירת ארגון להתנסות.\n\nפרטים נוספים יישלחו בקרוב.\n\nמזל טוב!\n\nבברכה,'},
+  {id:'interview-rejected', title:'לא התקבל', target:'candidates', subject:'תשובה לגבי מועמדות - פרקטיקום', body:'שלום {name},\n\nתודה על ההגשה ועל ההשתתפות בראיון.\n\nלאחר שיקול דעת הוחלט שלא להמשיך עם המועמדות שלך בשלב זה.\n\nאני זמין/ה לשיחה אישית בעקבות הראיון, אם תרצה/י.\n\nבברכה,'},
+  {id:'recommendation', title:'מכתב המלצה', target:'students', subject:'מכתב המלצה - {name}', body:'שלום רב,\n\nהנני ממליץ בזאת על {name}, סטודנט/ית באוניברסיטת אריאל.\n\n{name} השתתפ/ה בתכנית הפרקטיקום במשאבי אנוש וביצע/ה את ההתנסות המעשית בארגון {acceptedOrg}, בהיקף {hoursApproved} שעות.\n\nבמהלך הפרקטיקום גילה/ה מחויבות, מקצועיות ויכולת להשתלב בסביבת עבודה מאתגרת.\n\nבברכה,'},
+  {id:'employer-intro', title:'פנייה למעסיק', target:'employers', subject:'שיתוף פעולה בפרקטיקום - אוניברסיטת אריאל', body:'שלום {contact},\n\nפונה אליכם מטעם אוניברסיטת אריאל בנושא שיתוף פעולה בפרקטיקום משאבי אנוש.\n\nהתכנית מאפשרת לסטודנטים בשנה ג\' לבצע התנסות מעשית (120 שעות) בארגונים כמו {name}, תוך סיוע בפרויקטים בגיוס, רווחה, למידה ופיתוח.\n\nיתרונות עבורכם: כוח אדם איכותי ללא עלות, הזדמנות לאתר מועמדים פוטנציאליים.\n\nאשמח לתאם שיחה.\n\nבברכה,'},
+  {id:'employer-update', title:'עדכון למעסיק', target:'employers', subject:'עדכון סטטוס - פרקטיקום {name}', body:'שלום {contact},\n\nברצוני לעדכן בנוגע לסטודנטים שהופנו ל{name}.\n\nתקנים: {slots}\nהגישו: [להשלים]\nהתקבלו: [להשלים]\n\nלכל שאלה אני זמין/ה.\n\nבברכה,'},
+  {id:'employer-feedback-req', title:'בקשת חוות דעת', target:'employers', subject:'בקשת חוות דעת - פרקטיקום', body:'שלום {contact},\n\nנא להעביר חוות דעת על הסטודנט/ית {student} שהתמחה/תה ב{name} במסגרת הפרקטיקום.\n\nנשמח לקבל:\n1. טופס הערכה חתום (מצורף)\n2. חוות דעת כתובה קצרה\n\nההערכה מהווה 50% מהציון הסופי.\n\nתודה רבה,'},
+  {id:'custom', title:'מייל חופשי', target:'all', subject:'', body:''}
 ];
+
+// Data merging for email templates
+function applyTemplateMerge(text, data){
+  if(!text) return text;
+  return text
+    .replace(/\{name\}/g, data.name || '')
+    .replace(/\{email\}/g, data.email || '')
+    .replace(/\{phone\}/g, data.phone || '')
+    .replace(/\{city\}/g, data.city || '')
+    .replace(/\{contact\}/g, data.contact || data.name || '')
+    .replace(/\{course\}/g, DB.courses.find(c=>c.id===(data.courseId||DB.currentCourse))?.name || '')
+    .replace(/\{year\}/g, data.year || DB.currentYear || '')
+    .replace(/\{status\}/g, data.hired ? 'נקלט לעבודה' : data.acceptedOrg ? 'בהתנסות ב-'+data.acceptedOrg : (data.submitted||[]).length ? 'הגיש מועמדות' : 'בחיפוש')
+    .replace(/\{acceptedOrg\}/g, data.acceptedOrg || '')
+    .replace(/\{hoursApproved\}/g, data.hoursApproved || data.hoursReported || '')
+    .replace(/\{interviewDate\}/g, data.interviewDate || '')
+    .replace(/\{slots\}/g, data.slots || '')
+    .replace(/\{role\}/g, data.role || '')
+    .replace(/\{location\}/g, data.location || '')
+    .replace(/\{student\}/g, data.studentName || '')
+    .replace(/\{senderName\}/g, DB.settings.senderName || 'ד"ר יריב איצקוביץ')
+    .replace(/\{senderEmail\}/g, DB.settings.senderEmail || 'yarivi@ariel.ac.il');
+}
 let selectedTemplate = null;
 let selectedRecipients = new Set();
 let emailTarget = 'students';
@@ -3892,15 +3924,68 @@ function sendGroupEmail(){
   const body = document.getElementById('email-body').value;
   const fromEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
   const senderName = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+
+  // Smart merge: if single recipient, merge with their data. Otherwise use generic.
+  let finalSubject = subject;
   let finalBody = body;
-  if(sel.emails.length === 1) finalBody = body.replace(/\{name\}/g, sel.names[0]);
-  else {
+  if(sel.emails.length === 1){
+    // Find the full data for this recipient
+    let data = null;
+    selectedRecipients.forEach(key => {
+      if(key.startsWith('s_')) data = DB.students.find(x => x.id === parseInt(key.substring(2)));
+      else if(key.startsWith('e_')) data = DB.employers.find(x => x.id === parseInt(key.substring(2)));
+      else if(key.startsWith('c_')) data = DB.candidates.find(x => x.id === parseInt(key.substring(2)));
+    });
+    if(data){
+      finalSubject = applyTemplateMerge(subject, data);
+      finalBody = applyTemplateMerge(body, data);
+    }
+  } else {
+    // Multiple recipients - generic
     const generic = emailTarget==='students' ? 'סטודנט/ית יקר/ה' : 'שלום רב';
-    finalBody = body.replace(/\{name\}/g, generic);
+    finalSubject = subject.replace(/\{[a-zA-Z]+\}/g, '').replace(/\s+/g,' ').trim();
+    finalBody = body.replace(/\{name\}/g, generic).replace(/\{contact\}/g, generic).replace(/\{[a-zA-Z]+\}/g, '');
   }
+
   if(!finalBody.includes(senderName)) finalBody += '\n' + senderName + '\n' + fromEmail;
-  const mailtoUrl = 'mailto:?bcc=' + sel.emails.join(',') + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(finalBody);
+  const mailtoUrl = 'mailto:?bcc=' + sel.emails.join(',') + '&subject=' + encodeURIComponent(finalSubject) + '&body=' + encodeURIComponent(finalBody);
   window.open(mailtoUrl);
+}
+
+// Preview the merged email content
+function previewMergedEmail(){
+  const sel = getSelectedEmails();
+  if(!sel.emails.length){alert('בחר נמענים קודם');return;}
+  const subject = document.getElementById('email-subject').value;
+  const body = document.getElementById('email-body').value;
+  let previewHtml = '<div class="modal-content" style="max-width:700px"><h2>👁️ תצוגה מקדימה של המייל</h2>';
+  previewHtml += '<p style="font-size:12px;color:var(--muted);margin-bottom:10px">יוצג עד 3 דוגמאות של איך המייל ייראה עבור כל נמען:</p>';
+  let count = 0;
+  selectedRecipients.forEach(key => {
+    if(count >= 3) return;
+    let data = null;
+    if(key.startsWith('s_')) data = DB.students.find(x => x.id === parseInt(key.substring(2)));
+    else if(key.startsWith('e_')) data = DB.employers.find(x => x.id === parseInt(key.substring(2)));
+    if(!data) return;
+    const mergedSub = applyTemplateMerge(subject, data);
+    const mergedBody = applyTemplateMerge(body, data);
+    previewHtml += '<div style="border:1px solid var(--border);padding:10px;margin:8px 0;border-radius:8px;background:var(--surface)">';
+    previewHtml += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">אל: '+escHtml(data.email||'')+'</div>';
+    previewHtml += '<div style="font-weight:700;margin-bottom:6px">'+escHtml(mergedSub)+'</div>';
+    previewHtml += '<div style="font-size:13px;white-space:pre-wrap">'+escHtml(mergedBody)+'</div>';
+    previewHtml += '</div>';
+    count++;
+  });
+  if(selectedRecipients.size > 3){
+    previewHtml += '<p style="text-align:center;color:var(--muted);font-size:12px">+' + (selectedRecipients.size - 3) + ' נמענים נוספים</p>';
+  }
+  previewHtml += '<div style="margin-top:14px;padding:10px;background:rgba(246,177,0,.08);border-radius:8px;font-size:12px"><strong>💡 הערה:</strong> אם שולחים ליותר מנמען אחד, ה-placeholders המיוחדים לא יתמזגו (המייל יהיה זהה לכולם).</div>';
+  previewHtml += '<div style="margin-top:14px"><button class="btn" onclick="closeModal(\'preview-email-modal\')">סגור</button></div>';
+  previewHtml += '</div>';
+  let modal = document.getElementById('preview-email-modal');
+  if(!modal){ modal = document.createElement('div'); modal.id = 'preview-email-modal'; modal.className = 'modal active'; document.body.appendChild(modal); }
+  else { modal.classList.add('active'); }
+  modal.innerHTML = previewHtml;
 }
 
 function sendAndLog(){
