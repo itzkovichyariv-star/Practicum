@@ -389,17 +389,15 @@ input[type=file]{display:none}
     <!-- Mini dashboard -->
     <div id="lecture-stats" class="stats"></div>
 
-    <!-- Filters -->
-    <div class="section">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end">
-        <div class="form-group" style="margin:0"><label>🔍 חיפוש</label><input type="text" id="lec-filter-search" placeholder="נושא / מרצה..." oninput="renderLectures()"></div>
-        <div class="form-group" style="margin:0"><label>סמסטר</label><select id="lec-filter-semester" onchange="renderLectures()"><option value="">הכל</option><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
-        <div class="form-group" style="margin:0"><label>סטטוס</label><select id="lec-filter-status" onchange="renderLectures()"><option value="">הכל</option><option value="מאושר">מאושר</option><option value="ממתין">ממתין</option><option value="בוטל">בוטל</option></select></div>
-        <div class="form-group" style="margin:0"><label>סוג</label><select id="lec-filter-type" onchange="renderLectures()"><option value="">הכל</option><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
-        <div class="form-group" style="margin:0"><label>מוסד</label><select id="lec-filter-institution" onchange="renderLectures()"><option value="">הכל</option></select></div>
-        <div class="form-group" style="margin:0"><label>מרצה</label><select id="lec-filter-lecturer" onchange="renderLectures()"><option value="">הכל</option></select></div>
-        <label class="checkbox-group" style="margin:0 0 6px 0"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
-      </div>
+    <!-- Filters - clean inline bar -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;margin-bottom:10px;border-bottom:1px solid var(--border)">
+      <input type="text" id="lec-filter-search" placeholder="🔍 חיפוש..." oninput="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;min-width:180px">
+      <select id="lec-filter-semester" onchange="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">כל הסמסטרים</option><option value="א">סמסטר א</option><option value="ב">סמסטר ב</option><option value="קיץ">קיץ</option></select>
+      <select id="lec-filter-status" onchange="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">כל הסטטוסים</option><option value="מאושר">מאושר</option><option value="ממתין">ממתין</option><option value="בוטל">בוטל</option></select>
+      <select id="lec-filter-type" onchange="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">כל הסוגים</option><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select>
+      <select id="lec-filter-institution" onchange="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">כל המוסדות</option></select>
+      <select id="lec-filter-lecturer" onchange="renderLectures()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px"><option value="">כל המרצים</option></select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
     </div>
 
     <div id="lecture-list" style="overflow-x:auto"></div>
@@ -415,54 +413,34 @@ input[type=file]{display:none}
 <!-- LECTURE MODAL -->
 <div id="lecture-modal" class="modal">
   <div class="modal-content">
-    <h2 id="lecture-modal-title">🎓 הוסף הרצאה</h2>
+    <h2 id="lecture-modal-title">הוסף הרצאה</h2>
     <input type="hidden" id="lecture-edit-id">
-
-    <div class="section">
-      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">פרטי הקורס</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-        <div class="form-group" style="margin:0"><label>סמסטר</label><select id="lec-semester"><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
-        <div class="form-group" style="margin:0"><label>סוג</label><select id="lec-type"><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
-        <div class="form-group" style="margin:0"><label>קורס</label><select id="lec-course"></select></div>
-        <div class="form-group" style="margin:0"><label>מוסד</label><select id="lec-institution"></select></div>
-      </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+      <div class="form-group"><label>סמסטר</label><select id="lec-semester"><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
+      <div class="form-group"><label>סוג</label><select id="lec-type"><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
+      <div class="form-group"><label>קורס</label><select id="lec-course"></select></div>
+      <div class="form-group"><label>מוסד</label><select id="lec-institution"></select></div>
+      <div class="form-group"><label>תאריך</label><input type="date" id="lec-date" onchange="updateLectureDay()"></div>
+      <div class="form-group"><label>יום</label><select id="lec-day"><option value="">בחר...</option><option>ראשון</option><option>שני</option><option>שלישי</option><option>רביעי</option><option>חמישי</option><option>שישי</option><option>שבת</option></select></div>
+      <div class="form-group"><label>שעת התחלה</label><input type="time" id="lec-start" value="09:00"></div>
+      <div class="form-group"><label>שעת סיום</label><input type="time" id="lec-end" value="11:00"></div>
+      <div class="form-group"><label>אופן העברה</label><select id="lec-delivery" onchange="toggleLecLocation()"><option value="פרונטלי">פרונטלי</option><option value="זום">זום</option><option value="היברידי">היברידי</option></select></div>
+      <div class="form-group"><label>מיקום פיזי</label><input type="text" id="lec-location" list="lec-location-list"><datalist id="lec-location-list"></datalist></div>
+      <div class="form-group"><label>סטטוס</label><select id="lec-status"><option value="ממתין">ממתין</option><option value="מאושר">מאושר</option><option value="בוטל">בוטל</option></select></div>
+      <div class="form-group"><label>עלות (₪)</label><input type="number" id="lec-cost" step="100"></div>
     </div>
-
-    <div class="section">
-      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">מועד ומיקום</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-        <div class="form-group" style="margin:0"><label>תאריך</label><input type="date" id="lec-date" onchange="updateLectureDay()"></div>
-        <div class="form-group" style="margin:0"><label>יום</label><select id="lec-day"><option value="">בחר...</option><option>ראשון</option><option>שני</option><option>שלישי</option><option>רביעי</option><option>חמישי</option><option>שישי</option><option>שבת</option></select></div>
-        <div class="form-group" style="margin:0"><label>שעת התחלה</label><input type="time" id="lec-start" value="09:00"></div>
-        <div class="form-group" style="margin:0"><label>שעת סיום</label><input type="time" id="lec-end" value="11:00"></div>
-        <div class="form-group" style="margin:0"><label>אופן העברה</label><select id="lec-delivery" onchange="toggleLecLocation()"><option value="פרונטלי">פרונטלי</option><option value="זום">זום</option><option value="היברידי">היברידי</option></select></div>
-        <div class="form-group" style="margin:0"><label>מיקום</label><input type="text" id="lec-location" list="lec-location-list" placeholder="אריאל / תל חי..."><datalist id="lec-location-list"></datalist></div>
-      </div>
-      <div class="form-group" style="margin-top:10px"><label>קישור זום/Teams</label><input type="url" id="lec-video" placeholder="https://..."></div>
+    <div class="form-group"><label>מרצה / מנחה</label><input type="text" id="lec-lecturer" list="lec-lecturer-list" onchange="autoFillLecInfo()" placeholder="שם המרצה"><datalist id="lec-lecturer-list"></datalist></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>אימייל</label><input type="email" id="lec-email" dir="ltr"></div>
+      <div class="form-group"><label>טלפון</label><input type="tel" id="lec-phone" dir="ltr"></div>
     </div>
-
-    <div class="section">
-      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">מרצה ונושא</h3>
-      <div class="form-group"><label>מרצה / מנחה</label><input type="text" id="lec-lecturer" list="lec-lecturer-list" onchange="autoFillLecInfo()" placeholder="שם המרצה"><datalist id="lec-lecturer-list"></datalist></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group" style="margin:0"><label>אימייל</label><input type="email" id="lec-email"></div>
-        <div class="form-group" style="margin:0"><label>טלפון</label><input type="tel" id="lec-phone"></div>
-      </div>
-      <div class="form-group" style="margin-top:10px"><label>נושא ההרצאה</label><input type="text" id="lec-topic"></div>
-    </div>
-
-    <div class="section">
-      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">סטטוס ותקציב</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="form-group" style="margin:0"><label>סטטוס</label><select id="lec-status"><option value="ממתין">ממתין</option><option value="מאושר">מאושר</option><option value="בוטל">בוטל</option></select></div>
-        <div class="form-group" style="margin:0"><label>עלות (₪)</label><input type="number" id="lec-cost" step="100"></div>
-      </div>
-      <div class="form-group" style="margin-top:10px"><label>הערות</label><textarea id="lec-notes" rows="2"></textarea></div>
-    </div>
+    <div class="form-group"><label>נושא ההרצאה</label><input type="text" id="lec-topic"></div>
+    <div class="form-group"><label>קישור זום/Teams</label><input type="url" id="lec-video" placeholder="https://..." dir="ltr"></div>
+    <div class="form-group"><label>הערות</label><textarea id="lec-notes" rows="2"></textarea></div>
 
     <div class="action-buttons">
-      <button class="btn btn-primary" onclick="saveLecture()">💾 שמור</button>
-      <button class="btn btn-info" onclick="saveAndOpenOutlook()">📅 שמור + פתח ב-Outlook</button>
+      <button class="btn btn-primary" onclick="saveLecture()">שמור</button>
+      <button class="btn btn-info" onclick="saveAndOpenOutlook()">שמור + פתח ב-Outlook</button>
       <button class="btn" style="background:#6c757d;color:#fff" onclick="closeModal('lecture-modal')">ביטול</button>
     </div>
   </div>
@@ -557,7 +535,7 @@ input[type=file]{display:none}
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f97316;border-radius:3px;display:inline-block"></span> ראיון מועמד</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#17a34a;border-radius:3px;display:inline-block"></span> הכנה לפרקטיקום</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#7c3aed;border-radius:3px;display:inline-block"></span> אירוע כללי</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:linear-gradient(90deg,#fee2e2,#fef2f2);border-right:3px solid #dc2626;border-radius:3px;display:inline-block"></span> חג יהודי</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f3f4f6;border-right:3px solid #9ca3af;border-radius:3px;display:inline-block"></span> חג יהודי</span>
     </div>
     <div id="calendar-grid"></div>
   </div>
@@ -1864,94 +1842,84 @@ function renderLectures(){
     <div class="stat"><div class="stat-value">₪${totalCost.toLocaleString()}</div><div class="stat-label">עלות</div></div>
   `;
 
-  // Cards view
+  // Clean editable table (matching original lectures system)
   if(list.length === 0){
-    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:30px;color:var(--muted)">🎓 אין הרצאות להצגה</p>';
+    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:30px;color:var(--muted)">אין הרצאות להצגה</p>';
   } else {
     const today = new Date(); today.setHours(0,0,0,0);
-    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">';
-    list.forEach(l => {
-      const color = getLectureStatusColor(l.status);
-      const typeIcon = l.type === 'סדנה' ? '🛠️' : '🎓';
-      const deliveryIcon = l.deliveryMethod === 'זום' ? '💻' : (l.deliveryMethod === 'היברידי' ? '🔄' : '🏛️');
-      const isPast = l.date && new Date(l.date) < today;
-      const isFuture = l.date && new Date(l.date) >= today;
-      const daysUntil = l.date ? Math.ceil((new Date(l.date)-today)/(1000*60*60*24)) : null;
-      const urgencyBadge = (daysUntil !== null && daysUntil >= 0 && daysUntil <= 7 && l.status !== 'בוטל')
-        ? '<span style="background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700">⚡ '+(daysUntil === 0 ? 'היום' : 'בעוד '+daysUntil+' ימים')+'</span>'
-        : '';
-      const opacity = isPast || l.status === 'בוטל' ? '.72' : '1';
+    const tStyle = 'style="border-collapse:collapse;width:100%;font-size:13px;background:var(--panel);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)"';
+    const thStyle = 'style="background:linear-gradient(90deg,var(--primary),var(--primary-2));color:#fff;padding:10px 8px;text-align:right;font-weight:600;font-size:12px;white-space:nowrap"';
+    let html = '<table '+tStyle+'><thead><tr>'+
+      '<th '+thStyle+'>תזכורת</th>'+
+      '<th '+thStyle+'>סמ\'</th>'+
+      '<th '+thStyle+'>סוג</th>'+
+      '<th '+thStyle+'>קורס</th>'+
+      '<th '+thStyle+'>מוסד</th>'+
+      '<th '+thStyle+'>העברה</th>'+
+      '<th '+thStyle+'>מיקום</th>'+
+      '<th '+thStyle+'>יום</th>'+
+      '<th '+thStyle+'>תאריך</th>'+
+      '<th '+thStyle+'>שעה</th>'+
+      '<th '+thStyle+'>מרצה</th>'+
+      '<th '+thStyle+'>נושא</th>'+
+      '<th '+thStyle+'>אימייל</th>'+
+      '<th '+thStyle+'>טלפון</th>'+
+      '<th '+thStyle+'>עלות</th>'+
+      '<th '+thStyle+'>סטטוס</th>'+
+      '<th '+thStyle+'>הערות</th>'+
+      '<th '+thStyle+' style="text-align:center">פעולות</th>'+
+      '</tr></thead><tbody>';
 
-      html += '<div style="background:var(--panel);border:1px solid var(--border);border-right:4px solid '+color+';border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(0,0,0,.04);opacity:'+opacity+';transition:all .2s;position:relative" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.08)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.boxShadow=\'0 2px 4px rgba(0,0,0,.04)\';this.style.transform=\'\'">';
+    const tdStyle = 'style="padding:6px 8px;border-bottom:1px solid var(--border)"';
+    const inpStyle = 'style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:transparent;font-family:inherit"';
 
-      // Header - type + status + urgency
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">';
-      html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
-      html += '<span style="font-size:18px">'+typeIcon+'</span>';
-      html += '<span style="font-weight:700;font-size:13px;color:'+color+'">'+escHtml(l.type||'הרצאה')+'</span>';
-      html += '<span class="chip" style="background:'+color+';color:#fff;font-size:10px;padding:2px 8px">'+escHtml(l.status||'')+'</span>';
-      if(l.semester) html += '<span class="chip" style="background:var(--chip);font-size:10px">סמ׳ '+escHtml(l.semester)+'</span>';
-      html += '</div>';
-      html += urgencyBadge;
-      html += '</div>';
-
-      // Main title - topic
-      if(l.topic){
-        html += '<div style="font-weight:700;font-size:15px;margin-bottom:6px;line-height:1.3">'+escHtml(l.topic)+'</div>';
+    list.forEach((l, i) => {
+      const rowBg = i % 2 === 0 ? 'rgba(0,0,0,.015)' : 'transparent';
+      const daysUntil = l.date ? Math.floor((new Date(l.date)-today)/(1000*60*60*24)) : null;
+      let urgencyHtml = '';
+      if(daysUntil !== null){
+        let urgBg='var(--chip)', urgFg='var(--muted)', urgText='';
+        if(daysUntil < 0){ urgText='עבר'; urgBg='#f3f4f6'; urgFg='#6b7280'; }
+        else if(daysUntil === 0){ urgText='היום!'; urgBg='#fef3c7'; urgFg='#92400e'; }
+        else if(daysUntil <= 3){ urgText='עוד '+daysUntil+' י׳'; urgBg='#fde68a'; urgFg='#92400e'; }
+        else if(daysUntil <= 14){ urgText='עוד '+daysUntil+' י׳'; urgBg='#dbeafe'; urgFg='#1e40af'; }
+        else { urgText='עוד '+daysUntil+' י׳'; urgBg='var(--chip)'; urgFg='var(--muted)'; }
+        urgencyHtml = '<span style="font-size:10px;padding:3px 8px;border-radius:999px;background:'+urgBg+';color:'+urgFg+';font-weight:600;white-space:nowrap">'+urgText+'</span>';
       }
+      const statusColor = getLectureStatusColor(l.status);
+      const statusBg = l.status === 'מאושר' ? '#d1fae5' : (l.status === 'ממתין' ? '#fef3c7' : (l.status === 'בוטל' ? '#e5e7eb' : 'var(--chip)'));
+      const statusFg = l.status === 'מאושר' ? '#065f46' : (l.status === 'ממתין' ? '#92400e' : (l.status === 'בוטל' ? '#6b7280' : 'var(--text)'));
+      const isCancelled = l.status === 'בוטל';
+      const rowStyle = 'style="background:'+rowBg+';transition:background .15s'+(isCancelled?';opacity:.6':'')+'" onmouseover="this.style.background=\'rgba(47,109,246,.05)\'" onmouseout="this.style.background=\''+rowBg+'\'"';
 
-      // Course + institution
-      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--border)">';
-      if(l.course) html += '<div>📚 '+escHtml(l.course)+'</div>';
-      if(l.institution) html += '<div>🏛️ '+escHtml(l.institution)+'</div>';
-      html += '</div>';
-
-      // Date + time + day
-      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:8px">';
-      if(l.date){
-        const dStr = l.date + (l.day ? ' ('+l.day+')' : '');
-        html += '<div>📅 <strong>'+escHtml(dStr)+'</strong></div>';
-      }
-      if(l.startTime || l.endTime){
-        html += '<div>🕐 <strong>'+escHtml((l.startTime||'')+'–'+(l.endTime||''))+'</strong></div>';
-      }
-      html += '</div>';
-
-      // Lecturer
-      if(l.lecturer){
-        html += '<div style="font-size:12px;margin-bottom:6px">👤 <strong>'+escHtml(l.lecturer)+'</strong>';
-        if(l.email) html += ' <a href="mailto:'+escHtml(l.email)+'" style="color:var(--primary);text-decoration:none;font-size:11px">'+escHtml(l.email)+'</a>';
-        html += '</div>';
-      }
-
-      // Delivery + location
-      html += '<div style="font-size:12px;margin-bottom:6px;color:var(--muted)">'+deliveryIcon+' '+escHtml(l.deliveryMethod||'');
-      if(l.physicalLocation && l.deliveryMethod !== 'זום') html += ' — '+escHtml(l.physicalLocation);
-      if(l.videoLink) html += ' <a href="'+escHtml(l.videoLink)+'" target="_blank" rel="noopener" style="color:var(--primary)">🔗 קישור</a>';
-      html += '</div>';
-
-      // Cost
-      if(l.cost){
-        html += '<div style="font-size:12px;margin-bottom:6px">💰 <strong>₪'+parseFloat(l.cost).toLocaleString()+'</strong></div>';
-      }
-
-      // Notes
-      if(l.notes){
-        html += '<div style="font-size:11px;color:var(--muted);background:var(--surface);padding:6px 8px;border-radius:6px;margin-top:8px;border-right:2px solid var(--border)">💬 '+escHtml(l.notes)+'</div>';
-      }
-
-      // Actions
-      html += '<div style="display:flex;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap">';
-      html += '<button class="btn btn-sm" onclick="editLecture('+l.id+')" title="ערוך">✏️ ערוך</button>';
-      html += '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')" title="הוסף ללוח Outlook">📧</button>';
-      html += '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="הורד ICS">📅</button>';
-      if(l.email) html += '<button class="btn btn-sm" onclick="emailLecturer('+l.id+')" title="מייל למרצה">✉️</button>';
-      html += '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" title="מחק" style="margin-right:auto">🗑️</button>';
-      html += '</div>';
-
-      html += '</div>';
+      html += '<tr '+rowStyle+'>';
+      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center">'+urgencyHtml+'</td>';
+      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;font-weight:600">'+escHtml(l.semester||'')+'</td>';
+      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'type\',this.value)" '+inpStyle+'><option'+(l.type==='הרצאה'?' selected':'')+'>הרצאה</option><option'+(l.type==='סדנה'?' selected':'')+'>סדנה</option></select></td>';
+      html += '<td '+tdStyle+'><input value="'+escHtml(l.course||'')+'" onchange="inlineEditLecture('+l.id+',\'course\',this.value)" '+inpStyle+'></td>';
+      html += '<td '+tdStyle+'><input value="'+escHtml(l.institution||'')+'" onchange="inlineEditLecture('+l.id+',\'institution\',this.value)" list="existing-institutions-list" '+inpStyle+'></td>';
+      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'deliveryMethod\',this.value)" '+inpStyle+'><option'+(l.deliveryMethod==='פרונטלי'?' selected':'')+'>פרונטלי</option><option'+(l.deliveryMethod==='זום'?' selected':'')+'>זום</option><option'+(l.deliveryMethod==='היברידי'?' selected':'')+'>היברידי</option></select></td>';
+      html += '<td '+tdStyle+'>'+(l.deliveryMethod==='זום'?'<span style="color:var(--muted);font-size:11px;font-style:italic">זום</span>':'<input value="'+escHtml(l.physicalLocation||'')+'" onchange="inlineEditLecture('+l.id+',\'physicalLocation\',this.value)" '+inpStyle+'>')+'</td>';
+      html += '<td '+tdStyle+'>'+escHtml(l.day||'')+'</td>';
+      html += '<td '+tdStyle+'><input type="date" value="'+escHtml(l.date||'')+'" onchange="inlineEditLecture('+l.id+',\'date\',this.value,true)" '+inpStyle+'></td>';
+      html += '<td '+tdStyle+'><div style="display:flex;gap:2px;align-items:center"><input type="time" value="'+escHtml(l.startTime||'')+'" onchange="inlineEditLecture('+l.id+',\'startTime\',this.value)" style="width:62px;padding:3px;border:1px solid var(--border);border-radius:5px;font-size:11px"><span style="color:var(--muted)">-</span><input type="time" value="'+escHtml(l.endTime||'')+'" onchange="inlineEditLecture('+l.id+',\'endTime\',this.value)" style="width:62px;padding:3px;border:1px solid var(--border);border-radius:5px;font-size:11px"></div></td>';
+      html += '<td '+tdStyle+'><input value="'+escHtml(l.lecturer||'')+'" onchange="inlineEditLecture('+l.id+',\'lecturer\',this.value)" list="lec-lecturer-list" '+inpStyle+' style="width:100%;padding:4px 6px;border:2px solid '+(l.lecturer?'#86efac':'#fca5a5')+';border-radius:6px;font-size:12px;background:transparent"></td>';
+      html += '<td '+tdStyle+'><input value="'+escHtml(l.topic||'')+'" onchange="inlineEditLecture('+l.id+',\'topic\',this.value)" '+inpStyle+'></td>';
+      html += '<td '+tdStyle+'><input type="email" value="'+escHtml(l.email||'')+'" onchange="inlineEditLecture('+l.id+',\'email\',this.value)" '+inpStyle+' dir="ltr"></td>';
+      html += '<td '+tdStyle+'><input type="tel" value="'+escHtml(l.phone||'')+'" onchange="inlineEditLecture('+l.id+',\'phone\',this.value)" '+inpStyle+' dir="ltr"></td>';
+      html += '<td '+tdStyle+'><input type="number" step="100" value="'+escHtml(l.cost||'')+'" onchange="inlineEditLecture('+l.id+',\'cost\',this.value)" '+inpStyle+' dir="ltr"></td>';
+      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'status\',this.value)" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:'+statusBg+';color:'+statusFg+';font-weight:600"><option'+(l.status==='ממתין'?' selected':'')+'>ממתין</option><option'+(l.status==='מאושר'?' selected':'')+'>מאושר</option><option'+(l.status==='בוטל'?' selected':'')+'>בוטל</option></select></td>';
+      html += '<td '+tdStyle+'><textarea onchange="inlineEditLecture('+l.id+',\'notes\',this.value)" '+inpStyle+' rows="1" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:transparent;font-family:inherit;resize:vertical">'+escHtml(l.notes||'')+'</textarea></td>';
+      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap">';
+      html += '<button onclick="openLectureInOutlook('+l.id+')" title="Outlook" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">📅</button>';
+      if(l.email) html += '<button onclick="emailLecturer('+l.id+')" title="מייל" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">✉️</button>';
+      html += '<button onclick="exportLectureICS('+l.id+')" title="ICS" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">💾</button>';
+      html += '<button onclick="deleteLecture('+l.id+')" title="מחק" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">🗑️</button>';
+      html += '</td>';
+      html += '</tr>';
     });
-    html += '</div>';
+    html += '</tbody></table>';
+    html += '<div style="padding:10px;text-align:center;font-size:12px;color:var(--muted)">מציג '+list.length+' מתוך '+DB.lectures.length+' הרצאות</div>';
     document.getElementById('lecture-list').innerHTML = html;
   }
 
@@ -2083,6 +2051,24 @@ function saveLecture(){
   closeModal('lecture-modal');
   renderLectures();
   if(document.querySelector('#calendar').classList.contains('active')) renderCalendar();
+}
+
+// Inline edit for table cells - updates a single field without full re-render
+function inlineEditLecture(id, field, value, rerender){
+  const l = DB.lectures.find(x => x.id === id);
+  if(!l) return;
+  l[field] = value;
+  if(field === 'date') l.day = dayNameFromDate(value);
+  if(field === 'lecturer'){
+    // Auto-fill from lecturer DB
+    const info = DB.lecturerDB[value];
+    if(info){
+      if(info.email && !l.email) l.email = info.email;
+      if(info.phone && !l.phone) l.phone = info.phone;
+    }
+  }
+  saveToStorage();
+  if(rerender) renderLectures();
 }
 
 function deleteLecture(id){
@@ -2626,23 +2612,22 @@ async function renderCalendar(){
     const inAcademicYear = yearRange && yearRange.start && yearRange.end && dateStr >= yearRange.start && dateStr <= yearRange.end;
 
     let bg = '#fff';
-    if(isToday) bg = 'linear-gradient(135deg,rgba(47,109,246,.08),rgba(47,109,246,.02))';
-    else if(isYomTov) bg = 'linear-gradient(135deg,rgba(220,38,38,.10),rgba(220,38,38,.02))';
-    else if(dayHolidays.length > 0) bg = 'rgba(220,38,38,.03)';
+    if(isToday) bg = 'rgba(47,109,246,.06)';
+    else if(isYomTov) bg = 'rgba(107,114,128,.08)';
+    else if(dayHolidays.length > 0) bg = 'rgba(107,114,128,.03)';
     else if(inAcademicYear) bg = 'rgba(23,163,74,.015)';
 
-    const border = isToday ? '2px solid var(--primary)' : (isYomTov ? '1px solid rgba(220,38,38,.35)' : '1px solid transparent');
-    const shadow = isToday ? 'box-shadow:inset 0 0 0 1px rgba(47,109,246,.2)' : '';
+    const border = isToday ? '2px solid var(--primary)' : '1px solid transparent';
 
-    html += '<div style="background:'+bg+';padding:6px;min-height:110px;font-size:12px;border:'+border+';'+shadow+';transition:all .15s">';
+    html += '<div style="background:'+bg+';padding:6px;min-height:110px;font-size:12px;border:'+border+';transition:background .15s">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
-    html += '<span style="font-weight:'+(isToday?'800':'600')+';font-size:'+(isToday?'15px':'13px')+';color:'+(isToday?'var(--primary)':(isYomTov?'#dc2626':'var(--text)'))+'">'+d+'</span>';
+    html += '<span style="font-weight:'+(isToday?'800':'600')+';font-size:'+(isToday?'15px':'13px')+';color:'+(isToday?'var(--primary)':'var(--text)')+'">'+d+'</span>';
     if(isToday) html += '<span style="font-size:9px;background:var(--primary);color:#fff;padding:1px 6px;border-radius:8px;font-weight:700">היום</span>';
     html += '</div>';
 
-    // Holidays first - elegant red chip
+    // Holidays - neutral gray
     dayHolidays.forEach(h => {
-      html += '<div style="background:linear-gradient(90deg,#fee2e2,#fef2f2);color:#b91c1c;border-right:3px solid #dc2626;padding:3px 7px;border-radius:4px;font-size:10px;margin:3px 0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(h.title)+'">✡ '+escHtml(h.title)+'</div>';
+      html += '<div style="background:#f3f4f6;color:#4b5563;border-right:3px solid #9ca3af;padding:3px 7px;border-radius:4px;font-size:10px;margin:3px 0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(h.title)+'">✡ '+escHtml(h.title)+'</div>';
     });
 
     dayEvents.slice(0, 3 - Math.min(dayHolidays.length, 2)).forEach(e => {
