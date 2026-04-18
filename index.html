@@ -1308,12 +1308,24 @@ function loadFromStorage(){
       DB.lectures.forEach(l => { if(l.year) l.year = normalizeYear(l.year); });
       // Auto-import lectures if first run after upgrade
       if(DB.lectures.length === 0) autoImportInitialLectures();
+      // Migration: assign a year to yearless courses (use the course's first data-year, or default)
+      DB.courses.forEach(c => {
+        if(!c.year){
+          const s = DB.students.find(x => x.courseId === c.id && x.year);
+          const e = DB.employers.find(x => x.courseId === c.id && x.year);
+          const n = DB.candidates.find(x => x.courseId === c.id && x.year);
+          const inferredYear = (s && s.year) || (e && e.year) || (n && n.year) || DB.academicYears[0] || 'תשפ\u05F4ו';
+          c.year = normalizeYear(inferredYear);
+        } else {
+          c.year = normalizeYear(c.year);
+        }
+      });
       // Cleanup duplicate courses (same name+year) - keeps first, migrates references
       const dedup = dedupeCourses();
       if(dedup.merged > 0){
         console.log('Merged '+dedup.merged+' duplicate course(s)');
-        saveToStorage();
       }
+      saveToStorage();
     } else {
       // Try migrate from v4
       const rawV4 = localStorage.getItem('practicum_db_v4');
@@ -1575,18 +1587,19 @@ function renderContextBar(){
     if(availableYears.length === 0) availableYears = DB.academicYears;
   }
 
-  // Deduplicate display: if multiple courses share normalized name (e.g., one without year), show only the selected/first
-  const seenNames = {};
-  const uniqueCourses = availableCourses.filter(c => {
+  // Deduplicate display: if multiple courses share normalized name, prefer the one matching current year,
+  // otherwise the currently-selected one, otherwise the first encountered.
+  const byName = {};
+  availableCourses.forEach(c => {
     const k = courseNameKey(c.name);
-    if(seenNames[k]){
-      // Prefer the currently-selected one
-      if(c.id === DB.currentCourse){ seenNames[k] = c; return true; }
-      return false;
-    }
-    seenNames[k] = c;
-    return true;
+    if(!byName[k]){ byName[k] = c; return; }
+    const cur = byName[k];
+    const curMatchesYear = normalizeYear(cur.year||'') === DB.currentYear;
+    const cMatchesYear = normalizeYear(c.year||'') === DB.currentYear;
+    if(cMatchesYear && !curMatchesYear){ byName[k] = c; return; }
+    if(c.id === DB.currentCourse){ byName[k] = c; return; }
   });
+  const uniqueCourses = Object.values(byName);
   courseSelect.innerHTML = '<option value="__all__">כל הקורסים</option>' +
     uniqueCourses.map(c =>
     '<option value="'+escHtml(c.id)+'"'+(c.id===DB.currentCourse?' selected':'')+'>'+escHtml(c.name)+'</option>'
@@ -1725,11 +1738,11 @@ async function addCourse(){
   if(!year){alert('נא לבחור שנה אקדמית');return;}
   const editId = document.getElementById('course-edit-id').value;
   const nameKey = courseNameKey(name);
-  // Duplicate check (normalized): same name + same year
+  // Duplicate check (normalized): same name + same year (strict - yearless courses don't count)
   const existsSame = DB.courses.find(c =>
     c.id !== editId &&
     courseNameKey(c.name) === nameKey &&
-    (normalizeYear(c.year||'') === year || (!c.year && year === DB.currentYear))
+    normalizeYear(c.year||'') === year
   );
   if(existsSame){
     alert('⚠️ כבר קיים קורס בשם "'+name+'" בשנה '+year+'.\nלא ניתן ליצור כפילות.');
