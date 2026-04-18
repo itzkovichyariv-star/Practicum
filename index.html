@@ -1259,33 +1259,42 @@ function loadBackup(event){
 
 // ============ CONTEXT (COURSE + YEAR) ============
 function cleanupOrphanCourseIds(){
-  // Ensure every student/employer/candidate has a valid courseId
-  // If a record has courseId that doesn't exist in DB.courses, try to match by name or assign to first course
+  // Never silently reassign records. If courseId doesn't match, RESTORE the course.
   const validIds = new Set(DB.courses.map(c => c.id));
-  const courseByName = {};
-  DB.courses.forEach(c => { courseByName[c.name.trim()] = c.id; });
 
-  let orphansFixed = 0;
+  // Collect all unique courseIds actually used by records
+  const usedIds = new Set();
   [DB.students, DB.employers, DB.candidates].forEach(arr => {
-    arr.forEach(item => {
-      if(!validIds.has(item.courseId)){
-        // Try to find by the courseId pattern matching a course name
-        const matchByIdLike = DB.courses.find(c =>
-          item.courseId && (item.courseId.includes(c.name.replace(/\s+/g,'-')) ||
-          c.id === item.courseId)
-        );
-        if(matchByIdLike){
-          item.courseId = matchByIdLike.id;
-          orphansFixed++;
-        } else if(DB.courses.length === 1){
-          item.courseId = DB.courses[0].id;
-          orphansFixed++;
-        }
-      }
-    });
+    arr.forEach(item => { if(item.courseId) usedIds.add(item.courseId); });
   });
-  if(orphansFixed > 0) console.log('Fixed', orphansFixed, 'orphan courseIds');
-  return orphansFixed;
+
+  // For each used id that isn't in DB.courses - recover the course
+  let coursesRecovered = 0;
+  usedIds.forEach(cid => {
+    if(!validIds.has(cid)){
+      // Try to recover name from ID: "פרקטיקום-יעוץ-ארגוני-תואר-שני-1776249901184"
+      let name = cid;
+      // Remove trailing timestamp (13-digit number)
+      name = name.replace(/-\d{10,}$/, '');
+      // Convert dashes back to spaces
+      name = name.replace(/-/g, ' ').trim();
+      // Special cases
+      if(cid === 'hr-practicum') name = 'פרקטיקום משאבי אנוש';
+      if(!name || name === cid) name = 'קורס משוחזר ('+cid.substring(0,20)+')';
+
+      DB.courses.push({
+        id: cid,
+        name: name,
+        requireCV: true, requireApplication: true,
+        requireInterview: true, requirePrep: true
+      });
+      validIds.add(cid);
+      coursesRecovered++;
+      console.log('Recovered course:', name, 'from id:', cid);
+    }
+  });
+  if(coursesRecovered > 0) console.warn('🔧 Recovered', coursesRecovered, 'missing courses');
+  return coursesRecovered;
 }
 
 function renderContextBar(){
