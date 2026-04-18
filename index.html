@@ -376,66 +376,93 @@ input[type=file]{display:none}
 <div id="lectures" class="page">
   <div class="card">
     <div class="card-header">
-      <h2>ניהול הרצאות וסדנאות <span class="chip" id="lecture-count">0</span></h2>
+      <h2>🎓 ניהול הרצאות וסדנאות <span class="chip" id="lecture-count">0</span></h2>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="showAddLecture()">➕ הוסף הרצאה</button>
-        <button class="btn btn-outline" onclick="importLecturesFromJSON()">📥 ייבוא מקובץ</button>
+        <button class="btn btn-info" onclick="openMyOutlookCalendar()">📅 לוח שנה Outlook</button>
+        <button class="btn btn-outline" onclick="importLecturesFromJSON()">📥 ייבוא</button>
         <button class="btn btn-outline" onclick="exportLecturesJSON()">📤 ייצוא JSON</button>
         <button class="btn btn-outline" onclick="exportLecturesExcel()">📊 ייצוא Excel</button>
       </div>
     </div>
 
     <!-- Mini dashboard -->
-    <div id="lecture-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0"></div>
+    <div id="lecture-stats" class="stats"></div>
 
     <!-- Filters -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-bottom:10px">
-      <input type="text" id="lec-filter-search" placeholder="🔍 חיפוש..." oninput="renderLectures()">
-      <select id="lec-filter-semester" onchange="renderLectures()"><option value="">כל הסמסטרים</option><option value="א">סמסטר א</option><option value="ב">סמסטר ב</option><option value="קיץ">קיץ</option></select>
-      <select id="lec-filter-status" onchange="renderLectures()"><option value="">כל הסטטוסים</option><option value="מאושר">מאושר</option><option value="ממתין">ממתין</option><option value="בוטל">בוטל</option></select>
-      <select id="lec-filter-type" onchange="renderLectures()"><option value="">כל הסוגים</option><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select>
-      <select id="lec-filter-institution" onchange="renderLectures()"><option value="">כל המוסדות</option></select>
-      <select id="lec-filter-lecturer" onchange="renderLectures()"><option value="">כל המרצים</option></select>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
+    <div class="section">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end">
+        <div class="form-group" style="margin:0"><label>🔍 חיפוש</label><input type="text" id="lec-filter-search" placeholder="נושא / מרצה..." oninput="renderLectures()"></div>
+        <div class="form-group" style="margin:0"><label>סמסטר</label><select id="lec-filter-semester" onchange="renderLectures()"><option value="">הכל</option><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
+        <div class="form-group" style="margin:0"><label>סטטוס</label><select id="lec-filter-status" onchange="renderLectures()"><option value="">הכל</option><option value="מאושר">מאושר</option><option value="ממתין">ממתין</option><option value="בוטל">בוטל</option></select></div>
+        <div class="form-group" style="margin:0"><label>סוג</label><select id="lec-filter-type" onchange="renderLectures()"><option value="">הכל</option><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
+        <div class="form-group" style="margin:0"><label>מוסד</label><select id="lec-filter-institution" onchange="renderLectures()"><option value="">הכל</option></select></div>
+        <div class="form-group" style="margin:0"><label>מרצה</label><select id="lec-filter-lecturer" onchange="renderLectures()"><option value="">הכל</option></select></div>
+        <label class="checkbox-group" style="margin:0 0 6px 0"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
+      </div>
     </div>
 
     <div id="lecture-list" style="overflow-x:auto"></div>
   </div>
 
   <!-- Lecturers DB -->
-  <div class="card" style="margin-top:16px">
-    <div class="card-header"><h3>מאגר מרצים <span class="chip" id="lecturer-db-count">0</span></h3></div>
-    <div id="lecturer-db-list"></div>
+  <div class="card">
+    <div class="card-header"><h2>👥 מאגר מרצים <span class="chip" id="lecturer-db-count">0</span></h2></div>
+    <div id="lecturer-db-list" style="overflow-x:auto"></div>
   </div>
 </div>
 
 <!-- LECTURE MODAL -->
 <div id="lecture-modal" class="modal">
-  <div class="modal-content" style="max-width:700px">
-    <h2 id="lecture-modal-title">הוסף הרצאה</h2>
+  <div class="modal-content">
+    <h2 id="lecture-modal-title">🎓 הוסף הרצאה</h2>
     <input type="hidden" id="lecture-edit-id">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div><label>סמסטר</label><select id="lec-semester"><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
-      <div><label>סוג</label><select id="lec-type"><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
-      <div><label>קורס</label><select id="lec-course"></select></div>
-      <div><label>מוסד</label><select id="lec-institution"></select></div>
-      <div><label>יום</label><select id="lec-day"><option value="">בחר...</option><option>ראשון</option><option>שני</option><option>שלישי</option><option>רביעי</option><option>חמישי</option><option>שישי</option><option>שבת</option></select></div>
-      <div><label>תאריך</label><input type="date" id="lec-date" onchange="updateLectureDay()"></div>
-      <div><label>שעת התחלה</label><input type="time" id="lec-start" value="09:00"></div>
-      <div><label>שעת סיום</label><input type="time" id="lec-end" value="11:00"></div>
-      <div><label>אופן העברה</label><select id="lec-delivery" onchange="toggleLecLocation()"><option value="פרונטלי">פרונטלי</option><option value="זום">זום</option><option value="היברידי">היברידי</option></select></div>
-      <div><label>מיקום פיזי</label><input type="text" id="lec-location" list="lec-location-list" placeholder="אריאל / תל חי..."><datalist id="lec-location-list"></datalist></div>
-      <div style="grid-column:1/-1"><label>מרצה/מנחה</label><input type="text" id="lec-lecturer" list="lec-lecturer-list" onchange="autoFillLecInfo()"><datalist id="lec-lecturer-list"></datalist></div>
-      <div><label>אימייל</label><input type="email" id="lec-email"></div>
-      <div><label>טלפון</label><input type="tel" id="lec-phone"></div>
-      <div style="grid-column:1/-1"><label>נושא</label><input type="text" id="lec-topic"></div>
-      <div><label>סטטוס</label><select id="lec-status"><option value="ממתין">ממתין</option><option value="מאושר">מאושר</option><option value="בוטל">בוטל</option></select></div>
-      <div><label>עלות (₪)</label><input type="number" id="lec-cost" step="100"></div>
-      <div style="grid-column:1/-1"><label>קישור זום/Teams</label><input type="url" id="lec-video"></div>
-      <div style="grid-column:1/-1"><label>הערות</label><textarea id="lec-notes" rows="2"></textarea></div>
+
+    <div class="section">
+      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">פרטי הקורס</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+        <div class="form-group" style="margin:0"><label>סמסטר</label><select id="lec-semester"><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
+        <div class="form-group" style="margin:0"><label>סוג</label><select id="lec-type"><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
+        <div class="form-group" style="margin:0"><label>קורס</label><select id="lec-course"></select></div>
+        <div class="form-group" style="margin:0"><label>מוסד</label><select id="lec-institution"></select></div>
+      </div>
     </div>
+
+    <div class="section">
+      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">מועד ומיקום</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+        <div class="form-group" style="margin:0"><label>תאריך</label><input type="date" id="lec-date" onchange="updateLectureDay()"></div>
+        <div class="form-group" style="margin:0"><label>יום</label><select id="lec-day"><option value="">בחר...</option><option>ראשון</option><option>שני</option><option>שלישי</option><option>רביעי</option><option>חמישי</option><option>שישי</option><option>שבת</option></select></div>
+        <div class="form-group" style="margin:0"><label>שעת התחלה</label><input type="time" id="lec-start" value="09:00"></div>
+        <div class="form-group" style="margin:0"><label>שעת סיום</label><input type="time" id="lec-end" value="11:00"></div>
+        <div class="form-group" style="margin:0"><label>אופן העברה</label><select id="lec-delivery" onchange="toggleLecLocation()"><option value="פרונטלי">פרונטלי</option><option value="זום">זום</option><option value="היברידי">היברידי</option></select></div>
+        <div class="form-group" style="margin:0"><label>מיקום</label><input type="text" id="lec-location" list="lec-location-list" placeholder="אריאל / תל חי..."><datalist id="lec-location-list"></datalist></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label>קישור זום/Teams</label><input type="url" id="lec-video" placeholder="https://..."></div>
+    </div>
+
+    <div class="section">
+      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">מרצה ונושא</h3>
+      <div class="form-group"><label>מרצה / מנחה</label><input type="text" id="lec-lecturer" list="lec-lecturer-list" onchange="autoFillLecInfo()" placeholder="שם המרצה"><datalist id="lec-lecturer-list"></datalist></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="margin:0"><label>אימייל</label><input type="email" id="lec-email"></div>
+        <div class="form-group" style="margin:0"><label>טלפון</label><input type="tel" id="lec-phone"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label>נושא ההרצאה</label><input type="text" id="lec-topic"></div>
+    </div>
+
+    <div class="section">
+      <h3 style="font-size:14px;color:var(--primary);margin:0 0 10px 0">סטטוס ותקציב</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="margin:0"><label>סטטוס</label><select id="lec-status"><option value="ממתין">ממתין</option><option value="מאושר">מאושר</option><option value="בוטל">בוטל</option></select></div>
+        <div class="form-group" style="margin:0"><label>עלות (₪)</label><input type="number" id="lec-cost" step="100"></div>
+      </div>
+      <div class="form-group" style="margin-top:10px"><label>הערות</label><textarea id="lec-notes" rows="2"></textarea></div>
+    </div>
+
     <div class="action-buttons">
-      <button class="btn btn-primary" onclick="saveLecture()">שמור</button>
+      <button class="btn btn-primary" onclick="saveLecture()">💾 שמור</button>
+      <button class="btn btn-info" onclick="saveAndOpenOutlook()">📅 שמור + פתח ב-Outlook</button>
       <button class="btn" style="background:#6c757d;color:#fff" onclick="closeModal('lecture-modal')">ביטול</button>
     </div>
   </div>
@@ -519,13 +546,15 @@ input[type=file]{display:none}
         <span id="calendar-title" style="font-weight:700;font-size:16px;min-width:160px;text-align:center"></span>
         <button class="btn btn-sm btn-outline" onclick="calendarNext()">חודש הבא ›</button>
         <button class="btn btn-sm btn-primary" onclick="calendarToday()">היום</button>
+        <button class="btn btn-sm btn-info" onclick="openMyOutlookCalendar()">📧 פתח Outlook</button>
       </div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;border-radius:3px;display:inline-block"></span> הרצאה/סדנה</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f97316;border-radius:3px;display:inline-block"></span> ראיון מועמד</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#17a34a;border-radius:3px;display:inline-block"></span> הכנה</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2f6df6;border-radius:3px;display:inline-block"></span> מועד הגשה</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#7c3aed;border-radius:3px;display:inline-block"></span> אירוע כללי</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.4);border-radius:3px;display:inline-block"></span> חג יהודי</span>
     </div>
     <div id="calendar-grid"></div>
   </div>
@@ -1852,10 +1881,11 @@ function renderLectures(){
       html += '<td><span class="chip" style="background:'+getLectureStatusColor(l.status)+';color:#fff">'+escHtml(l.status||'')+'</span></td>';
       html += '<td>'+(l.cost?('₪'+parseFloat(l.cost).toLocaleString()):'')+'</td>';
       html += '<td style="white-space:nowrap">'+
-        '<button class="btn btn-sm" onclick="editLecture('+l.id+')">✏️</button> '+
-        '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="ייצוא ליומן">📅</button> '+
+        '<button class="btn btn-sm" onclick="editLecture('+l.id+')" title="ערוך">✏️</button> '+
+        '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')" title="הוסף ללוח Outlook">📧</button> '+
+        '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="הורד ICS">📅</button> '+
         (l.email?'<button class="btn btn-sm" onclick="emailLecturer('+l.id+')" title="מייל למרצה">✉️</button> ':'')+
-        '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')">🗑️</button>'+
+        '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" title="מחק">🗑️</button>'+
         '</td>';
       html += '</tr>';
     });
@@ -1999,6 +2029,53 @@ function emailLecturer(id){
   const subject = encodeURIComponent('בנוגע ל'+l.type+': '+l.course+' - '+l.date);
   const body = encodeURIComponent('שלום '+l.lecturer+',\n\nאני פונה אליך בנוגע ל'+l.type+' בקורס "'+l.course+'" בתאריך '+l.date+'.\n\nבברכה,\n'+(DB.currentUser?.name || DB.settings.senderName));
   window.location.href = 'mailto:'+l.email+'?subject='+subject+'&body='+body;
+}
+
+// Open the user's Outlook calendar in a new tab
+function openMyOutlookCalendar(){
+  const email = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  // Works for org-authenticated users - opens their calendar month view
+  window.open('https://outlook.office.com/calendar/view/month', '_blank', 'noopener');
+}
+
+// Open Outlook "compose event" deeplink pre-filled with lecture details
+function openLectureInOutlook(id){
+  const l = typeof id === 'object' ? id : DB.lectures.find(x => x.id === id);
+  if(!l){ alert('הרצאה לא נמצאה'); return; }
+  if(!l.date){ alert('חסר תאריך'); return; }
+  const startISO = l.date + 'T' + (l.startTime || '09:00') + ':00+03:00';
+  const endISO = l.date + 'T' + (l.endTime || '11:00') + ':00+03:00';
+  const title = (l.type || 'הרצאה') + ': ' + (l.course || '') + (l.topic ? ' - ' + l.topic : '');
+  const location = l.deliveryMethod === 'זום' ? 'זום' : (l.physicalLocation || l.institution || '');
+  const bodyLines = [
+    'מרצה: ' + (l.lecturer || ''),
+    'קורס: ' + (l.course || ''),
+    'מוסד: ' + (l.institution || ''),
+    'אופן העברה: ' + (l.deliveryMethod || ''),
+    l.videoLink ? 'קישור: ' + l.videoLink : '',
+    l.notes ? 'הערות: ' + l.notes : ''
+  ].filter(Boolean);
+  const params = new URLSearchParams({
+    subject: title,
+    startdt: startISO,
+    enddt: endISO,
+    location: location,
+    body: bodyLines.join('\n'),
+    path: '/calendar/action/compose',
+    rru: 'addevent'
+  });
+  // Add attendee if lecturer has email
+  if(l.email) params.append('to', l.email);
+  window.open('https://outlook.office.com/calendar/0/deeplink/compose?' + params.toString(), '_blank', 'noopener');
+}
+
+// Save current lecture form, then open it in Outlook
+function saveAndOpenOutlook(){
+  saveLecture();
+  // After save, the last one in DB is our lecture
+  const editId = document.getElementById('lecture-edit-id').value;
+  const target = editId ? DB.lectures.find(x => x.id === parseInt(editId)) : DB.lectures[DB.lectures.length - 1];
+  if(target) openLectureInOutlook(target);
 }
 
 function exportLectureICS(id){
