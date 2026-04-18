@@ -1614,8 +1614,25 @@ function openDocWindow(title, bodyHtml){
     '@media screen { body { max-width: 800px; margin: 20px auto; background: #fff; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,.1); } .print-btn { position: fixed; top: 10px; left: 10px; padding: 10px 18px; background: #2f6df6; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; z-index:9999 } }'+
     '@media print { .print-btn { display: none; } body { padding: 0; } }'+
     '</style></head><body>'+
-    '<button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור כ-PDF</button>'+
-    bodyHtml+
+    '<button class="print-btn" onclick="window.print()">🖨️ הדפס / PDF</button>'+
+    '<button class="print-btn" style="left:170px;background:#7c3aed" onclick="toggleEdit()">✏️ <span id="edit-btn-text">ערוך</span></button>'+
+    '<button class="print-btn" style="left:310px;background:#2b579a" onclick="downloadAsWord()">📝 הורד כ-Word</button>'+
+    '<div id="doc-content" contenteditable="false">'+bodyHtml+'</div>'+
+    '<script>'+
+    'function toggleEdit(){var c=document.getElementById("doc-content");var e=c.contentEditable==="true";c.contentEditable=e?"false":"true";c.style.outline=e?"":"2px dashed #7c3aed";c.style.background=e?"":"#fafbff";document.getElementById("edit-btn-text").textContent=e?"ערוך":"סיים עריכה";}'+
+    'function downloadAsWord(){'+
+    'var title='+JSON.stringify(title)+';'+
+    'var styles=document.querySelector("style").outerHTML;'+
+    'var content=document.getElementById("doc-content").innerHTML;'+
+    'var html=\'<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40" dir="rtl" lang="he"><head><meta charset="UTF-8"><title>\'+title+\'</title>\'+styles+\'<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]--></head><body dir="rtl">\'+content+\'</body></html>\';'+
+    'var blob=new Blob([\'\\ufeff\',html],{type:"application/msword"});'+
+    'var url=URL.createObjectURL(blob);'+
+    'var a=document.createElement("a");'+
+    'a.href=url;a.download=title.replace(/[^א-תa-zA-Z0-9 _-]/g,"")+".doc";'+
+    'document.body.appendChild(a);a.click();document.body.removeChild(a);'+
+    'URL.revokeObjectURL(url);'+
+    '}'+
+    '<\/script>'+
     '</body></html>');
   w.document.close();
 }
@@ -3722,12 +3739,40 @@ function refreshReport(){
   }
 
   if(lastReportType==='employers' || lastReportType==='full'){
-    html += '<h2 style="color:var(--success);margin:20px 0 10px">דוח מעסיקים</h2>';
-    html += '<table><thead><tr style="background:var(--success);color:#fff"><th>#</th><th>מעסיק</th><th>מיקום</th><th>משרות</th><th>הגישו</th><th>התקבלו</th><th>פנויות</th></tr></thead><tbody>';
+    html += '<h2 style="color:var(--success);margin:20px 0 10px">דוח מעסיקים ('+employers.length+')</h2>';
+    // Summary
+    const totalSlots = employers.reduce((sum,e)=>sum+(parseInt(e.slots)||0),0);
+    const filledSlots = employers.reduce((sum,e)=>{
+      const acc = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name).length;
+      return sum + acc;
+    },0);
+    html += '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+    html += '<div style="padding:6px 12px;background:rgba(32,201,151,.08);border-radius:6px;font-size:12px"><strong>'+totalSlots+'</strong> משרות סה"כ</div>';
+    html += '<div style="padding:6px 12px;background:rgba(32,201,151,.08);border-radius:6px;font-size:12px"><strong>'+filledSlots+'</strong> מאוישות</div>';
+    html += '<div style="padding:6px 12px;background:rgba(246,177,0,.08);border-radius:6px;font-size:12px"><strong>'+(totalSlots-filledSlots)+'</strong> פנויות</div>';
+    html += '</div>';
+    html += '<table><thead><tr style="background:var(--success);color:#fff"><th>#</th><th>מעסיק</th><th>איש קשר</th><th>תפקיד</th><th>טלפון</th><th>מייל</th><th>מיקום</th><th>משרות</th><th>הגישו</th><th>התקבלו</th><th>פנויות</th><th>סטודנטים שהתקבלו</th><th>תיאור</th></tr></thead><tbody>';
     employers.forEach((e,i) => {
       const sub = students.filter(s=>(s.submitted||[]).some(x=>x.toLowerCase().includes(e.name.toLowerCase()))).length;
-      const acc = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name).length;
-      html += '<tr><td>'+(i+1)+'</td><td><strong>'+escHtml(e.name)+'</strong></td><td>'+(e.location||'-')+'</td><td>'+e.slots+'</td><td>'+sub+'</td><td>'+acc+'</td><td style="color:'+(e.slots-acc>0?'var(--success)':'var(--danger)')+'">'+( e.slots-acc)+'</td></tr>';
+      const acceptedStudents = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name);
+      const acc = acceptedStudents.length;
+      const emailClean = (e.email||'').replace('mailto:','');
+      const remColor = e.slots-acc>0?'var(--success)':e.slots-acc===0?'var(--warn)':'var(--danger)';
+      html += '<tr>';
+      html += '<td>'+(i+1)+'</td>';
+      html += '<td><strong>'+escHtml(e.name)+'</strong></td>';
+      html += '<td>'+escHtml(e.contact||'-')+'</td>';
+      html += '<td style="font-size:11px">'+escHtml(e.role||'-')+'</td>';
+      html += '<td>'+escHtml(e.phone||'-')+'</td>';
+      html += '<td style="font-size:11px">'+escHtml(emailClean||'-')+'</td>';
+      html += '<td>'+escHtml(e.location||'-')+'</td>';
+      html += '<td style="text-align:center"><strong>'+(e.slots||0)+'</strong></td>';
+      html += '<td style="text-align:center">'+sub+'</td>';
+      html += '<td style="text-align:center"><strong>'+acc+'</strong></td>';
+      html += '<td style="text-align:center;color:'+remColor+';font-weight:700">'+(e.slots-acc)+'</td>';
+      html += '<td style="font-size:11px">'+(acceptedStudents.map(s=>escHtml(s.name)).join(', ')||'-')+'</td>';
+      html += '<td style="max-width:200px;font-size:11px">'+escHtml((e.description||'-').substring(0,120))+'</td>';
+      html += '</tr>';
     });
     html += '</tbody></table>';
   }
