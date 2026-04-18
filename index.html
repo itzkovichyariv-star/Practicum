@@ -1510,7 +1510,7 @@ function renderCloudSyncSection(){
       '<span style="font-size:11px;color:var(--muted)">שינויים נשמרים אוטומטית ומסונכרנים בזמן אמת עם משתמשים אחרים</span>' +
       '</div>';
     btnEl.innerHTML = '<button class="btn btn-danger" onclick="cloudSyncLogout()">נתק סנכרון</button>' +
-      '<button class="btn btn-outline" onclick="cloudSyncMerge()">רענן נתונים מענן</button>';
+      '<button class="btn btn-primary" onclick="cloudSyncRefresh()">🔄 רענן מהענן עכשיו</button>';
   } else if(supabaseEnabled){
     statusEl.innerHTML = '<div style="background:rgba(246,177,0,.1);border:1px solid var(--warn);padding:10px;border-radius:8px">' +
       '<strong style="color:#856404">⚠️ סנכרון דרוש התחברות</strong><br>' +
@@ -3968,6 +3968,9 @@ let supabaseVersion = 0;
 let supabaseRealtimeChannel = null;
 let pendingSync = false;
 let syncInProgress = false;
+let suppressSave = false; // Prevent save loop during realtime updates
+let lastSaveHash = null; // Prevent identical saves
+let saveDebounceTimer = null;
 
 function initSupabase(){
   if(!window.supabase || !window.supabase.createClient){ console.warn('Supabase lib not loaded'); return; }
@@ -4018,19 +4021,33 @@ async function supabaseLoadData(){
   return data.data;
 }
 
+function hashData(obj){
+  // Simple hash to detect if data actually changed
+  const str = JSON.stringify(obj);
+  let hash = 0;
+  for(let i=0;i<str.length;i++){ hash = ((hash<<5)-hash) + str.charCodeAt(i); hash|=0; }
+  return hash + '_' + str.length;
+}
+
 async function supabaseSaveData(force){
   if(!supabaseClient || !supabaseUser || !supabaseRecordId) return false;
+  if(suppressSave){ return false; } // Don't save during realtime update application
   if(syncInProgress && !force){ pendingSync = true; return false; }
+
+  // Build snapshot
+  const snapshot = {
+    courses: DB.courses, academicYears: DB.academicYears,
+    currentCourse: DB.currentCourse, currentYear: DB.currentYear,
+    candidates: DB.candidates, students: DB.students, employers: DB.employers,
+    communications: DB.communications, settings: DB.settings,
+    version: '5.0'
+  };
+  const currentHash = hashData(snapshot);
+  // Skip if nothing changed
+  if(currentHash === lastSaveHash && !force){ return true; }
+
   syncInProgress = true;
   try {
-    // Build clean DB snapshot (exclude runtime-only fields)
-    const snapshot = {
-      courses: DB.courses, academicYears: DB.academicYears,
-      currentCourse: DB.currentCourse, currentYear: DB.currentYear,
-      candidates: DB.candidates, students: DB.students, employers: DB.employers,
-      communications: DB.communications, settings: DB.settings,
-      version: '5.0'
-    };
     const {data, error} = await supabaseClient.from('practicum_data')
       .update({
         data: snapshot,
@@ -4042,17 +4059,19 @@ async function supabaseSaveData(force){
       .single();
     if(error){
       console.error('Save error:', error);
-      alert('שגיאה בסנכרון: ' + error.message);
+      updateSyncIndicator('error');
       syncInProgress = false;
       return false;
     }
     supabaseVersion = data.version;
+    lastSaveHash = currentHash;
     updateSyncIndicator('synced');
     syncInProgress = false;
-    if(pendingSync){ pendingSync = false; setTimeout(()=>supabaseSaveData(), 500); }
+    if(pendingSync){ pendingSync = false; setTimeout(()=>supabaseSaveData(), 1000); }
     return true;
   } catch(err){
     console.error(err);
+    updateSyncIndicator('error');
     syncInProgress = false;
     return false;
   }
@@ -4079,30 +4098,45 @@ function updateSyncIndicator(status){
 // Subscribe to realtime changes
 async function supabaseSubscribe(){
   if(!supabaseClient || !supabaseUser) return;
-  if(supabaseRealtimeChannel){ supabaseRealtimeChannel.unsubscribe(); }
-  supabaseRealtimeChannel = supabaseClient.channel('practicum-changes')
+  if(supabaseRealtimeChannel){ await supabaseRealtimeChannel.unsubscribe(); }
+  supabaseRealtimeChannel = supabaseClient.channel('practicum-changes-' + Date.now())
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'practicum_data'}, async (payload) => {
       const newData = payload.new;
-      // Ignore our own updates
-      if(newData.last_editor_email === DB.currentUser.email && newData.version === supabaseVersion + 1){
+      // Always update version to avoid re-processing
+      if(newData.version <= supabaseVersion) return;
+
+      // If this update is from current user, just bump version and skip
+      if(newData.last_editor_email === DB.currentUser.email){
         supabaseVersion = newData.version;
+        // Update hash to match so we don't re-save
+        lastSaveHash = hashData(newData.data);
         return;
       }
-      // Conflict detection
-      if(newData.last_editor_email !== DB.currentUser.email){
-        // Another user edited - notify and reload
-        const editor = newData.last_editor_name || 'משתמש אחר';
-        showConflictNotice(editor);
-      }
-      // Merge: newest wins
-      const remote = newData.data;
-      if(remote){
-        applySupabaseData(remote);
+
+      // Update from another user - apply without triggering save
+      const editor = newData.last_editor_name || 'משתמש אחר';
+      showConflictNotice(editor);
+
+      suppressSave = true;
+      try {
+        applySupabaseData(newData.data);
         supabaseVersion = newData.version;
+        lastSaveHash = hashData(newData.data);
         renderAll();
+      } finally {
+        // Release suppression after render completes
+        setTimeout(() => { suppressSave = false; }, 500);
       }
     })
-    .subscribe();
+    .subscribe((status) => {
+      console.log('Realtime status:', status);
+      if(status === 'SUBSCRIBED') updateSyncIndicator('synced');
+      else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT'){
+        updateSyncIndicator('error');
+        // Try to resubscribe after delay
+        setTimeout(() => supabaseSubscribe(), 5000);
+      }
+    });
 }
 
 function applySupabaseData(data){
@@ -4128,15 +4162,38 @@ function showConflictNotice(editorName){
   setTimeout(() => { if(notice.parentNode) notice.remove(); }, 6000);
 }
 
-// Hook into saveToStorage to also save to Supabase
+// Hook into saveToStorage to also save to Supabase (debounced)
 const originalSaveToStorage = saveToStorage;
 saveToStorage = function(){
   originalSaveToStorage.apply(this, arguments);
-  if(supabaseEnabled && supabaseUser){
+  if(supabaseEnabled && supabaseUser && !suppressSave){
     updateSyncIndicator('syncing');
-    supabaseSaveData();
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => supabaseSaveData(), 800);
   }
 };
+
+// Manual refresh - pull latest from cloud
+async function cloudSyncRefresh(){
+  if(!supabaseClient || !supabaseUser){ alert('לא מחובר לסנכרון'); return; }
+  updateSyncIndicator('syncing');
+  const cloudData = await supabaseLoadData();
+  if(cloudData && Object.keys(cloudData).length > 0){
+    suppressSave = true;
+    try {
+      applySupabaseData(cloudData);
+      lastSaveHash = hashData(cloudData);
+      renderAll();
+      setTimeout(() => { suppressSave = false; }, 500);
+      alert('רוענן מהענן: ' + (cloudData.students?.length||0) + ' סטודנטים, ' + (cloudData.employers?.length||0) + ' מעסיקים');
+    } finally {
+      updateSyncIndicator('synced');
+    }
+  } else {
+    alert('אין נתונים בענן');
+    updateSyncIndicator('synced');
+  }
+}
 
 // ============ CLOUD SYNC LOGIN UI ============
 async function cloudSyncLogin(){
