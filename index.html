@@ -1199,7 +1199,15 @@ function loadBackup(event){
         DB.employers.forEach(e => e.year = normalizeYear(e.year));
         DB.candidates.forEach(c => c.year = normalizeYear(c.year));
         DB.currentYear = normalizeYear(data.currentYear) || DB.academicYears[0] || defYear;
-        DB.currentCourse = data.currentCourse || DB.courses[0]?.id || defCourse;
+        // Pick a course that has data - prefer one with students
+        let targetCourse = data.currentCourse;
+        // Verify the course exists in DB.courses
+        if(!targetCourse || !DB.courses.find(c => c.id === targetCourse)){
+          // Find course with students
+          const courseWithData = DB.courses.find(c => DB.students.some(s => s.courseId === c.id) || DB.employers.some(e => e.courseId === c.id));
+          targetCourse = courseWithData?.id || DB.courses[0]?.id || defCourse;
+        }
+        DB.currentCourse = targetCourse;
       } else {
         if(data.students){
           data.students.forEach(s => {
