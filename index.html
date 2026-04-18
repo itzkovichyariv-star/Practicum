@@ -4479,32 +4479,15 @@ if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
   document.documentElement.classList.add('pwa-standalone');
 }
 
-// Service worker (inline registration - will only work over https)
-if('serviceWorker' in navigator && location.protocol === 'https:'){
-  const swCode = `
-    const CACHE = 'practicum-v5-' + Date.now();
-    self.addEventListener('install', e => { self.skipWaiting(); });
-    self.addEventListener('activate', e => {
-      e.waitUntil(
-        caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-          .then(() => clients.claim())
-      );
-    });
-    // Network-first strategy - always try to get fresh content
-    self.addEventListener('fetch', e => {
-      e.respondWith(
-        fetch(e.request).then(res => {
-          if(e.request.method === 'GET' && res.status === 200){
-            const cloned = res.clone();
-            caches.open(CACHE).then(cache => cache.put(e.request, cloned));
-          }
-          return res;
-        }).catch(() => caches.match(e.request))
-      );
-    });
-  `;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(err => console.log('SW not registered:', err.message));
+// Unregister any existing service workers to prevent cache issues
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister().then(ok => console.log('SW unregistered:', ok)));
+  }).catch(err => console.log('SW cleanup error:', err));
+  // Also clear old caches
+  if('caches' in window){
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(()=>{});
+  }
 }
 </script>
 </body>
