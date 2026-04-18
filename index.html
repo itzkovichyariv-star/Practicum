@@ -1174,6 +1174,35 @@ let candidateSummaryText = '';
 
 // Normalize Hebrew year quotes to gershayim U+05F4
 function normalizeYear(y){return (y||'').replace(/[""״]/g,'\u05F4').trim();}
+// Normalize course name for duplicate detection (collapse whitespace, unify quotes, lowercase Latin)
+function courseNameKey(n){
+  return (n||'').replace(/[""״]/g,'\u05F4').replace(/\s+/g,' ').trim().toLowerCase();
+}
+// Merge duplicate courses: same normalized name + same year. Keep first, migrate references from others.
+function dedupeCourses(){
+  if(!DB.courses || DB.courses.length < 2) return {merged:0};
+  const seen = {};
+  const toRemove = [];
+  DB.courses.forEach(c => {
+    const key = courseNameKey(c.name) + '|' + normalizeYear(c.year||'');
+    if(seen[key] && seen[key].id !== c.id){
+      const keeper = seen[key];
+      // Migrate all references from c.id to keeper.id
+      DB.students.forEach(s => { if(s.courseId === c.id) s.courseId = keeper.id; });
+      DB.employers.forEach(e => { if(e.courseId === c.id) e.courseId = keeper.id; });
+      DB.candidates.forEach(x => { if(x.courseId === c.id) x.courseId = keeper.id; });
+      DB.communications.forEach(m => { if(m.courseId === c.id) m.courseId = keeper.id; });
+      (DB.lectures||[]).forEach(l => { if(l.courseId === c.id) l.courseId = keeper.id; });
+      if(DB.currentCourse === c.id) DB.currentCourse = keeper.id;
+      toRemove.push(c.id);
+    } else {
+      seen[key] = c;
+    }
+  });
+  if(toRemove.length === 0) return {merged:0};
+  DB.courses = DB.courses.filter(c => !toRemove.includes(c.id));
+  return {merged: toRemove.length, remaining: DB.courses.length};
+}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
 
 // ============ BEFOREUNLOAD WARNING ============
@@ -1279,6 +1308,12 @@ function loadFromStorage(){
       DB.lectures.forEach(l => { if(l.year) l.year = normalizeYear(l.year); });
       // Auto-import lectures if first run after upgrade
       if(DB.lectures.length === 0) autoImportInitialLectures();
+      // Cleanup duplicate courses (same name+year) - keeps first, migrates references
+      const dedup = dedupeCourses();
+      if(dedup.merged > 0){
+        console.log('Merged '+dedup.merged+' duplicate course(s)');
+        saveToStorage();
+      }
     } else {
       // Try migrate from v4
       const rawV4 = localStorage.getItem('practicum_db_v4');
@@ -1540,8 +1575,20 @@ function renderContextBar(){
     if(availableYears.length === 0) availableYears = DB.academicYears;
   }
 
+  // Deduplicate display: if multiple courses share normalized name (e.g., one without year), show only the selected/first
+  const seenNames = {};
+  const uniqueCourses = availableCourses.filter(c => {
+    const k = courseNameKey(c.name);
+    if(seenNames[k]){
+      // Prefer the currently-selected one
+      if(c.id === DB.currentCourse){ seenNames[k] = c; return true; }
+      return false;
+    }
+    seenNames[k] = c;
+    return true;
+  });
   courseSelect.innerHTML = '<option value="__all__">כל הקורסים</option>' +
-    availableCourses.map(c =>
+    uniqueCourses.map(c =>
     '<option value="'+escHtml(c.id)+'"'+(c.id===DB.currentCourse?' selected':'')+'>'+escHtml(c.name)+'</option>'
   ).join('');
   yearSelect.innerHTML = '<option value="__all__">כל השנים</option>' +
@@ -1677,15 +1724,25 @@ async function addCourse(){
   if(!name){alert('נא למלא שם קורס');return;}
   if(!year){alert('נא לבחור שנה אקדמית');return;}
   const editId = document.getElementById('course-edit-id').value;
-  // Duplicate check
-  const exists = DB.courses.find(c =>
+  const nameKey = courseNameKey(name);
+  // Duplicate check (normalized): same name + same year
+  const existsSame = DB.courses.find(c =>
     c.id !== editId &&
-    c.name.trim() === name &&
-    (c.year === year || (!c.year && year === DB.currentYear))
+    courseNameKey(c.name) === nameKey &&
+    (normalizeYear(c.year||'') === year || (!c.year && year === DB.currentYear))
   );
-  if(exists){
+  if(existsSame){
     alert('⚠️ כבר קיים קורס בשם "'+name+'" בשנה '+year+'.\nלא ניתן ליצור כפילות.');
     return;
+  }
+  // Soft warning: same name exists in a DIFFERENT year - allow but confirm
+  const existsOtherYear = DB.courses.find(c =>
+    c.id !== editId &&
+    courseNameKey(c.name) === nameKey &&
+    normalizeYear(c.year||'') !== year && c.year
+  );
+  if(existsOtherYear){
+    if(!confirm('ℹ️ קיים קורס בשם זהה בשנה '+existsOtherYear.year+'.\nלהוסיף את הקורס גם לשנה '+year+'?')) return;
   }
   const institution = document.getElementById('new-course-institution').value.trim();
   if(institution && !DB.institutions.includes(institution)) DB.institutions.push(institution);
