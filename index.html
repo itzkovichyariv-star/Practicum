@@ -237,6 +237,8 @@ input[type=file]{display:none}
   <button onclick="showPage('employers')" id="btn-employers">מעסיקים</button>
   <button onclick="showPage('communications')" id="btn-communications">תקשורת</button>
   <button onclick="showPage('reports')" id="btn-reports">דוחות</button>
+  <button onclick="showPage('analytics')" id="btn-analytics">אנליטיקה</button>
+  <button onclick="showPage('documents')" id="btn-documents">מסמכים</button>
   <button onclick="showPage('email')" id="btn-email">מייל</button>
   <button onclick="showPage('settings')" id="btn-settings">הגדרות</button>
   <button onclick="showPage('backup')" id="btn-backup">גיבוי</button>
@@ -502,6 +504,75 @@ input[type=file]{display:none}
 </div>
 
 <!-- BACKUP -->
+<!-- ANALYTICS PAGE -->
+<div id="analytics" class="page">
+  <div class="card">
+    <div class="card-header">
+      <h2>📊 אנליטיקה ותובנות</h2>
+      <div><small style="color:var(--muted)" id="analytics-context"></small></div>
+    </div>
+    <div id="analytics-kpi" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px"></div>
+  </div>
+  <div class="card"><h2>🏛️ ביצועי מעסיקים</h2><div id="analytics-employers"></div></div>
+  <div class="card"><h2>📈 השוואה בין שנים</h2><div id="analytics-years"></div></div>
+  <div class="card"><h2>🎯 דפוסי העדפות סטודנטים</h2><div id="analytics-preferences"></div></div>
+  <div class="card"><h2>🌆 התפלגות לפי עיר</h2><div id="analytics-cities"></div></div>
+  <div class="card"><h2>⏱️ שעות התנסות</h2><div id="analytics-hours"></div></div>
+</div>
+
+<!-- DOCUMENTS PAGE -->
+<div id="documents" class="page">
+  <div class="card">
+    <h2>📄 יצירת מסמכים</h2>
+    <p style="color:var(--muted);font-size:13px">יצירת מסמכים אוטומטית עם מילוי פרטי סטודנט/מעסיק</p>
+
+    <div class="section" style="border-color:var(--primary)">
+      <h3 style="color:var(--primary)">מכתבי המלצה לסטודנטים</h3>
+      <p style="font-size:12px;color:var(--muted)">מכתב המלצה עבור סטודנט שסיים את הפרקטיקום בהצלחה</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-recommendation-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-primary" onclick="generateRecommendationLetter()">צור מכתב המלצה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--success)">
+      <h3 style="color:var(--success)">אישור השמה</h3>
+      <p style="font-size:12px;color:var(--muted)">אישור רשמי שסטודנט התקבל לפרקטיקום בארגון</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-placement-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-success" onclick="generatePlacementLetter()">צור אישור השמה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:#7c3aed">
+      <h3 style="color:#7c3aed">תעודת סיום פרקטיקום</h3>
+      <p style="font-size:12px;color:var(--muted)">תעודה חגיגית לסיום הפרקטיקום בהצלחה</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-cert-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn" style="background:#7c3aed;color:#fff" onclick="generateCompletionCertificate()">צור תעודה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:var(--warn)">
+      <h3 style="color:#856404">פנייה למעסיק</h3>
+      <p style="font-size:12px;color:var(--muted)">מכתב פנייה רשמי למעסיק חדש להצטרפות לתכנית</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-employer-intro" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-warning" onclick="generateEmployerLetter()">צור מכתב פנייה</button>
+      </div>
+    </div>
+
+    <div class="section" style="border-color:#0891b2">
+      <h3 style="color:#0891b2">סיכום תיק מועמד</h3>
+      <p style="font-size:12px;color:var(--muted)">מסמך מפורט של תיק מועמד - לחלוקה לארגונים</p>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <select id="doc-candidate-summary" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
+        <button class="btn btn-info" onclick="generateCandidateSummaryDoc()">צור סיכום</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="backup" class="page">
   <div class="card" style="border-color:var(--warn)">
     <h2>גיבוי ושחזור</h2>
@@ -1570,6 +1641,424 @@ function showPage(page){
   if(btn) btn.classList.add('active');
   if(page === 'settings') renderSettingsPage();
   if(page === 'email') renderEmailPage();
+  if(page === 'analytics') renderAnalyticsPage();
+  if(page === 'documents') renderDocumentsPage();
+}
+
+// ============ ANALYTICS PAGE ============
+function renderAnalyticsPage(){
+  const students = getFilteredStudents();
+  const employers = getFilteredEmployers();
+  const candidates = getFilteredCandidates();
+  const courseName = DB.courses.find(c=>c.id===DB.currentCourse)?.name || 'כל הקורסים';
+
+  document.getElementById('analytics-context').textContent = courseName + ' | ' + DB.currentYear;
+
+  // KPIs
+  const accepted = students.filter(s => s.acceptedOrg).length;
+  const hired = students.filter(s => s.hired).length;
+  const placementRate = students.length ? Math.round(accepted/students.length*100) : 0;
+  const hiringRate = accepted ? Math.round(hired/accepted*100) : 0;
+  const totalHours = students.reduce((sum,s) => sum + (parseInt(s.hoursApproved)||0), 0);
+  const confirmedHours = students.filter(s=>s.hoursConfirmed).length;
+  const withFeedback = students.filter(s => s.orgFeedback || (s.file_feedback && !s.file_feedback.na)).length;
+  const totalSlots = employers.reduce((sum,e)=>sum+(parseInt(e.slots)||0),0);
+  const utilization = totalSlots ? Math.round(accepted/totalSlots*100) : 0;
+
+  const kpis = [
+    {label:'אחוז השמה', value:placementRate+'%', sub:accepted+' מתוך '+students.length+' סטודנטים', color:'var(--primary)'},
+    {label:'אחוז קליטה', value:hiringRate+'%', sub:hired+' נקלטו מתוך '+accepted, color:'var(--success)'},
+    {label:'ניצול משרות', value:utilization+'%', sub:accepted+' מתוך '+totalSlots+' משרות', color:'var(--warn)'},
+    {label:'סה"כ שעות התנסות', value:totalHours.toLocaleString(), sub:confirmedHours+' מאושרות ע"י ארגון', color:'#7c3aed'},
+    {label:'חוות דעת ארגונים', value:withFeedback+'/'+accepted, sub:accepted?Math.round(withFeedback/accepted*100)+'%':'0%', color:'#0891b2'},
+    {label:'מועמדים במערכת', value:candidates.length, sub:candidates.filter(c=>c.interviewResult==='passed').length+' עברו ראיון', color:'#f97316'}
+  ];
+
+  document.getElementById('analytics-kpi').innerHTML = kpis.map(k =>
+    '<div style="background:var(--panel);border:1px solid var(--border);border-right:4px solid '+k.color+';padding:14px;border-radius:10px">'
+    +'<div style="font-size:11px;color:var(--muted);margin-bottom:4px">'+k.label+'</div>'
+    +'<div style="font-size:24px;font-weight:700;color:'+k.color+'">'+k.value+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:4px">'+k.sub+'</div>'
+    +'</div>'
+  ).join('');
+
+  // Employer performance
+  let empHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--chip)"><th style="padding:8px;text-align:right">מעסיק</th><th style="padding:8px;text-align:center">משרות</th><th style="padding:8px;text-align:center">הגישו</th><th style="padding:8px;text-align:center">התקבלו</th><th style="padding:8px;text-align:center">נקלטו</th><th style="padding:8px;text-align:center">ניצול</th><th style="padding:8px;text-align:right">יעילות</th></tr></thead><tbody>';
+  const empPerf = employers.map(e => {
+    const subs = students.filter(s=>(s.submitted||[]).some(x=>x.toLowerCase().includes(e.name.toLowerCase()))).length;
+    const acc = students.filter(s=>s.acceptedOrg===e.name).length;
+    const hir = students.filter(s=>s.acceptedOrg===e.name && s.hired).length;
+    const util = e.slots ? Math.round(acc/e.slots*100) : 0;
+    return {e, subs, acc, hir, util};
+  }).sort((a,b) => b.acc - a.acc);
+  empPerf.forEach(({e,subs,acc,hir,util}) => {
+    const barWidth = Math.min(100, util);
+    const barColor = util >= 100 ? 'var(--danger)' : util >= 75 ? 'var(--success)' : util >= 50 ? 'var(--primary)' : 'var(--warn)';
+    empHtml += '<tr style="border-bottom:1px solid var(--border)">';
+    empHtml += '<td style="padding:8px"><strong>'+escHtml(e.name)+'</strong></td>';
+    empHtml += '<td style="padding:8px;text-align:center">'+(e.slots||0)+'</td>';
+    empHtml += '<td style="padding:8px;text-align:center">'+subs+'</td>';
+    empHtml += '<td style="padding:8px;text-align:center"><strong>'+acc+'</strong></td>';
+    empHtml += '<td style="padding:8px;text-align:center">'+hir+'</td>';
+    empHtml += '<td style="padding:8px;text-align:center">'+util+'%</td>';
+    empHtml += '<td style="padding:8px"><div style="background:var(--chip);height:16px;border-radius:8px;overflow:hidden"><div style="background:'+barColor+';height:100%;width:'+barWidth+'%;transition:width .3s"></div></div></td>';
+    empHtml += '</tr>';
+  });
+  empHtml += '</tbody></table>';
+  document.getElementById('analytics-employers').innerHTML = empHtml || '<p style="color:var(--muted);text-align:center;padding:20px">אין נתונים</p>';
+
+  // Year comparison
+  let yearHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--chip)"><th style="padding:8px">שנה</th><th style="padding:8px;text-align:center">מועמדים</th><th style="padding:8px;text-align:center">סטודנטים</th><th style="padding:8px;text-align:center">מעסיקים</th><th style="padding:8px;text-align:center">התקבלו</th><th style="padding:8px;text-align:center">נקלטו</th><th style="padding:8px;text-align:center">אחוז השמה</th><th style="padding:8px;text-align:right">מגמה</th></tr></thead><tbody>';
+  let prevPlacement = null;
+  DB.academicYears.forEach(year => {
+    const yc = DB.candidates.filter(c=>c.courseId===DB.currentCourse && normalizeYear(c.year)===year);
+    const ys = DB.students.filter(s=>s.courseId===DB.currentCourse && normalizeYear(s.year)===year);
+    const ye = DB.employers.filter(e=>e.courseId===DB.currentCourse && normalizeYear(e.year)===year);
+    const acc = ys.filter(s=>s.acceptedOrg).length;
+    const hir = ys.filter(s=>s.hired).length;
+    const pct = ys.length ? Math.round(acc/ys.length*100) : 0;
+    let trend = '';
+    if(prevPlacement !== null){
+      const diff = pct - prevPlacement;
+      if(diff > 0) trend = '<span style="color:var(--success)">▲ +'+diff+'%</span>';
+      else if(diff < 0) trend = '<span style="color:var(--danger)">▼ '+diff+'%</span>';
+      else trend = '<span style="color:var(--muted)">━ ללא שינוי</span>';
+    }
+    prevPlacement = pct;
+    const highlight = year === DB.currentYear ? 'background:rgba(47,109,246,.08)' : '';
+    yearHtml += '<tr style="border-bottom:1px solid var(--border);'+highlight+'">';
+    yearHtml += '<td style="padding:8px"><strong>'+escHtml(year)+'</strong></td>';
+    yearHtml += '<td style="padding:8px;text-align:center">'+yc.length+'</td>';
+    yearHtml += '<td style="padding:8px;text-align:center"><strong>'+ys.length+'</strong></td>';
+    yearHtml += '<td style="padding:8px;text-align:center">'+ye.length+'</td>';
+    yearHtml += '<td style="padding:8px;text-align:center">'+acc+'</td>';
+    yearHtml += '<td style="padding:8px;text-align:center">'+hir+'</td>';
+    yearHtml += '<td style="padding:8px;text-align:center">'+pct+'%</td>';
+    yearHtml += '<td style="padding:8px">'+trend+'</td>';
+    yearHtml += '</tr>';
+  });
+  yearHtml += '</tbody></table>';
+  document.getElementById('analytics-years').innerHTML = yearHtml;
+
+  // Preferences patterns - what courses students want
+  const prefCounts = {};
+  students.forEach(s => {
+    (s.preferences||[]).filter(p=>p).forEach((p, idx) => {
+      if(!prefCounts[p]) prefCounts[p] = {total:0, p1:0, p2:0, p3:0};
+      prefCounts[p].total++;
+      prefCounts[p]['p'+(idx+1)]++;
+    });
+  });
+  const prefSorted = Object.entries(prefCounts).sort((a,b) => b[1].total - a[1].total).slice(0,10);
+  let prefHtml = '';
+  if(prefSorted.length === 0){
+    prefHtml = '<p style="color:var(--muted);text-align:center;padding:20px">אין העדפות רשומות</p>';
+  } else {
+    prefHtml = '<p style="font-size:12px;color:var(--muted);margin-bottom:10px">המעסיקים המבוקשים ביותר (סה"כ ציונים + פילוח לפי דירוג העדפה):</p>';
+    const maxTotal = Math.max(...prefSorted.map(([,v]) => v.total));
+    prefSorted.forEach(([name, data]) => {
+      const pct = Math.round(data.total/maxTotal*100);
+      prefHtml += '<div style="margin:8px 0;padding:8px;background:var(--surface);border-radius:8px">';
+      prefHtml += '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><strong>'+escHtml(name)+'</strong><span style="font-size:12px">'+data.total+' בקשות</span></div>';
+      prefHtml += '<div style="display:flex;gap:2px;height:14px;border-radius:7px;overflow:hidden">';
+      if(data.p1) prefHtml += '<div style="background:#17a34a;width:'+(data.p1/data.total*pct)+'%" title="עדיפות 1"></div>';
+      if(data.p2) prefHtml += '<div style="background:#f6b100;width:'+(data.p2/data.total*pct)+'%" title="עדיפות 2"></div>';
+      if(data.p3) prefHtml += '<div style="background:#e5484d;width:'+(data.p3/data.total*pct)+'%" title="עדיפות 3"></div>';
+      prefHtml += '</div>';
+      prefHtml += '<div style="font-size:11px;color:var(--muted);margin-top:3px">עדיפות 1: '+data.p1+' | עדיפות 2: '+data.p2+' | עדיפות 3: '+data.p3+'</div>';
+      prefHtml += '</div>';
+    });
+  }
+  document.getElementById('analytics-preferences').innerHTML = prefHtml;
+
+  // Cities
+  const cityCounts = {};
+  students.forEach(s => { if(s.city) cityCounts[s.city] = (cityCounts[s.city]||0)+1; });
+  const citySorted = Object.entries(cityCounts).sort((a,b) => b[1]-a[1]);
+  let cityHtml = '';
+  if(citySorted.length === 0){
+    cityHtml = '<p style="color:var(--muted);text-align:center;padding:20px">אין נתוני ערים</p>';
+  } else {
+    const maxCity = Math.max(...citySorted.map(([,n])=>n));
+    cityHtml = citySorted.map(([city, count]) =>
+      '<div style="display:flex;align-items:center;gap:10px;margin:6px 0">'+
+      '<div style="min-width:100px;font-size:13px">'+escHtml(city)+'</div>'+
+      '<div style="flex:1;background:var(--chip);height:20px;border-radius:10px;overflow:hidden"><div style="background:var(--primary);height:100%;width:'+Math.round(count/maxCity*100)+'%;display:flex;align-items:center;padding:0 8px;color:#fff;font-size:11px;font-weight:700;min-width:30px">'+count+'</div></div>'+
+      '</div>'
+    ).join('');
+  }
+  document.getElementById('analytics-cities').innerHTML = cityHtml;
+
+  // Hours distribution
+  const hoursBuckets = {'0-30':0, '31-60':0, '61-100':0, '101+':0};
+  students.forEach(s => {
+    const h = parseInt(s.hoursApproved)||0;
+    if(h <= 30) hoursBuckets['0-30']++;
+    else if(h <= 60) hoursBuckets['31-60']++;
+    else if(h <= 100) hoursBuckets['61-100']++;
+    else hoursBuckets['101+']++;
+  });
+  const maxH = Math.max(...Object.values(hoursBuckets));
+  let hoursHtml = '';
+  if(maxH === 0){
+    hoursHtml = '<p style="color:var(--muted);text-align:center;padding:20px">אין נתוני שעות</p>';
+  } else {
+    hoursHtml = '<p style="font-size:12px;color:var(--muted);margin-bottom:10px">התפלגות סטודנטים לפי שעות התנסות:</p>';
+    Object.entries(hoursBuckets).forEach(([range, count]) => {
+      const pct = Math.round(count/maxH*100);
+      hoursHtml += '<div style="display:flex;align-items:center;gap:10px;margin:6px 0">';
+      hoursHtml += '<div style="min-width:70px;font-size:13px">'+range+' שעות</div>';
+      hoursHtml += '<div style="flex:1;background:var(--chip);height:20px;border-radius:10px;overflow:hidden"><div style="background:#7c3aed;height:100%;width:'+pct+'%;display:flex;align-items:center;padding:0 8px;color:#fff;font-size:11px;font-weight:700;min-width:30px">'+count+'</div></div>';
+      hoursHtml += '</div>';
+    });
+  }
+  document.getElementById('analytics-hours').innerHTML = hoursHtml;
+}
+
+// ============ DOCUMENTS PAGE ============
+function renderDocumentsPage(){
+  const students = getFilteredStudents();
+  const candidates = getFilteredCandidates();
+  const employers = getFilteredEmployers();
+
+  const studentOptions = '<option value="">בחר סטודנט...</option>' +
+    students.map(s => '<option value="'+s.id+'">'+escHtml(s.name)+'</option>').join('');
+  const studentAcceptedOptions = '<option value="">בחר סטודנט...</option>' +
+    students.filter(s=>s.acceptedOrg).map(s => '<option value="'+s.id+'">'+escHtml(s.name)+'</option>').join('');
+  const employerOptions = '<option value="">בחר מעסיק...</option>' +
+    employers.map(e => '<option value="'+e.id+'">'+escHtml(e.name)+'</option>').join('');
+  const candidateOptions = '<option value="">בחר מועמד...</option>' +
+    candidates.map(c => '<option value="'+c.id+'">'+escHtml(c.name)+'</option>').join('');
+
+  document.getElementById('doc-recommendation-student').innerHTML = studentOptions;
+  document.getElementById('doc-placement-student').innerHTML = studentAcceptedOptions;
+  document.getElementById('doc-cert-student').innerHTML = studentAcceptedOptions;
+  document.getElementById('doc-employer-intro').innerHTML = employerOptions;
+  document.getElementById('doc-candidate-summary').innerHTML = candidateOptions;
+}
+
+function openDocumentWindow(title, bodyHtml){
+  const w = window.open('','','width=800,height=900');
+  const date = new Date().toLocaleDateString('he-IL');
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${escHtml(title)}</title>
+    <style>
+      @page { size: A4; margin: 2cm; }
+      body { font-family: 'Heebo', Arial, sans-serif; direction: rtl; color: #222; line-height: 1.8; padding: 0; }
+      .letterhead { border-bottom: 3px solid #2f6df6; padding-bottom: 16px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; }
+      .letterhead h1 { color: #2f6df6; margin: 0; font-size: 22px; }
+      .letterhead .sub { color: #64728a; font-size: 13px; }
+      .letterhead .date { color: #64728a; font-size: 12px; text-align: left; }
+      .recipient { margin-bottom: 25px; font-size: 14px; }
+      h2 { font-size: 18px; color: #2f6df6; margin: 20px 0 10px; }
+      p { margin: 10px 0; font-size: 14px; }
+      .signature { margin-top: 50px; padding-top: 20px; border-top: 1px solid #d0d7de; }
+      .signature .name { font-weight: 700; font-size: 15px; }
+      .footer { margin-top: 40px; text-align: center; color: #64728a; font-size: 11px; border-top: 1px solid #d0d7de; padding-top: 10px; }
+      .cert { text-align: center; border: 8px double #2f6df6; padding: 40px; margin: 0; }
+      .cert h1 { font-size: 32px; color: #2f6df6; margin-bottom: 10px; }
+      .cert .big { font-size: 24px; font-weight: 700; margin: 20px 0; color: #333; }
+      .cert .student-name { font-size: 38px; color: #2f6df6; margin: 30px 0; font-weight: 800; }
+      table.info { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+      table.info td { padding: 6px 10px; border-bottom: 1px solid #eee; }
+      table.info td:first-child { font-weight: 700; color: #64728a; width: 30%; }
+      @media screen { body { max-width: 800px; margin: 20px auto; background: #fff; padding: 50px; box-shadow: 0 4px 20px rgba(0,0,0,.1); } .print-btn { position: fixed; top: 10px; left: 10px; padding: 10px 20px; background: #2f6df6; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; } }
+      @media print { .print-btn { display: none; } }
+    </style></head><body>
+    <button class="print-btn" onclick="window.print()">🖨️ הדפס / שמור כ-PDF</button>
+    ${bodyHtml}
+    </body></html>`);
+  w.document.close();
+}
+
+function generateRecommendationLetter(){
+  const id = document.getElementById('doc-recommendation-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s) return;
+  const date = new Date().toLocaleDateString('he-IL');
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body = `
+    <div class="letterhead">
+      <div>
+        <h1>אוניברסיטת אריאל בשומרון</h1>
+        <div class="sub">המחלקה למשאבי אנוש</div>
+      </div>
+      <div class="date">${date}</div>
+    </div>
+    <div class="recipient">לכבוד מי שמעוניין,</div>
+    <h2>מכתב המלצה עבור ${escHtml(s.name)}</h2>
+    <p>הנני ממליץ בחום על ${escHtml(s.name)}, ${s.email ? '('+escHtml(s.email)+')' : ''} אשר השתתפ/ה בתכנית הפרקטיקום במשאבי אנוש באוניברסיטת אריאל.</p>
+    ${s.acceptedOrg ? '<p>במהלך הפרקטיקום, ביצע/ה '+escHtml(s.name)+' את ההתנסות המעשית בארגון <strong>'+escHtml(s.acceptedOrg)+'</strong>'+(s.hoursApproved ? ' וצבר/ה <strong>'+s.hoursApproved+' שעות</strong> של עבודה מעשית' : '')+'.</p>' : ''}
+    ${s.orgFeedback ? '<p>על פי חוות הדעת שהתקבלה מהארגון:<br><em style="display:block;padding:12px;background:#f7f8fa;border-right:3px solid #2f6df6;margin:10px 0">"'+escHtml(s.orgFeedback)+'"</em></p>' : ''}
+    <p>במהלך הפרקטיקום גילה/גילתה ${escHtml(s.name)} מחויבות, מקצועיות ויכולת להשתלב בסביבת עבודה מאתגרת.</p>
+    <p>${s.hired ? '<strong>בסיום הפרקטיקום נקלט/ה לעבודה בארגון</strong> - עדות ליכולות ולתרומה.' : ''}</p>
+    <p>אני בטוח/ה שיוסיף/תוסיף ערך רב לכל ארגון שיעסיק אותו/ה ואני ממליץ/ה עליו/ה בחום.</p>
+    <p>לכל שאלה ניתן לפנות אליי:</p>
+    <div class="signature">
+      <div class="name">${escHtml(sender)}</div>
+      <div>אוניברסיטת אריאל בשומרון</div>
+      <div>אימייל: ${escHtml(senderEmail)}</div>
+    </div>
+    <div class="footer">מסמך זה הופק אוטומטית מתוך מערכת ניהול הפרקטיקום</div>
+  `;
+  openDocumentWindow('מכתב המלצה - '+s.name, body);
+}
+
+function generatePlacementLetter(){
+  const id = document.getElementById('doc-placement-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s || !s.acceptedOrg){ alert('הסטודנט לא מוצב בארגון'); return; }
+  const date = new Date().toLocaleDateString('he-IL');
+  const emp = DB.employers.find(e => e.name === s.acceptedOrg);
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body = `
+    <div class="letterhead">
+      <div><h1>אישור השמה לפרקטיקום</h1><div class="sub">אוניברסיטת אריאל בשומרון</div></div>
+      <div class="date">${date}</div>
+    </div>
+    <h2>אישור הצבה</h2>
+    <p>הנני מאשר/ת בזאת כי הסטודנט/ית <strong>${escHtml(s.name)}</strong> התקבל/ה ויבצע/תבצע את הפרקטיקום המעשי בארגון:</p>
+    <table class="info">
+      <tr><td>ארגון:</td><td><strong>${escHtml(s.acceptedOrg)}</strong></td></tr>
+      ${emp ? `
+      <tr><td>איש קשר:</td><td>${escHtml(emp.contact || '-')}</td></tr>
+      <tr><td>תפקיד:</td><td>${escHtml(emp.role || '-')}</td></tr>
+      <tr><td>טלפון:</td><td>${escHtml(emp.phone || '-')}</td></tr>
+      <tr><td>מייל:</td><td>${escHtml((emp.email||'').replace('mailto:',''))}</td></tr>
+      <tr><td>מיקום:</td><td>${escHtml(emp.location || '-')}</td></tr>
+      `:''}
+    </table>
+    ${emp && emp.description ? '<p><strong>תיאור הפרקטיקום:</strong><br>'+escHtml(emp.description)+'</p>' : ''}
+    <p>הפרקטיקום מהווה חלק בלתי נפרד מתכנית הלימודים ובסיומו יוענקו נקודות זכות אקדמיות.</p>
+    <p>לשאלות או להבהרות ניתן לפנות אליי:</p>
+    <div class="signature">
+      <div class="name">${escHtml(sender)}</div>
+      <div>מרכז הפרקטיקום - אוניברסיטת אריאל</div>
+      <div>אימייל: ${escHtml(senderEmail)}</div>
+    </div>
+    <div class="footer">הופק אוטומטית מתוך מערכת ניהול הפרקטיקום | ${date}</div>
+  `;
+  openDocumentWindow('אישור השמה - '+s.name, body);
+}
+
+function generateCompletionCertificate(){
+  const id = document.getElementById('doc-cert-student').value;
+  if(!id){ alert('נא לבחור סטודנט'); return; }
+  const s = DB.students.find(x => x.id == id);
+  if(!s || !s.acceptedOrg){ alert('הסטודנט לא מוצב בארגון'); return; }
+  const date = new Date().toLocaleDateString('he-IL');
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+
+  const body = `
+    <div class="cert">
+      <h1>🎓 תעודת סיום פרקטיקום</h1>
+      <div class="sub" style="font-size:14px;color:#64728a;margin-bottom:20px">אוניברסיטת אריאל בשומרון</div>
+      <div class="big">מוענקת בזאת למר/ת</div>
+      <div class="student-name">${escHtml(s.name)}</div>
+      <div class="big">על סיום הפרקטיקום המעשי בהצלחה</div>
+      <p style="font-size:15px;margin:30px 0">בארגון <strong>${escHtml(s.acceptedOrg)}</strong>${s.hoursApproved ? '<br>היקף: <strong>'+s.hoursApproved+' שעות</strong>' : ''}${s.hoursConfirmed ? ' (מאושרות ע"י הארגון)' : ''}</p>
+      <p style="font-size:14px;color:#64728a;margin-top:40px">שנת לימודים: ${escHtml(s.year||DB.currentYear)}</p>
+      <div style="margin-top:60px;display:flex;justify-content:space-around;font-size:13px">
+        <div>
+          <div style="border-top:1px solid #333;padding-top:6px;min-width:200px">${escHtml(sender)}</div>
+          <div style="color:#64728a">מרכז/ת הפרקטיקום</div>
+        </div>
+        <div>
+          <div style="border-top:1px solid #333;padding-top:6px;min-width:200px">${date}</div>
+          <div style="color:#64728a">תאריך</div>
+        </div>
+      </div>
+    </div>
+  `;
+  openDocumentWindow('תעודת סיום - '+s.name, body);
+}
+
+function generateEmployerLetter(){
+  const id = document.getElementById('doc-employer-intro').value;
+  if(!id){ alert('נא לבחור מעסיק'); return; }
+  const e = DB.employers.find(x => x.id == id);
+  if(!e) return;
+  const date = new Date().toLocaleDateString('he-IL');
+  const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+
+  const body = `
+    <div class="letterhead">
+      <div><h1>אוניברסיטת אריאל בשומרון</h1><div class="sub">תכנית הפרקטיקום במשאבי אנוש</div></div>
+      <div class="date">${date}</div>
+    </div>
+    <div class="recipient">
+      ${e.contact ? 'לכבוד ' + escHtml(e.contact) : 'לכבוד'}${e.role ? ',<br>'+escHtml(e.role) : ''}<br>
+      ${escHtml(e.name)}
+    </div>
+    <h2>פנייה בנושא שיתוף פעולה בתכנית הפרקטיקום</h2>
+    <p>שלום רב,</p>
+    <p>אני פונה אליכם מטעם אוניברסיטת אריאל בשומרון בהצעה לשיתוף פעולה במסגרת תכנית הפרקטיקום למשאבי אנוש.</p>
+    <p>התכנית מאפשרת לסטודנטים בשנה השלישית לתואר ראשון במשאבי אנוש לבצע התנסות מעשית בארגונים מובילים, ובכך לצבור ניסיון יישומי בעולם העבודה.</p>
+    <p><strong>יתרונות עבור הארגון שלכם:</strong></p>
+    <ul>
+      <li>קבלת סטודנטים מוכשרים ומובחרים (ללא עלות)</li>
+      <li>סיוע בפרויקטים בתחומי משאבי אנוש, גיוס, למידה ופיתוח, רווחה ועוד</li>
+      <li>הזדמנות לאתר מועמדים פוטנציאליים לקליטה בסיום הפרקטיקום</li>
+      <li>תרומה לקהילה ולדור הבא של אנשי משאבי אנוש</li>
+    </ul>
+    <p>אשמח לתאם שיחה בה נוכל לדון בהתאמה של הפרקטיקום לצרכי הארגון.</p>
+    <p>לכל שאלה או תיאום פגישה, ניתן לפנות אליי:</p>
+    <div class="signature">
+      <div class="name">${escHtml(sender)}</div>
+      <div>מרכז/ת הפרקטיקום במשאבי אנוש</div>
+      <div>אוניברסיטת אריאל בשומרון</div>
+      <div>אימייל: ${escHtml(senderEmail)}</div>
+    </div>
+  `;
+  openDocumentWindow('פנייה למעסיק - '+e.name, body);
+}
+
+function generateCandidateSummaryDoc(){
+  const id = document.getElementById('doc-candidate-summary').value;
+  if(!id){ alert('נא לבחור מועמד'); return; }
+  const c = DB.candidates.find(x => x.id == id);
+  if(!c) return;
+  const date = new Date().toLocaleDateString('he-IL');
+  const reqs = getCourseReqs(c.courseId);
+  const status = computeCandidateStatus(c);
+  const statusLabel = CAND_STATUS_LABELS[status] || status;
+
+  const body = `
+    <div class="letterhead">
+      <div><h1>סיכום תיק מועמד</h1><div class="sub">אוניברסיטת אריאל בשומרון</div></div>
+      <div class="date">${date}</div>
+    </div>
+    <h2>${escHtml(c.name)}</h2>
+    <table class="info">
+      <tr><td>טלפון:</td><td>${escHtml(c.phone||'אין')}</td></tr>
+      <tr><td>מייל:</td><td>${escHtml(c.email||'אין')}</td></tr>
+      <tr><td>עיר מגורים:</td><td>${escHtml(c.city||'אין')}</td></tr>
+      <tr><td>תאריך הגשה:</td><td>${escHtml(c.applicationDate||'אין')}</td></tr>
+      <tr><td>תחום מבוקש:</td><td>${escHtml(c.preferredArea||'אין')}</td></tr>
+      <tr><td>סטטוס:</td><td><strong>${escHtml(statusLabel)}</strong></td></tr>
+    </table>
+    <h2>הערכת ראיון</h2>
+    <table class="info">
+      ${c.interviewDate ? `<tr><td>תאריך ראיון:</td><td>${escHtml(c.interviewDate)}</td></tr>` : ''}
+      <tr><td>מחויבות:</td><td>${escHtml(c.evalCommitment||'לא דורג')}</td></tr>
+      <tr><td>מוטיבציה:</td><td>${escHtml(c.evalMotivation||'לא דורג')}</td></tr>
+      <tr><td>תקשורת:</td><td>${escHtml(c.evalCommunication||'לא דורג')}</td></tr>
+      <tr><td>אנגלית:</td><td>${escHtml(c.evalEnglish||'לא דורג')}</td></tr>
+      <tr><td>הכרות קודמת:</td><td>${escHtml(c.evalAcquaintance||'אין')}</td></tr>
+      ${c.evalScore ? `<tr><td>ציון ממוצע:</td><td><strong style="font-size:18px;color:#2f6df6">${c.evalScore}/100</strong></td></tr>` : ''}
+    </table>
+    ${c.interviewSummary ? `<h2>סיכום ראיון</h2><p style="padding:15px;background:#f7f8fa;border-right:3px solid #2f6df6;border-radius:6px;white-space:pre-wrap">${escHtml(c.interviewSummary)}</p>` : ''}
+    ${c.rejectionReason ? `<h2 style="color:#e5484d">סיבת דחייה</h2><p>${escHtml(c.rejectionReason)}</p>` : ''}
+    ${c.notes ? `<h2>הערות</h2><p>${escHtml(c.notes)}</p>` : ''}
+    <div class="footer">מסמך זה הופק אוטומטית מתוך מערכת ניהול הפרקטיקום | ${date}</div>
+  `;
+  openDocumentWindow('סיכום מועמד - '+c.name, body);
 }
 
 function renderCloudSyncSection(){
@@ -1885,25 +2374,161 @@ function renderDashboard(){
   pipeHtml += '</div>';
   document.getElementById('dashboard-candidates-pipeline').innerHTML = pipeHtml;
 
-  // Alerts
-  let alertHtml = '';
+  // ============ SMART ALERTS ============
+  let alerts = [];
   const now = new Date();
+  const daysBetween = (d) => { const dt = new Date(d); return Math.floor((now-dt)/(1000*60*60*24)); };
+
+  // 1. Candidates waiting too long
   candidates.forEach(c => {
     if(c.status === 'pending' || c.status === 'docs_ready'){
-      const appDate = c.applicationDate ? new Date(c.applicationDate) : null;
-      if(appDate){
-        const diffDays = Math.floor((now - appDate)/(1000*60*60*24));
-        if(diffDays > 7 && !c.interviewDate){
-          alertHtml += '<div class="alert alert-warning"><strong>'+escHtml(c.name)+'</strong> - ממתין '+diffDays+' ימים ללא תאריך ראיון</div>';
+      if(c.applicationDate){
+        const days = daysBetween(c.applicationDate);
+        if(days > 14 && !c.interviewDate){
+          alerts.push({level:'danger', category:'candidates', icon:'⏰', text:'<strong>'+escHtml(c.name)+'</strong> - ממתין '+days+' ימים ללא תאריך ראיון', action:()=>{editCandidate(c.id);}, actionLabel:'ערוך'});
+        } else if(days > 7 && !c.interviewDate){
+          alerts.push({level:'warning', category:'candidates', icon:'⏳', text:'<strong>'+escHtml(c.name)+'</strong> - ממתין '+days+' ימים ללא תאריך ראיון', action:()=>{editCandidate(c.id);}, actionLabel:'ערוך'});
         }
       }
     }
+    // Interview scheduled but no result after the date
+    if(c.interviewDate && !c.interviewResult){
+      const days = daysBetween(c.interviewDate);
+      if(days > 2 && days < 90){
+        alerts.push({level:'warning', category:'candidates', icon:'📋', text:'<strong>'+escHtml(c.name)+'</strong> - ראיון נערך לפני '+days+' ימים ללא החלטה', action:()=>{editCandidate(c.id);}, actionLabel:'עדכן תוצאה'});
+      }
+    }
   });
-  const noPrepStudents = students.filter(s=>!s.prepDone && s.fromCandidate);
-  if(noPrepStudents.length){
-    alertHtml += '<div class="alert alert-info"><strong>'+noPrepStudents.length+'</strong> סטודנטים שהועברו ממועמדים ממתינים להכנה</div>';
+
+  // 2. Students not submitted applications
+  const notSubmitted = students.filter(s => !(s.submitted||[]).length && s.prepDone);
+  if(notSubmitted.length){
+    alerts.push({
+      level:'warning', category:'students', icon:'📝',
+      text: '<strong>'+notSubmitted.length+'</strong> סטודנטים עברו הכנה אך לא הגישו מועמדות: <em style="font-size:12px">'+notSubmitted.slice(0,5).map(s=>escHtml(s.name)).join(', ')+(notSubmitted.length>5?'...':'')+'</em>',
+      action: () => { showPage('students'); document.getElementById('student-filter-status').value='searching'; renderStudents(); },
+      actionLabel: 'הצג'
+    });
   }
-  if(!alertHtml) alertHtml = '<p style="color:var(--muted);text-align:center;padding:16px">אין התראות</p>';
+
+  // 3. Students needing prep (transferred from candidates)
+  const noPrepStudents = students.filter(s => !s.prepDone && s.fromCandidate);
+  if(noPrepStudents.length){
+    alerts.push({
+      level:'info', category:'students', icon:'🎯',
+      text:'<strong>'+noPrepStudents.length+'</strong> סטודנטים שהועברו ממועמדים ממתינים להכנה: <em style="font-size:12px">'+noPrepStudents.slice(0,5).map(s=>escHtml(s.name)).join(', ')+(noPrepStudents.length>5?'...':'')+'</em>',
+      action: () => { showPage('students'); document.getElementById('student-filter-prep').value='prep-pending'; renderStudents(); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // 4. Employers at or over capacity
+  employers.forEach(emp => {
+    const acc = students.filter(s => s.acceptedOrg === emp.name).length;
+    if(acc > emp.slots){
+      alerts.push({level:'danger', category:'employers', icon:'🚨', text:'<strong>'+escHtml(emp.name)+'</strong> - חריגה! '+acc+' סטודנטים על '+emp.slots+' משרות', action:()=>{editEmployer(emp.id);}, actionLabel:'ערוך'});
+    } else if(acc === emp.slots && emp.slots > 0){
+      alerts.push({level:'info', category:'employers', icon:'✓', text:'<strong>'+escHtml(emp.name)+'</strong> - מלא ('+acc+'/'+emp.slots+')', action:null});
+    }
+  });
+
+  // 5. Employers with no submissions
+  const inactiveEmployers = employers.filter(emp => {
+    const subs = students.filter(s => (s.submitted||[]).some(x => x.toLowerCase().includes(emp.name.toLowerCase()))).length;
+    return subs === 0;
+  });
+  if(inactiveEmployers.length > 0 && inactiveEmployers.length < employers.length){
+    alerts.push({
+      level:'info', category:'employers', icon:'💤',
+      text:'<strong>'+inactiveEmployers.length+'</strong> מעסיקים ללא הגשות: <em style="font-size:12px">'+inactiveEmployers.slice(0,5).map(e=>escHtml(e.name)).join(', ')+(inactiveEmployers.length>5?'...':'')+'</em>',
+      action: () => { showPage('employers'); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // 6. Students accepted but no prep done
+  const acceptedNoPrep = students.filter(s => s.acceptedOrg && !s.prepDone);
+  if(acceptedNoPrep.length){
+    alerts.push({
+      level:'danger', category:'students', icon:'⚠️',
+      text:'<strong>'+acceptedNoPrep.length+'</strong> סטודנטים התקבלו אך לא עברו הכנה: <em style="font-size:12px">'+acceptedNoPrep.map(s=>escHtml(s.name)).join(', ')+'</em>',
+      action: () => { showPage('students'); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // 7. Students accepted with no org feedback (already in org for >60 days)
+  const needFeedback = students.filter(s => {
+    if(!s.acceptedOrg || s.orgFeedback || (s.file_feedback && !s.file_feedback.na)) return false;
+    // Approximate: been in org for a while
+    return (s.hoursReported||0) > 30;
+  });
+  if(needFeedback.length){
+    alerts.push({
+      level:'warning', category:'students', icon:'💬',
+      text:'<strong>'+needFeedback.length+'</strong> סטודנטים צברו שעות אך ללא חוו"ד ארגון',
+      action: () => { showPage('students'); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // 8. Missing CV or form files
+  const missingDocs = students.filter(s => {
+    const needCv = !s.file_cv && !(s.cvUrl||s.cvPath);
+    const needForm = !s.file_form && !(s.formUrl||s.formPath);
+    return (needCv || needForm) && !s.file_cv?.na && !s.file_form?.na;
+  });
+  if(missingDocs.length > students.length * 0.3){
+    alerts.push({
+      level:'info', category:'students', icon:'📎',
+      text:'<strong>'+missingDocs.length+'</strong> סטודנטים חסרים מסמכים (CV/טופס)',
+      action: () => { showPage('students'); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // 9. Duplicate emails
+  const emailMap = {};
+  students.forEach(s => { if(s.email){ emailMap[s.email.toLowerCase()] = (emailMap[s.email.toLowerCase()]||[]).concat(s); } });
+  const dupes = Object.entries(emailMap).filter(([e,list]) => list.length > 1);
+  if(dupes.length){
+    alerts.push({
+      level:'warning', category:'data', icon:'🔀',
+      text:'<strong>'+dupes.length+'</strong> מיילים כפולים נמצאו',
+      action: () => { alert('מיילים כפולים:\n' + dupes.map(([e,list]) => e + ' (' + list.map(s=>s.name).join(', ') + ')').join('\n')); },
+      actionLabel: 'הצג'
+    });
+  }
+
+  // Render alerts
+  let alertHtml = '';
+  if(!alerts.length){
+    alertHtml = '<p style="color:var(--success);text-align:center;padding:16px">✅ הכל בסדר - אין התראות</p>';
+  } else {
+    // Group by level
+    const byLevel = {danger:[], warning:[], info:[]};
+    alerts.forEach(a => byLevel[a.level].push(a));
+    const levelColors = {danger:'#e5484d', warning:'#f6b100', info:'#2f6df6'};
+    const levelBgs = {danger:'rgba(229,72,77,.08)', warning:'rgba(246,177,0,.08)', info:'rgba(47,109,246,.08)'};
+    const totalCount = alerts.length;
+    alertHtml += '<div style="margin-bottom:10px;font-size:13px;color:var(--muted)">סה"כ ' + totalCount + ' התראות: ';
+    if(byLevel.danger.length) alertHtml += '<span class="badge badge-danger">'+byLevel.danger.length+' דחוף</span>';
+    if(byLevel.warning.length) alertHtml += '<span class="badge badge-warning">'+byLevel.warning.length+' אזהרה</span>';
+    if(byLevel.info.length) alertHtml += '<span class="badge badge-info">'+byLevel.info.length+' מידע</span>';
+    alertHtml += '</div>';
+    ['danger','warning','info'].forEach(level => {
+      byLevel[level].forEach((a, idx) => {
+        const id = 'alert-'+level+'-'+idx;
+        alertHtml += '<div class="alert" style="background:'+levelBgs[level]+';border:1px solid '+levelColors[level]+'55;border-right:3px solid '+levelColors[level]+';display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">';
+        alertHtml += '<div style="flex:1"><span style="margin-left:6px">'+a.icon+'</span>'+a.text+'</div>';
+        if(a.action && a.actionLabel){
+          window['_alertAction_'+id] = a.action;
+          alertHtml += '<button class="btn btn-sm" style="background:'+levelColors[level]+';color:#fff;border:none" onclick="window[\'_alertAction_'+id+'\']()">'+a.actionLabel+'</button>';
+        }
+        alertHtml += '</div>';
+      });
+    });
+  }
   document.getElementById('dashboard-alerts').innerHTML = alertHtml;
 
   // Student stats
@@ -2611,8 +3236,11 @@ function renderStudents(){
     html += '</div>';
     html += '<div class="item-details">'+(s.phone||'-')+' &bull; '+(s.email||'-')+(s.city?' &bull; '+escHtml(s.city):'')+'</div>';
     html += '</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
-    if(s.email) html += '<button class="btn btn-sm btn-success" onclick="quickEmail('+s.id+')">מייל</button>';
+    if(s.email) html += '<button class="btn btn-sm btn-success" onclick="quickEmail('+s.id+')">📧</button>';
+    if(s.phone) html += '<button class="btn btn-sm" style="background:#25d366;color:#fff" onclick="openWhatsApp(\''+escHtml(s.phone)+'\',\''+escHtml(s.name)+'\')" title="WhatsApp">💬</button>';
+    if(s.phone) html += '<button class="btn btn-sm" style="background:#333;color:#fff" onclick="callPhone(\''+escHtml(s.phone)+'\')" title="התקשר">📞</button>';
     html += '<button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:transparent" onclick="showStudentSummaryById('+s.id+')">סיכום</button>';
+    html += '<button class="btn btn-sm btn-outline" onclick="showCommThread(\''+escHtml(s.name)+'\',\'student\')" title="היסטוריית תקשורת">💬📋</button>';
     html += '<button class="btn btn-sm btn-info" onclick="editStudent('+s.id+')">ערוך</button>';
     html += '<button class="btn btn-sm btn-danger" onclick="deleteStudent('+s.id+')">מחק</button>';
     html += '</div></div>';
@@ -3081,7 +3709,10 @@ function renderEmployers(){
     html += '<div class="item-details">'+(e.contact||'-')+(e.role?' &bull; '+e.role:'')+' &bull; '+(e.location||'-')+'</div>';
     html += '</div><div style="display:flex;gap:4px">';
     const empEmail = (e.email||'').replace('mailto:','');
-    if(empEmail) html += '<button class="btn btn-sm btn-success" onclick="quickEmailEmployer('+e.id+')">מייל</button>';
+    if(empEmail) html += '<button class="btn btn-sm btn-success" onclick="quickEmailEmployer('+e.id+')">📧</button>';
+    if(e.phone) html += '<button class="btn btn-sm" style="background:#25d366;color:#fff" onclick="openWhatsApp(\''+escHtml(e.phone)+'\',\''+escHtml(e.contact||e.name)+'\')" title="WhatsApp">💬</button>';
+    if(e.phone) html += '<button class="btn btn-sm" style="background:#333;color:#fff" onclick="callPhone(\''+escHtml(e.phone)+'\')" title="התקשר">📞</button>';
+    html += '<button class="btn btn-sm btn-outline" onclick="showCommThread(\''+escHtml(e.name)+'\',\'employer\')" title="היסטוריית תקשורת">💬📋</button>';
     html += '<button class="btn btn-sm btn-info" onclick="editEmployer('+e.id+')">ערוך</button>';
     html += '<button class="btn btn-sm btn-danger" onclick="deleteEmployer('+e.id+')">מחק</button>';
     html += '</div></div>';
@@ -3407,6 +4038,95 @@ function sendAndLog(){
     courseId: DB.currentCourse === '__all__' ? '' : DB.currentCourse
   });
   renderAll();
+}
+
+// ============ ADVANCED COMMUNICATION ============
+function normalizePhone(phone){
+  // Remove all non-digits, then format for Israeli numbers
+  let clean = (phone||'').replace(/\D/g,'');
+  // If starts with 0 (Israeli local), replace with 972
+  if(clean.startsWith('0')) clean = '972' + clean.substring(1);
+  else if(clean.length === 9) clean = '972' + clean;
+  return clean;
+}
+
+function openWhatsApp(phone, name){
+  if(!phone){ alert('אין מספר טלפון'); return; }
+  const normalized = normalizePhone(phone);
+  if(normalized.length < 10){ alert('מספר טלפון לא תקין: '+phone); return; }
+  const senderName = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const defaultMsg = 'שלום '+(name||'')+',\nאני '+senderName+' מאוניברסיטת אריאל.';
+  const msg = prompt('הודעה ל-WhatsApp:', defaultMsg);
+  if(msg === null) return;
+  const url = 'https://wa.me/' + normalized + '?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+  // Log communication
+  logCommunication(name, 'whatsapp', msg);
+}
+
+function callPhone(phone){
+  if(!phone){ return; }
+  // On mobile, tel: link will call. On desktop, opens dialer if configured.
+  window.location.href = 'tel:' + phone.replace(/\D/g,'');
+  logCommunication(phone, 'call', 'שיחת טלפון');
+}
+
+function logCommunication(contactName, type, content){
+  if(!DB.communications) DB.communications = [];
+  DB.communications.push({
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toLocaleTimeString('he-IL'),
+    contactType: 'student',
+    contactName: contactName || '',
+    subject: type === 'whatsapp' ? 'WhatsApp' : type === 'call' ? 'שיחת טלפון' : type,
+    content: (content||'').substring(0, 200),
+    commType: type,
+    courseId: DB.currentCourse === '__all__' ? '' : DB.currentCourse,
+    loggedBy: DB.currentUser?.name || ''
+  });
+  saveToStorage();
+  if(document.querySelector('#communications.active')){ renderCommunications(); }
+}
+
+function showCommThread(personName, personType){
+  const threads = DB.communications.filter(c =>
+    c.contactName && c.contactName.toLowerCase().includes((personName||'').toLowerCase())
+  ).sort((a,b) => {
+    const da = new Date(a.date + ' ' + (a.time||'')).getTime();
+    const db = new Date(b.date + ' ' + (b.time||'')).getTime();
+    return db - da;
+  });
+  let html = '<div class="modal-content" style="max-width:700px">';
+  html += '<h2>💬 היסטוריית תקשורת - '+escHtml(personName)+'</h2>';
+  if(threads.length === 0){
+    html += '<p style="color:var(--muted);padding:20px;text-align:center">אין רשומות תקשורת</p>';
+  } else {
+    html += '<div style="max-height:500px;overflow-y:auto">';
+    threads.forEach(c => {
+      const iconMap = {whatsapp:'💬', call:'📞', email:'📧', meeting:'🤝'};
+      const icon = iconMap[c.commType] || '📝';
+      html += '<div style="border-right:3px solid var(--primary);background:var(--surface);padding:10px;margin:8px 0;border-radius:0 8px 8px 0">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+      html += '<span><strong>'+icon+' '+escHtml(c.subject||'תקשורת')+'</strong></span>';
+      html += '<span style="font-size:11px;color:var(--muted)">'+c.date+(c.time?' '+c.time:'')+'</span>';
+      html += '</div>';
+      if(c.content) html += '<div style="font-size:12px;color:var(--text)">'+escHtml(c.content)+'</div>';
+      if(c.loggedBy) html += '<div style="font-size:10px;color:var(--muted);margin-top:4px">נרשם ע"י: '+escHtml(c.loggedBy)+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  html += '<div style="margin-top:14px;display:flex;gap:8px"><button class="btn" onclick="closeModal(\'comm-thread-modal\')">סגור</button></div>';
+  html += '</div>';
+
+  let modal = document.getElementById('comm-thread-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'comm-thread-modal';
+    modal.className = 'modal active';
+    document.body.appendChild(modal);
+  } else { modal.classList.add('active'); }
+  modal.innerHTML = html;
 }
 
 function quickEmail(studentId){
