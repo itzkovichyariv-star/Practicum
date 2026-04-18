@@ -4174,9 +4174,22 @@ saveToStorage = function(){
 };
 
 // Manual refresh - pull latest from cloud
-async function cloudSyncRefresh(){
-  if(!supabaseClient || !supabaseUser){ alert('לא מחובר לסנכרון'); return; }
-  updateSyncIndicator('syncing');
+async function cloudSyncRefresh(silent){
+  if(!supabaseClient || !supabaseUser){ if(!silent) alert('לא מחובר לסנכרון'); return; }
+  if(!silent) updateSyncIndicator('syncing');
+
+  // Check the remote version without downloading full data
+  const {data:meta, error} = await supabaseClient.from('practicum_data')
+    .select('id,version,last_editor_name,last_editor_email')
+    .eq('org_id','default').order('updated_at',{ascending:false}).limit(1).single();
+  if(error){ if(!silent) alert('שגיאה: ' + error.message); return; }
+
+  // If our version matches the remote, nothing changed
+  if(meta.version === supabaseVersion && silent) {
+    updateSyncIndicator('synced');
+    return;
+  }
+
   const cloudData = await supabaseLoadData();
   if(cloudData && Object.keys(cloudData).length > 0){
     suppressSave = true;
@@ -4185,14 +4198,32 @@ async function cloudSyncRefresh(){
       lastSaveHash = hashData(cloudData);
       renderAll();
       setTimeout(() => { suppressSave = false; }, 500);
-      alert('רוענן מהענן: ' + (cloudData.students?.length||0) + ' סטודנטים, ' + (cloudData.employers?.length||0) + ' מעסיקים');
+      if(!silent) alert('רוענן מהענן: ' + (cloudData.students?.length||0) + ' סטודנטים, ' + (cloudData.employers?.length||0) + ' מעסיקים');
+      else if(meta.last_editor_email !== DB.currentUser.email){
+        showConflictNotice(meta.last_editor_name || 'משתמש אחר');
+      }
     } finally {
       updateSyncIndicator('synced');
     }
   } else {
-    alert('אין נתונים בענן');
+    if(!silent) alert('אין נתונים בענן');
     updateSyncIndicator('synced');
   }
+}
+
+// ============ POLLING FALLBACK ============
+// Polls the cloud every 30 seconds as backup in case realtime doesn't work
+let pollTimer = null;
+function startCloudPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if(supabaseEnabled && supabaseUser && !syncInProgress && !suppressSave){
+      cloudSyncRefresh(true); // silent = no alerts
+    }
+  }, 30000); // every 30 seconds
+}
+function stopCloudPolling(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
 }
 
 // ============ CLOUD SYNC LOGIN UI ============
@@ -4209,6 +4240,7 @@ async function cloudSyncLogin(){
     alert('התחברת בהצלחה! מסנכרן נתונים...');
     await cloudSyncMerge();
     await supabaseSubscribe();
+    startCloudPolling();
     updateSyncIndicator('synced');
     renderSettingsPage();
   } catch(err){
@@ -4220,6 +4252,7 @@ async function cloudSyncLogout(){
   if(!confirm('לנתק סנכרון ענן? הנתונים המקומיים נשמרים.'))return;
   localStorage.setItem('supabase_enabled', '0');
   supabaseEnabled = false;
+  stopCloudPolling();
   await supabaseSignOut();
   updateSyncIndicator('offline');
   renderSettingsPage();
@@ -4271,6 +4304,7 @@ async function autoConnectCloud(){
     supabaseEnabled = true;
     await cloudSyncMerge();
     await supabaseSubscribe();
+    startCloudPolling();
     updateSyncIndicator('synced');
   } else {
     updateSyncIndicator('offline');
