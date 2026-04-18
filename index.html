@@ -977,8 +977,22 @@ input[type=file]{display:none}
       </div>
       <p style="font-size:11px;color:var(--muted);margin-top:6px">שדות שלא נדרשים יופיעו כ"לא נדרש" ולא יחסמו את התהליך</p>
     </div>
+
+    <div class="section" style="border-color:#17a34a;background:rgba(23,163,74,.04)">
+      <h3 style="font-size:14px;color:#17a34a">📁 תיקיות קבצים לייצור ב-OneDrive</h3>
+      <p style="font-size:11px;color:var(--muted);margin:4px 0">סמן אילו תיקיות ליצור אוטומטית. הן יקושרו לסוגי הקבצים במערכת.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+        <div class="checkbox-group"><input type="checkbox" id="course-folder-cv" checked><label for="course-folder-cv">📄 קורות חיים</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="course-folder-application" checked><label for="course-folder-application">📝 טפסי הגשת מועמדות</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="course-folder-summary" checked><label for="course-folder-summary">📋 סיכומי ראיון</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="course-folder-form" checked><label for="course-folder-form">📑 טפסי הגשה (סטודנטים)</label></div>
+        <div class="checkbox-group"><input type="checkbox" id="course-folder-feedback" checked><label for="course-folder-feedback">⭐ חוות דעת מארגון</label></div>
+      </div>
+      <p id="folder-creation-status" style="font-size:11px;color:var(--muted);margin-top:6px">💡 התיקיות ייווצרו ב-OneDrive בלחיצה על "שמור" (דפדפן Chrome/Edge בלבד)</p>
+    </div>
+
     <div class="action-buttons">
-      <button class="btn btn-primary" onclick="addCourse()">שמור</button>
+      <button class="btn btn-primary" onclick="addCourse()">שמור וצור תיקיות</button>
       <button class="btn" style="background:#6c757d;color:#fff" onclick="closeModal('course-modal')">ביטול</button>
     </div>
   </div>
@@ -1497,6 +1511,11 @@ function showAddCourse(editId){
     document.getElementById('course-req-application').checked = c.requireApplication !== false;
     document.getElementById('course-req-interview').checked = c.requireInterview !== false;
     document.getElementById('course-req-prep').checked = c.requirePrep !== false;
+    // For edit - folder checkboxes are off by default (folders usually already exist)
+    ['cv','application','summary','form','feedback'].forEach(k => {
+      const cb = document.getElementById('course-folder-'+k);
+      if(cb) cb.checked = false;
+    });
   } else {
     document.getElementById('course-modal-title').textContent = 'הוסף קורס';
     el.value = '';
@@ -1505,6 +1524,11 @@ function showAddCourse(editId){
     document.getElementById('course-req-application').checked = true;
     document.getElementById('course-req-interview').checked = true;
     document.getElementById('course-req-prep').checked = true;
+    // For new - all folder checkboxes on by default
+    ['cv','application','summary','form','feedback'].forEach(k => {
+      const cb = document.getElementById('course-folder-'+k);
+      if(cb) cb.checked = true;
+    });
   }
   document.getElementById('course-duplicate-warning').style.display = 'none';
   document.getElementById('course-modal').classList.add('active');
@@ -1532,6 +1556,12 @@ async function addCourse(){
     requireInterview: document.getElementById('course-req-interview').checked,
     requirePrep: document.getElementById('course-req-prep').checked
   };
+  // Collect which folder types were checked for creation
+  const selectedFolderKeys = ['cv','application','summary','form','feedback']
+    .filter(k => {
+      const cb = document.getElementById('course-folder-'+k);
+      return cb && cb.checked;
+    });
   const isNew = !editId;
   if(editId){
     const c = DB.courses.find(x=>x.id===editId);
@@ -1547,13 +1577,9 @@ async function addCourse(){
   renderAll();
   closeModal('course-modal');
 
-  // For new courses - offer to create folders in OneDrive
-  if(isNew){
-    setTimeout(() => {
-      if(confirm('הקורס "'+name+'" נוסף לשנה '+year+'.\n\nהאם ליצור עכשיו את תיקיות הקבצים ב-OneDrive?\n(קורות חיים, טפסי הגשה, חוות דעת ארגון וכו\')')){
-        createCourseFolders(year, name);
-      }
-    }, 300);
+  // Create only the folder types the user selected (both new and edit)
+  if(selectedFolderKeys.length > 0){
+    setTimeout(() => createCourseFolders(year, name, selectedFolderKeys), 300);
   }
 }
 function showAddYear(){
@@ -2702,10 +2728,13 @@ async function dirExists(parent, name){
   }
 }
 
-async function createCourseFolders(year, courseName){
+async function createCourseFolders(year, courseName, folderKeys){
   const dataDir = await getOrRequestDataDir();
   if(!dataDir) return false;
   const courseFolder = courseName.replace(/\s+/g,'_');
+  // If no keys specified, default to all (backward compatibility)
+  const keys = (folderKeys && folderKeys.length) ? folderKeys : Object.keys(FILE_FOLDERS);
+  const selectedFolderNames = keys.map(k => FILE_FOLDERS[k]).filter(Boolean);
 
   try {
     // Check year existence
@@ -2715,17 +2744,17 @@ async function createCourseFolders(year, courseName){
     // Check course existence
     const courseExists = await dirExists(yearDir, courseFolder);
     if(courseExists){
-      // Check which subfolders are missing
+      // Check which of the selected subfolders are missing
       const existingSubs = [];
       const missingSubs = [];
       const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:false});
-      for(const fname of Object.values(FILE_FOLDERS)){
+      for(const fname of selectedFolderNames){
         if(await dirExists(courseDir, fname)) existingSubs.push(fname);
         else missingSubs.push(fname);
       }
 
       if(missingSubs.length === 0){
-        alert('⚠️ כל התיקיות כבר קיימות עבור:\n' + year + ' / ' + courseFolder + '\n\n' +
+        alert('⚠️ כל התיקיות הנבחרות כבר קיימות עבור:\n' + year + ' / ' + courseFolder + '\n\n' +
           'קיימות: ' + existingSubs.join(', ') + '\n\nלא בוצעה פעולה.');
         return true;
       }
@@ -2743,15 +2772,14 @@ async function createCourseFolders(year, courseName){
       return true;
     }
 
-    // Course doesn't exist - create all
+    // Course doesn't exist - create selected folders
     const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:true});
-    const folderNames = Object.values(FILE_FOLDERS);
-    for(const fname of folderNames){
+    for(const fname of selectedFolderNames){
       await courseDir.getDirectoryHandle(fname, {create:true});
     }
-    alert('✅ נוצרו ' + folderNames.length + ' תיקיות עבור:\n' + year + ' / ' + courseFolder +
+    alert('✅ נוצרו ' + selectedFolderNames.length + ' תיקיות עבור:\n' + year + ' / ' + courseFolder +
       (yearExists ? '' : '\n(גם תיקיית השנה ' + year + ' נוצרה)') +
-      '\n\n' + folderNames.join(', '));
+      '\n\n' + selectedFolderNames.join(', '));
     return true;
   } catch(err){
     console.error(err);
