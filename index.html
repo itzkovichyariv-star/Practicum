@@ -2692,20 +2692,66 @@ async function getOrRequestDataDir(force){
   }
 }
 
+// Check if a directory already exists (without creating)
+async function dirExists(parent, name){
+  try {
+    await parent.getDirectoryHandle(name, {create:false});
+    return true;
+  } catch(err){
+    return false;
+  }
+}
+
 async function createCourseFolders(year, courseName){
   const dataDir = await getOrRequestDataDir();
   if(!dataDir) return false;
+  const courseFolder = courseName.replace(/\s+/g,'_');
+
   try {
-    // Create year folder (or use existing)
+    // Check year existence
+    const yearExists = await dirExists(dataDir, year);
     const yearDir = await dataDir.getDirectoryHandle(year, {create:true});
-    const courseFolder = courseName.replace(/\s+/g,'_');
+
+    // Check course existence
+    const courseExists = await dirExists(yearDir, courseFolder);
+    if(courseExists){
+      // Check which subfolders are missing
+      const existingSubs = [];
+      const missingSubs = [];
+      const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:false});
+      for(const fname of Object.values(FILE_FOLDERS)){
+        if(await dirExists(courseDir, fname)) existingSubs.push(fname);
+        else missingSubs.push(fname);
+      }
+
+      if(missingSubs.length === 0){
+        alert('⚠️ כל התיקיות כבר קיימות עבור:\n' + year + ' / ' + courseFolder + '\n\n' +
+          'קיימות: ' + existingSubs.join(', ') + '\n\nלא בוצעה פעולה.');
+        return true;
+      }
+
+      // Some folders missing - ask to fill in
+      if(!confirm('⚠️ הקורס "' + courseFolder + '" בשנה ' + year + ' כבר קיים.\n\n' +
+        'קיימות: ' + (existingSubs.length ? existingSubs.join(', ') : 'אף אחת') + '\n' +
+        'חסרות: ' + missingSubs.join(', ') + '\n\n' +
+        'להשלים רק את התיקיות החסרות?')) return false;
+
+      for(const fname of missingSubs){
+        await courseDir.getDirectoryHandle(fname, {create:true});
+      }
+      alert('✅ נוספו ' + missingSubs.length + ' תיקיות חסרות:\n' + missingSubs.join(', '));
+      return true;
+    }
+
+    // Course doesn't exist - create all
     const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:true});
-    // Create all type subfolders
     const folderNames = Object.values(FILE_FOLDERS);
     for(const fname of folderNames){
       await courseDir.getDirectoryHandle(fname, {create:true});
     }
-    alert('✅ נוצרו ' + folderNames.length + ' תיקיות עבור:\n' + year + ' / ' + courseFolder + '\n\n' + folderNames.join(', '));
+    alert('✅ נוצרו ' + folderNames.length + ' תיקיות עבור:\n' + year + ' / ' + courseFolder +
+      (yearExists ? '' : '\n(גם תיקיית השנה ' + year + ' נוצרה)') +
+      '\n\n' + folderNames.join(', '));
     return true;
   } catch(err){
     console.error(err);
@@ -2718,19 +2764,17 @@ async function createCourseFolders(year, courseName){
 async function createFoldersForAllCourses(){
   const dataDir = await getOrRequestDataDir();
   if(!dataDir) return;
-  let created = 0, errors = 0;
+  let fullyCreated = 0, alreadyExisted = 0, partiallyFilled = 0, errors = 0;
   const log = [];
 
   // Find all unique year+course combos actually in use
   const combos = new Set();
   DB.courses.forEach(c => {
-    // Find years where this course has data
     const yearsForCourse = new Set();
     DB.students.forEach(s => { if(s.courseId === c.id && s.year) yearsForCourse.add(normalizeYear(s.year)); });
     DB.employers.forEach(e => { if(e.courseId === c.id && e.year) yearsForCourse.add(normalizeYear(e.year)); });
     DB.candidates.forEach(x => { if(x.courseId === c.id && x.year) yearsForCourse.add(normalizeYear(x.year)); });
     if(c.year) yearsForCourse.add(normalizeYear(c.year));
-    // If no data, use all academic years
     if(yearsForCourse.size === 0) DB.academicYears.forEach(y => yearsForCourse.add(y));
     yearsForCourse.forEach(y => combos.add(y + '|' + c.name));
   });
@@ -2738,21 +2782,43 @@ async function createFoldersForAllCourses(){
   const folderNames = Object.values(FILE_FOLDERS);
   for(const combo of combos){
     const [year, courseName] = combo.split('|');
+    const courseFolder = courseName.replace(/\s+/g,'_');
     try {
       const yearDir = await dataDir.getDirectoryHandle(year, {create:true});
-      const courseDir = await yearDir.getDirectoryHandle(courseName.replace(/\s+/g,'_'), {create:true});
+      const courseExisted = await dirExists(yearDir, courseFolder);
+      const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:true});
+
+      let newlyCreated = 0;
       for(const fname of folderNames){
+        const existed = await dirExists(courseDir, fname);
         await courseDir.getDirectoryHandle(fname, {create:true});
+        if(!existed) newlyCreated++;
       }
-      created++;
-      log.push('✓ ' + year + '/' + courseName);
+
+      if(courseExisted && newlyCreated === 0){
+        alreadyExisted++;
+        log.push('⚠️ ' + year + '/' + courseFolder + ' - כבר קיים (כפילות)');
+      } else if(courseExisted && newlyCreated > 0){
+        partiallyFilled++;
+        log.push('🔧 ' + year + '/' + courseFolder + ' - קיים, הוסיף ' + newlyCreated + ' תיקיות חסרות');
+      } else {
+        fullyCreated++;
+        log.push('✓ ' + year + '/' + courseFolder + ' - נוצר');
+      }
     } catch(err){
       errors++;
-      log.push('✗ ' + year + '/' + courseName + ' - ' + err.message);
+      log.push('✗ ' + year + '/' + courseFolder + ' - ' + err.message);
     }
   }
-  alert('נוצרו ' + created + ' מבני תיקיות (' + (created * folderNames.length) + ' תיקיות)\n' +
-    (errors ? errors + ' שגיאות\n' : '') + '\n' + log.join('\n'));
+
+  let summary = '';
+  if(fullyCreated) summary += '✓ נוצרו ' + fullyCreated + ' מבני תיקיות חדשים\n';
+  if(partiallyFilled) summary += '🔧 הושלמו תיקיות חסרות ב-' + partiallyFilled + ' קורסים\n';
+  if(alreadyExisted) summary += '⚠️ ' + alreadyExisted + ' קורסים כבר היו קיימים במלואם (כפילויות)\n';
+  if(errors) summary += '✗ ' + errors + ' שגיאות\n';
+  if(!summary) summary = 'לא בוצעו שינויים.\n';
+
+  alert(summary + '\nפירוט:\n' + log.join('\n'));
 }
 
 function getYearFolder(){
