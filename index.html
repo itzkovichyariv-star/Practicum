@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="פרקטיקום">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2f6df6">
-<title>מערכת ניהול פרקטיקום v5</title>
+<title>מערכת לניהול הרצאות ופרקטיקום</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232f6df6'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white' font-family='Arial'%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%232f6df6'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle' fill='white' font-family='Arial'%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href='data:application/manifest+json;charset=utf-8,{"name":"מערכת ניהול פרקטיקום","short_name":"פרקטיקום","start_url":".","display":"standalone","orientation":"portrait","theme_color":"%232f6df6","background_color":"%23f7f8fa","dir":"rtl","lang":"he","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 rx=%2796%27 fill=%27%232f6df6%27/%3E%3Ctext x=%27256%27 y=%27350%27 font-size=%27280%27 text-anchor=%27middle%27 fill=%27white%27 font-family=%27Arial%27%3E%F0%9F%8E%93%3C/text%3E%3C/svg%3E","sizes":"any","type":"image/svg+xml"}]}'>
@@ -211,7 +211,7 @@ input[type=file]{display:none}
 </head>
 <body>
 <div class="header">
-  <h1>מערכת ניהול פרקטיקום</h1>
+  <h1>מערכת לניהול הרצאות ופרקטיקום</h1>
   <p class="header-sub">ד"ר יריב איצקוביץ - אוניברסיטת אריאל</p>
   <p class="header-user" id="header-user"></p>
 </div>
@@ -236,6 +236,7 @@ input[type=file]{display:none}
   <button onclick="showPage('students')" id="btn-students">סטודנטים</button>
   <button onclick="showPage('employers')" id="btn-employers">מעסיקים</button>
   <button onclick="showPage('communications')" id="btn-communications">תקשורת</button>
+  <button onclick="showPage('lectures')" id="btn-lectures">🎓 הרצאות</button>
   <button onclick="showPage('reports')" id="btn-reports">דוחות</button>
   <button onclick="showPage('email')" id="btn-email">מייל</button>
   <button onclick="showPage('documents')" id="btn-documents">מסמכים</button>
@@ -368,6 +369,75 @@ input[type=file]{display:none}
       <input type="text" id="comm-search" placeholder="חיפוש בתקשורת..." oninput="renderCommunications()">
     </div>
     <div id="communication-list"></div>
+  </div>
+</div>
+
+<!-- LECTURES -->
+<div id="lectures" class="page">
+  <div class="card">
+    <div class="card-header">
+      <h2>ניהול הרצאות וסדנאות <span class="chip" id="lecture-count">0</span></h2>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="showAddLecture()">➕ הוסף הרצאה</button>
+        <button class="btn btn-outline" onclick="importLecturesFromJSON()">📥 ייבוא מקובץ</button>
+        <button class="btn btn-outline" onclick="exportLecturesJSON()">📤 ייצוא JSON</button>
+        <button class="btn btn-outline" onclick="exportLecturesExcel()">📊 ייצוא Excel</button>
+      </div>
+    </div>
+
+    <!-- Mini dashboard -->
+    <div id="lecture-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0"></div>
+
+    <!-- Filters -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin-bottom:10px">
+      <input type="text" id="lec-filter-search" placeholder="🔍 חיפוש..." oninput="renderLectures()">
+      <select id="lec-filter-semester" onchange="renderLectures()"><option value="">כל הסמסטרים</option><option value="א">סמסטר א</option><option value="ב">סמסטר ב</option><option value="קיץ">קיץ</option></select>
+      <select id="lec-filter-status" onchange="renderLectures()"><option value="">כל הסטטוסים</option><option value="מאושר">מאושר</option><option value="ממתין">ממתין</option><option value="בוטל">בוטל</option></select>
+      <select id="lec-filter-type" onchange="renderLectures()"><option value="">כל הסוגים</option><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select>
+      <select id="lec-filter-institution" onchange="renderLectures()"><option value="">כל המוסדות</option></select>
+      <select id="lec-filter-lecturer" onchange="renderLectures()"><option value="">כל המרצים</option></select>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
+    </div>
+
+    <div id="lecture-list" style="overflow-x:auto"></div>
+  </div>
+
+  <!-- Lecturers DB -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-header"><h3>מאגר מרצים <span class="chip" id="lecturer-db-count">0</span></h3></div>
+    <div id="lecturer-db-list"></div>
+  </div>
+</div>
+
+<!-- LECTURE MODAL -->
+<div id="lecture-modal" class="modal">
+  <div class="modal-content" style="max-width:700px">
+    <h2 id="lecture-modal-title">הוסף הרצאה</h2>
+    <input type="hidden" id="lecture-edit-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>סמסטר</label><select id="lec-semester"><option value="א">א</option><option value="ב">ב</option><option value="קיץ">קיץ</option></select></div>
+      <div><label>סוג</label><select id="lec-type"><option value="הרצאה">הרצאה</option><option value="סדנה">סדנה</option></select></div>
+      <div><label>קורס</label><select id="lec-course"></select></div>
+      <div><label>מוסד</label><select id="lec-institution"></select></div>
+      <div><label>יום</label><select id="lec-day"><option value="">בחר...</option><option>ראשון</option><option>שני</option><option>שלישי</option><option>רביעי</option><option>חמישי</option><option>שישי</option><option>שבת</option></select></div>
+      <div><label>תאריך</label><input type="date" id="lec-date" onchange="updateLectureDay()"></div>
+      <div><label>שעת התחלה</label><input type="time" id="lec-start" value="09:00"></div>
+      <div><label>שעת סיום</label><input type="time" id="lec-end" value="11:00"></div>
+      <div><label>אופן העברה</label><select id="lec-delivery" onchange="toggleLecLocation()"><option value="פרונטלי">פרונטלי</option><option value="זום">זום</option><option value="היברידי">היברידי</option></select></div>
+      <div><label>מיקום פיזי</label><input type="text" id="lec-location" list="lec-location-list" placeholder="אריאל / תל חי..."><datalist id="lec-location-list"></datalist></div>
+      <div style="grid-column:1/-1"><label>מרצה/מנחה</label><input type="text" id="lec-lecturer" list="lec-lecturer-list" onchange="autoFillLecInfo()"><datalist id="lec-lecturer-list"></datalist></div>
+      <div><label>אימייל</label><input type="email" id="lec-email"></div>
+      <div><label>טלפון</label><input type="tel" id="lec-phone"></div>
+      <div style="grid-column:1/-1"><label>נושא</label><input type="text" id="lec-topic"></div>
+      <div><label>סטטוס</label><select id="lec-status"><option value="ממתין">ממתין</option><option value="מאושר">מאושר</option><option value="בוטל">בוטל</option></select></div>
+      <div><label>עלות (₪)</label><input type="number" id="lec-cost" step="100"></div>
+      <div style="grid-column:1/-1"><label>קישור זום/Teams</label><input type="url" id="lec-video"></div>
+      <div style="grid-column:1/-1"><label>הערות</label><textarea id="lec-notes" rows="2"></textarea></div>
+    </div>
+    <div class="action-buttons">
+      <button class="btn btn-primary" onclick="saveLecture()">שמור</button>
+      <button class="btn" style="background:#6c757d;color:#fff" onclick="closeModal('lecture-modal')">ביטול</button>
+    </div>
   </div>
 </div>
 
@@ -567,6 +637,28 @@ input[type=file]{display:none}
     </div>
     <div id="settings-saved" style="margin-top:12px;color:var(--success);font-weight:600;display:none">נשמר!</div>
   </div>
+
+  <!-- Academic year dates -->
+  <div class="card">
+    <h2>📅 תאריכי שנת לימודים</h2>
+    <p style="font-size:12px;color:var(--muted)">הגדירו את טווח השנה האקדמית. התאריך יסמן ברקע בלוח השנה ויוצג על פני ההרצאות והאירועים.</p>
+    <div id="year-dates-container" style="margin-top:10px"></div>
+    <div class="action-buttons">
+      <button class="btn btn-primary" onclick="saveYearDates()">שמור תאריכים</button>
+      <button class="btn btn-outline" onclick="refreshAllHolidays()">🔄 טען חגים מ-Hebcal</button>
+    </div>
+  </div>
+
+  <!-- Institutions -->
+  <div class="card">
+    <h2>🏛️ מוסדות אקדמיים</h2>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="text" id="new-institution-name" placeholder="שם המוסד" style="flex:1">
+      <button class="btn btn-primary" onclick="addInstitution()">➕ הוסף</button>
+    </div>
+    <div id="institutions-list"></div>
+  </div>
+
   <div class="card">
     <h2>שיתוף נתונים</h2>
     <div class="section" style="border-color:var(--purple);background:rgba(139,92,246,.03)">
@@ -955,7 +1047,7 @@ input[type=file]{display:none}
   <div class="modal-content">
     <h2 id="course-modal-title">הוסף קורס</h2>
     <input type="hidden" id="course-edit-id">
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px">
       <div class="form-group">
         <label>שם הקורס</label>
         <input id="new-course-name" list="existing-courses-list" placeholder="הקלד או בחר מהרשימה..." oninput="checkCourseDuplicate()">
@@ -964,6 +1056,11 @@ input[type=file]{display:none}
       <div class="form-group">
         <label>שנה אקדמית</label>
         <select id="new-course-year" onchange="checkCourseDuplicate()"></select>
+      </div>
+      <div class="form-group">
+        <label>מוסד אקדמי</label>
+        <input id="new-course-institution" list="existing-institutions-list" placeholder="אוניברסיטת אריאל...">
+        <datalist id="existing-institutions-list"></datalist>
       </div>
     </div>
     <div id="course-duplicate-warning" class="alert alert-warning" style="display:none;margin-bottom:10px"></div>
@@ -1028,7 +1125,7 @@ input[type=file]{display:none}
 <script>
 // ============ DATA ============
 let DB = {
-  courses: [{id:'hr-practicum', name:'פרקטיקום משאבי אנוש', requireCV:true, requireApplication:true, requireInterview:true, requirePrep:true}],
+  courses: [{id:'hr-practicum', name:'פרקטיקום משאבי אנוש', institution:'אוניברסיטת אריאל', requireCV:true, requireApplication:true, requireInterview:true, requirePrep:true}],
   academicYears: ['תשפ\u05F4ה','תשפ\u05F4ו'],
   currentCourse: 'hr-practicum',
   currentYear: 'תשפ\u05F4ו',
@@ -1036,9 +1133,12 @@ let DB = {
   students: [],
   employers: [],
   communications: [],
-  settings: {basePath:'', cvFolderLink:'', formFolderLink:'', senderEmail:'yarivi@ariel.ac.il', senderName:'ד"ר יריב איצקוביץ'},
+  lectures: [],
+  lecturerDB: {},
+  institutions: ['אוניברסיטת אריאל','מכללת תל חי'],
+  settings: {basePath:'', cvFolderLink:'', formFolderLink:'', senderEmail:'yarivi@ariel.ac.il', senderName:'ד"ר יריב איצקוביץ', yearDates:{}, holidayCache:{}},
   currentUser: {name:'', email:''},
-  version: '5.0'
+  version: '5.1'
 };
 let undoStack = [];
 let dataChanged = false;
@@ -1131,11 +1231,29 @@ function loadFromStorage(){
       Object.assign(DB, d);
       if(!DB.candidates) DB.candidates = [];
       if(!DB.currentUser) DB.currentUser = {name:'', email:''};
+      if(!DB.lectures) DB.lectures = [];
+      if(!DB.lecturerDB) DB.lecturerDB = {};
+      if(!DB.institutions) DB.institutions = ['אוניברסיטת אריאל','מכללת תל חי'];
+      if(!DB.settings.yearDates) DB.settings.yearDates = {};
+      if(!DB.settings.holidayCache) DB.settings.holidayCache = {};
+      // Seed default academic year dates (Israel Oct-Jul) if missing
+      const DEFAULT_YEAR_DATES = {
+        'תשפ\u05F4ה': {start:'2024-10-20', end:'2025-07-15'},
+        'תשפ\u05F4ו': {start:'2025-10-19', end:'2026-07-15'},
+        'תשפ\u05F4ז': {start:'2026-10-04', end:'2027-07-15'},
+        'תשפ\u05F4ח': {start:'2027-09-26', end:'2028-07-15'}
+      };
+      DB.academicYears.forEach(y => {
+        if(!DB.settings.yearDates[y] && DEFAULT_YEAR_DATES[y]) DB.settings.yearDates[y] = DEFAULT_YEAR_DATES[y];
+      });
       DB.academicYears = DB.academicYears.map(normalizeYear);
       DB.currentYear = normalizeYear(DB.currentYear);
       DB.students.forEach(s => s.year = normalizeYear(s.year));
       DB.employers.forEach(e => e.year = normalizeYear(e.year));
       DB.candidates.forEach(c => c.year = normalizeYear(c.year));
+      DB.lectures.forEach(l => { if(l.year) l.year = normalizeYear(l.year); });
+      // Auto-import lectures if first run after upgrade
+      if(DB.lectures.length === 0) autoImportInitialLectures();
     } else {
       // Try migrate from v4
       const rawV4 = localStorage.getItem('practicum_db_v4');
@@ -1466,6 +1584,9 @@ function populateCourseModal(){
   const uniqueNames = [...new Set(DB.courses.map(c => c.name))].sort();
   const datalist = document.getElementById('existing-courses-list');
   if(datalist) datalist.innerHTML = uniqueNames.map(n => '<option value="'+escHtml(n)+'">').join('');
+  // Institutions datalist
+  const instDL = document.getElementById('existing-institutions-list');
+  if(instDL) instDL.innerHTML = (DB.institutions||[]).map(i => '<option value="'+escHtml(i)+'">').join('');
   // Fill year dropdown
   const yearSelect = document.getElementById('new-course-year');
   if(yearSelect){
@@ -1507,6 +1628,7 @@ function showAddCourse(editId){
     el.value = editId;
     document.getElementById('new-course-name').value = c.name;
     if(c.year) document.getElementById('new-course-year').value = c.year;
+    document.getElementById('new-course-institution').value = c.institution || '';
     document.getElementById('course-req-cv').checked = c.requireCV !== false;
     document.getElementById('course-req-application').checked = c.requireApplication !== false;
     document.getElementById('course-req-interview').checked = c.requireInterview !== false;
@@ -1520,6 +1642,7 @@ function showAddCourse(editId){
     document.getElementById('course-modal-title').textContent = 'הוסף קורס';
     el.value = '';
     document.getElementById('new-course-name').value = '';
+    document.getElementById('new-course-institution').value = '';
     document.getElementById('course-req-cv').checked = true;
     document.getElementById('course-req-application').checked = true;
     document.getElementById('course-req-interview').checked = true;
@@ -1550,7 +1673,10 @@ async function addCourse(){
     alert('⚠️ כבר קיים קורס בשם "'+name+'" בשנה '+year+'.\nלא ניתן ליצור כפילות.');
     return;
   }
+  const institution = document.getElementById('new-course-institution').value.trim();
+  if(institution && !DB.institutions.includes(institution)) DB.institutions.push(institution);
   const reqs = {
+    institution: institution,
     requireCV: document.getElementById('course-req-cv').checked,
     requireApplication: document.getElementById('course-req-application').checked,
     requireInterview: document.getElementById('course-req-interview').checked,
@@ -1596,6 +1722,550 @@ function addYear(){
   renderAll();
   closeModal('year-modal');
   alert('השנה "' + name + '" נוספה');
+}
+
+// ============ LECTURES ============
+const LECTURE_SEED_URL = 'https://itzkovichyariv-star.github.io/practicum/lectures_seed.json';
+const LECTURE_DAYS = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+function dayNameFromDate(dateStr){
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  return isNaN(d) ? '' : LECTURE_DAYS[d.getDay()];
+}
+
+function updateLectureDay(){
+  const d = document.getElementById('lec-date').value;
+  const day = dayNameFromDate(d);
+  if(day) document.getElementById('lec-day').value = day;
+}
+
+function toggleLecLocation(){
+  const method = document.getElementById('lec-delivery').value;
+  const loc = document.getElementById('lec-location');
+  loc.parentElement.style.opacity = method === 'זום' ? '.5' : '1';
+}
+
+function autoFillLecInfo(){
+  const name = document.getElementById('lec-lecturer').value.trim();
+  if(!name) return;
+  const info = DB.lecturerDB[name];
+  if(info){
+    if(info.email && !document.getElementById('lec-email').value) document.getElementById('lec-email').value = info.email;
+    if(info.phone && !document.getElementById('lec-phone').value) document.getElementById('lec-phone').value = info.phone;
+  }
+}
+
+function rebuildLecturerDB(){
+  DB.lecturerDB = {};
+  DB.lectures.forEach(l => {
+    if(l.lecturer && l.lecturer.trim()){
+      const k = l.lecturer.trim();
+      if(!DB.lecturerDB[k]) DB.lecturerDB[k] = {email:'', phone:''};
+      if(l.email && !DB.lecturerDB[k].email) DB.lecturerDB[k].email = l.email;
+      if(l.phone && !DB.lecturerDB[k].phone) DB.lecturerDB[k].phone = l.phone;
+    }
+  });
+}
+
+function getFilteredLectures(){
+  const s = (document.getElementById('lec-filter-search')?.value || '').toLowerCase();
+  const sem = document.getElementById('lec-filter-semester')?.value || '';
+  const st = document.getElementById('lec-filter-status')?.value || '';
+  const tp = document.getElementById('lec-filter-type')?.value || '';
+  const inst = document.getElementById('lec-filter-institution')?.value || '';
+  const lec = document.getElementById('lec-filter-lecturer')?.value || '';
+  const hidePast = document.getElementById('lec-filter-past')?.checked;
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  return DB.lectures.filter(l => {
+    if(DB.currentCourse !== '__all__' && l.courseId && l.courseId !== DB.currentCourse) return false;
+    if(DB.currentYear !== '__all__' && l.year && normalizeYear(l.year) !== DB.currentYear) return false;
+    if(sem && l.semester !== sem) return false;
+    if(st && l.status !== st) return false;
+    if(tp && l.type !== tp) return false;
+    if(inst && l.institution !== inst) return false;
+    if(lec && l.lecturer !== lec) return false;
+    if(hidePast && l.date && new Date(l.date) < today) return false;
+    if(s){
+      const hay = (l.course+' '+l.topic+' '+l.lecturer+' '+l.notes+' '+l.institution).toLowerCase();
+      if(!hay.includes(s)) return false;
+    }
+    return true;
+  }).sort((a,b) => (a.date||'').localeCompare(b.date||''));
+}
+
+function getLectureStatusColor(status){
+  return ({'מאושר':'#17a34a','ממתין':'#f59e0b','בוטל':'#dc2626'})[status] || '#6b7280';
+}
+
+function renderLectures(){
+  // Populate filter dropdowns
+  const instSel = document.getElementById('lec-filter-institution');
+  const lecSel = document.getElementById('lec-filter-lecturer');
+  if(instSel){
+    const curI = instSel.value;
+    const uniqueInst = [...new Set(DB.lectures.map(l=>l.institution).filter(Boolean))].sort();
+    instSel.innerHTML = '<option value="">כל המוסדות</option>' + uniqueInst.map(i=>'<option value="'+escHtml(i)+'"'+(i===curI?' selected':'')+'>'+escHtml(i)+'</option>').join('');
+  }
+  if(lecSel){
+    const curL = lecSel.value;
+    const uniqueLec = [...new Set(DB.lectures.map(l=>l.lecturer).filter(Boolean))].sort();
+    lecSel.innerHTML = '<option value="">כל המרצים</option>' + uniqueLec.map(l=>'<option value="'+escHtml(l)+'"'+(l===curL?' selected':'')+'>'+escHtml(l)+'</option>').join('');
+  }
+
+  const list = getFilteredLectures();
+  document.getElementById('lecture-count').textContent = list.length;
+
+  // Stats
+  const today = new Date(); today.setHours(0,0,0,0);
+  const active = list.filter(l=>l.status!=='בוטל');
+  const future = active.filter(l => l.date && new Date(l.date) >= today);
+  const past = active.filter(l => l.date && new Date(l.date) < today);
+  const totalCost = active.reduce((s,l)=>s+(parseFloat(l.cost)||0),0);
+  document.getElementById('lecture-stats').innerHTML = `
+    <div class="stat"><div class="stat-value">${list.length}</div><div class="stat-label">סה"כ</div></div>
+    <div class="stat" style="border-color:#17a34a"><div class="stat-value" style="color:#17a34a">${future.length}</div><div class="stat-label">עתידיות</div></div>
+    <div class="stat"><div class="stat-value" style="color:#6b7280">${past.length}</div><div class="stat-label">בוצעו</div></div>
+    <div class="stat" style="border-color:#f59e0b"><div class="stat-value" style="color:#f59e0b">${active.filter(l=>l.status==='ממתין').length}</div><div class="stat-label">ממתינות</div></div>
+    <div class="stat" style="border-color:#dc2626"><div class="stat-value" style="color:#dc2626">${list.filter(l=>l.status==='בוטל').length}</div><div class="stat-label">בוטלו</div></div>
+    <div class="stat"><div class="stat-value">₪${totalCost.toLocaleString()}</div><div class="stat-label">עלות</div></div>
+  `;
+
+  // Table
+  if(list.length === 0){
+    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:20px;color:var(--muted)">אין הרצאות להצגה</p>';
+  } else {
+    let html = '<table class="data-table"><thead><tr>'+
+      '<th>סמ\'</th><th>תאריך</th><th>יום</th><th>שעה</th><th>סוג</th><th>קורס</th><th>מוסד</th><th>מרצה</th><th>נושא</th><th>סטטוס</th><th>עלות</th><th>פעולות</th></tr></thead><tbody>';
+    list.forEach(l => {
+      html += '<tr>';
+      html += '<td>'+escHtml(l.semester||'')+'</td>';
+      html += '<td>'+escHtml(l.date||'')+'</td>';
+      html += '<td>'+escHtml(l.day||'')+'</td>';
+      html += '<td>'+escHtml((l.startTime||'')+'-'+(l.endTime||''))+'</td>';
+      html += '<td>'+escHtml(l.type||'')+'</td>';
+      html += '<td>'+escHtml(l.course||'')+'</td>';
+      html += '<td>'+escHtml(l.institution||'')+'</td>';
+      html += '<td>'+escHtml(l.lecturer||'')+'</td>';
+      html += '<td style="max-width:200px">'+escHtml(l.topic||'')+'</td>';
+      html += '<td><span class="chip" style="background:'+getLectureStatusColor(l.status)+';color:#fff">'+escHtml(l.status||'')+'</span></td>';
+      html += '<td>'+(l.cost?('₪'+parseFloat(l.cost).toLocaleString()):'')+'</td>';
+      html += '<td style="white-space:nowrap">'+
+        '<button class="btn btn-sm" onclick="editLecture('+l.id+')">✏️</button> '+
+        '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="ייצוא ליומן">📅</button> '+
+        (l.email?'<button class="btn btn-sm" onclick="emailLecturer('+l.id+')" title="מייל למרצה">✉️</button> ':'')+
+        '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')">🗑️</button>'+
+        '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('lecture-list').innerHTML = html;
+  }
+
+  // Lecturer DB
+  rebuildLecturerDB();
+  const names = Object.keys(DB.lecturerDB).sort();
+  document.getElementById('lecturer-db-count').textContent = names.length;
+  if(names.length === 0){
+    document.getElementById('lecturer-db-list').innerHTML = '<p style="color:var(--muted)">אין מרצים עדיין</p>';
+  } else {
+    let h = '<table class="data-table"><thead><tr><th>שם</th><th>אימייל</th><th>טלפון</th><th>הרצאות</th></tr></thead><tbody>';
+    names.forEach(n => {
+      const info = DB.lecturerDB[n];
+      const count = DB.lectures.filter(l => l.lecturer === n).length;
+      h += '<tr><td>'+escHtml(n)+'</td><td>'+escHtml(info.email||'')+'</td><td>'+escHtml(info.phone||'')+'</td><td>'+count+'</td></tr>';
+    });
+    h += '</tbody></table>';
+    document.getElementById('lecturer-db-list').innerHTML = h;
+  }
+}
+
+function populateLectureModal(){
+  const courseSel = document.getElementById('lec-course');
+  const instSel = document.getElementById('lec-institution');
+  const locList = document.getElementById('lec-location-list');
+  const lecList = document.getElementById('lec-lecturer-list');
+
+  courseSel.innerHTML = '<option value="">(ללא)</option>' + DB.courses.map(c=>'<option value="'+escHtml(c.id)+'">'+escHtml(c.name)+'</option>').join('');
+  instSel.innerHTML = DB.institutions.map(i=>'<option value="'+escHtml(i)+'">'+escHtml(i)+'</option>').join('');
+  locList.innerHTML = [...new Set(DB.lectures.map(l=>l.physicalLocation).filter(Boolean))].map(p=>'<option value="'+escHtml(p)+'">').join('');
+  lecList.innerHTML = Object.keys(DB.lecturerDB).map(n=>'<option value="'+escHtml(n)+'">').join('');
+}
+
+function showAddLecture(){
+  populateLectureModal();
+  document.getElementById('lecture-modal-title').textContent = 'הוסף הרצאה';
+  document.getElementById('lecture-edit-id').value = '';
+  ['lec-lecturer','lec-email','lec-phone','lec-topic','lec-cost','lec-video','lec-notes','lec-location','lec-date'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('lec-semester').value = 'א';
+  document.getElementById('lec-type').value = 'הרצאה';
+  document.getElementById('lec-delivery').value = 'פרונטלי';
+  document.getElementById('lec-status').value = 'ממתין';
+  document.getElementById('lec-start').value = '09:00';
+  document.getElementById('lec-end').value = '11:00';
+  document.getElementById('lec-day').value = '';
+  // Default course/institution to current
+  if(DB.currentCourse !== '__all__'){
+    document.getElementById('lec-course').value = DB.currentCourse;
+    const c = DB.courses.find(x=>x.id===DB.currentCourse);
+    if(c && c.institution) document.getElementById('lec-institution').value = c.institution;
+  }
+  document.getElementById('lecture-modal').classList.add('active');
+}
+
+function editLecture(id){
+  const l = DB.lectures.find(x => x.id === id);
+  if(!l) return;
+  populateLectureModal();
+  document.getElementById('lecture-modal-title').textContent = 'ערוך הרצאה';
+  document.getElementById('lecture-edit-id').value = id;
+  document.getElementById('lec-semester').value = l.semester || 'א';
+  document.getElementById('lec-type').value = l.type || 'הרצאה';
+  document.getElementById('lec-course').value = l.courseId || '';
+  document.getElementById('lec-institution').value = l.institution || '';
+  document.getElementById('lec-day').value = l.day || '';
+  document.getElementById('lec-date').value = l.date || '';
+  document.getElementById('lec-start').value = l.startTime || '09:00';
+  document.getElementById('lec-end').value = l.endTime || '11:00';
+  document.getElementById('lec-delivery').value = l.deliveryMethod || 'פרונטלי';
+  document.getElementById('lec-location').value = l.physicalLocation || '';
+  document.getElementById('lec-lecturer').value = l.lecturer || '';
+  document.getElementById('lec-email').value = l.email || '';
+  document.getElementById('lec-phone').value = l.phone || '';
+  document.getElementById('lec-topic').value = l.topic || '';
+  document.getElementById('lec-status').value = l.status || 'ממתין';
+  document.getElementById('lec-cost').value = l.cost || '';
+  document.getElementById('lec-video').value = l.videoLink || '';
+  document.getElementById('lec-notes').value = l.notes || '';
+  document.getElementById('lecture-modal').classList.add('active');
+}
+
+function saveLecture(){
+  const editId = document.getElementById('lecture-edit-id').value;
+  const date = document.getElementById('lec-date').value;
+  const dayVal = document.getElementById('lec-day').value || dayNameFromDate(date);
+  const courseId = document.getElementById('lec-course').value;
+  const courseName = courseId ? (DB.courses.find(c=>c.id===courseId)?.name || '') : '';
+
+  const data = {
+    semester: document.getElementById('lec-semester').value,
+    type: document.getElementById('lec-type').value,
+    courseId: courseId,
+    course: courseName,
+    institution: document.getElementById('lec-institution').value,
+    day: dayVal,
+    date: date,
+    startTime: document.getElementById('lec-start').value,
+    endTime: document.getElementById('lec-end').value,
+    deliveryMethod: document.getElementById('lec-delivery').value,
+    physicalLocation: document.getElementById('lec-location').value,
+    lecturer: document.getElementById('lec-lecturer').value.trim(),
+    email: document.getElementById('lec-email').value.trim(),
+    phone: document.getElementById('lec-phone').value.trim(),
+    topic: document.getElementById('lec-topic').value,
+    status: document.getElementById('lec-status').value,
+    cost: document.getElementById('lec-cost').value,
+    videoLink: document.getElementById('lec-video').value,
+    notes: document.getElementById('lec-notes').value,
+    year: DB.currentYear === '__all__' ? normalizeYear('תשפ\u05F4ו') : DB.currentYear
+  };
+
+  if(editId){
+    const idx = DB.lectures.findIndex(x => x.id === parseInt(editId));
+    if(idx >= 0) DB.lectures[idx] = {...DB.lectures[idx], ...data};
+  } else {
+    const newId = DB.lectures.length ? Math.max(...DB.lectures.map(l=>l.id||0))+1 : 1;
+    DB.lectures.push({id: newId, ...data});
+  }
+  saveToStorage();
+  closeModal('lecture-modal');
+  renderLectures();
+  if(document.querySelector('#calendar').classList.contains('active')) renderCalendar();
+}
+
+function deleteLecture(id){
+  const l = DB.lectures.find(x=>x.id===id);
+  if(!l) return;
+  if(!confirm('למחוק את ההרצאה "'+(l.topic||l.course)+'" מ-'+l.date+'?')) return;
+  DB.lectures = DB.lectures.filter(x=>x.id!==id);
+  saveToStorage();
+  renderLectures();
+}
+
+function emailLecturer(id){
+  const l = DB.lectures.find(x=>x.id===id);
+  if(!l || !l.email) return;
+  const subject = encodeURIComponent('בנוגע ל'+l.type+': '+l.course+' - '+l.date);
+  const body = encodeURIComponent('שלום '+l.lecturer+',\n\nאני פונה אליך בנוגע ל'+l.type+' בקורס "'+l.course+'" בתאריך '+l.date+'.\n\nבברכה,\n'+(DB.currentUser?.name || DB.settings.senderName));
+  window.location.href = 'mailto:'+l.email+'?subject='+subject+'&body='+body;
+}
+
+function exportLectureICS(id){
+  const l = DB.lectures.find(x=>x.id===id);
+  if(!l || !l.date){ alert('חסר תאריך'); return; }
+  const pad = n=>String(n).padStart(2,'0');
+  const toICSDate = (dateStr, timeStr) => {
+    const [Y,M,D] = dateStr.split('-');
+    const [h,m] = (timeStr||'09:00').split(':');
+    return Y+M+D+'T'+pad(h)+pad(m)+'00';
+  };
+  const start = toICSDate(l.date, l.startTime);
+  const end = toICSDate(l.date, l.endTime);
+  const now = new Date().toISOString().replace(/[-:]/g,'').split('.')[0];
+  const loc = l.deliveryMethod === 'זום' ? 'זום' : (l.physicalLocation || l.institution || '');
+  const title = (l.type||'הרצאה')+': '+(l.course||'')+(l.topic?' - '+l.topic:'');
+  const desc = [
+    'מרצה: '+(l.lecturer||''),
+    'קורס: '+(l.course||''),
+    'מוסד: '+(l.institution||''),
+    'אופן העברה: '+(l.deliveryMethod||''),
+    l.videoLink ? 'קישור: '+l.videoLink : '',
+    l.notes ? 'הערות: '+l.notes : ''
+  ].filter(Boolean).join('\\n');
+
+  const ics = [
+    'BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Practicum//Lectures//HE','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:lecture-'+l.id+'@practicum',
+    'DTSTAMP:'+now,'DTSTART;TZID=Asia/Jerusalem:'+start,'DTEND;TZID=Asia/Jerusalem:'+end,
+    'SUMMARY:'+title,'LOCATION:'+loc,'DESCRIPTION:'+desc,'STATUS:CONFIRMED',
+    'END:VEVENT','END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob = new Blob([ics], {type:'text/calendar;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lecture_'+l.id+'_'+l.date+'.ics';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importLecturesFromJSON(){
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        const arr = Array.isArray(d) ? d : (d.lectures || []);
+        if(!arr.length){ alert('לא נמצאו הרצאות בקובץ'); return; }
+        const mode = confirm('לחץ OK להחליף את כל ההרצאות, או Cancel להוסיף (תוך דילוג על כפילויות)');
+        if(mode){
+          DB.lectures = arr.map((l,i) => normalizeLectureImport(l, i+1));
+        } else {
+          const maxId = DB.lectures.length ? Math.max(...DB.lectures.map(l=>l.id||0)) : 0;
+          let added=0, skipped=0;
+          arr.forEach((l,i) => {
+            const dup = DB.lectures.some(ex => ex.date===l.date && (ex.course||'').trim()===(l.course||'').trim() && (ex.lecturer||'').trim()===(l.lecturer||'').trim());
+            if(dup){ skipped++; return; }
+            DB.lectures.push(normalizeLectureImport(l, maxId+added+1));
+            added++;
+          });
+          alert('נוספו '+added+' הרצאות, דולגו '+skipped+' כפילויות');
+        }
+        saveToStorage();
+        renderLectures();
+      } catch(err){ alert('שגיאה: '+err.message); }
+    };
+    r.readAsText(f);
+  };
+  input.click();
+}
+
+function normalizeLectureImport(l, fallbackId){
+  // Try to match course by name to existing course
+  let courseId = l.courseId || '';
+  if(!courseId && l.course){
+    const m = DB.courses.find(c => c.name.trim() === l.course.trim());
+    if(m) courseId = m.id;
+  }
+  // Add institution if missing
+  if(l.institution && !DB.institutions.includes(l.institution)) DB.institutions.push(l.institution);
+  // Convert academic year string "2025-2026" to תשפ״ו if needed
+  let yr = l.year || l.academicYear || '';
+  if(/^\d{4}-\d{4}$/.test(yr)){
+    const startY = parseInt(yr.split('-')[0]);
+    // Hebrew year for fall: תשפ״ו = 2025-2026, תשפ״ה = 2024-2025 etc.
+    const map = {2024:'תשפ\u05F4ה', 2025:'תשפ\u05F4ו', 2026:'תשפ\u05F4ז', 2027:'תשפ\u05F4ח'};
+    yr = map[startY] || yr;
+  }
+  return {
+    id: l.id || fallbackId,
+    semester: l.semester || 'א',
+    type: l.type || 'הרצאה',
+    courseId: courseId,
+    course: l.course || '',
+    institution: l.institution || '',
+    day: l.day || dayNameFromDate(l.date),
+    date: l.date || '',
+    startTime: l.startTime || '09:00',
+    endTime: l.endTime || '11:00',
+    deliveryMethod: l.deliveryMethod || 'פרונטלי',
+    physicalLocation: l.physicalLocation || '',
+    lecturer: l.lecturer || '',
+    email: l.email || '',
+    phone: l.phone || '',
+    topic: l.topic || '',
+    status: l.status || 'ממתין',
+    cost: l.cost || '',
+    videoLink: l.videoLink || '',
+    notes: l.notes || '',
+    year: normalizeYear(yr)
+  };
+}
+
+function exportLecturesJSON(){
+  const data = {
+    lectures: DB.lectures,
+    lastEditor: DB.currentUser?.name || '',
+    lastSaved: new Date().toISOString(),
+    exportedFrom: 'מערכת לניהול הרצאות ופרקטיקום'
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'הרצאות_'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportLecturesExcel(){
+  if(typeof XLSX === 'undefined'){ alert('ספריית Excel לא זמינה'); return; }
+  const list = getFilteredLectures();
+  const rows = list.map(l => ({
+    'סמסטר': l.semester, 'סוג': l.type, 'קורס': l.course, 'מוסד': l.institution,
+    'יום': l.day, 'תאריך': l.date, 'שעת התחלה': l.startTime, 'שעת סיום': l.endTime,
+    'אופן העברה': l.deliveryMethod, 'מיקום': l.physicalLocation,
+    'מרצה': l.lecturer, 'נושא': l.topic, 'אימייל': l.email, 'טלפון': l.phone,
+    'עלות': l.cost, 'סטטוס': l.status, 'הערות': l.notes
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'הרצאות');
+  XLSX.writeFile(wb, 'הרצאות_'+new Date().toISOString().split('T')[0]+'.xlsx');
+}
+
+// Initial auto-import for users upgrading from earlier versions
+function autoImportInitialLectures(){
+  try {
+    const SEED = LECTURES_SEED_DATA;
+    if(!SEED || !SEED.length) return;
+    const maxId = 0;
+    DB.lectures = SEED.map((l,i) => normalizeLectureImport(l, i+1));
+    // Add any new institutions
+    SEED.forEach(l => { if(l.institution && !DB.institutions.includes(l.institution)) DB.institutions.push(l.institution); });
+    rebuildLecturerDB();
+  } catch(err){ console.error('Seed import failed:', err); }
+}
+
+// Seed data (auto-imported on first run after upgrade)
+const LECTURES_SEED_DATA = [
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-11-13","startTime":"10:30","endTime":"12:00","lecturer":"סימונה עמיר","topic":"משאבי אנוש - הסבר על רוחב היריעה","email":"simonaami@telhai.ac.il","phone":"050-7214426","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":1,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-11-27","startTime":"09:00","endTime":"10:30","lecturer":"למא אבו אחמד (אינבידיה)","topic":"מקורות גיוס ","email":"labuahmad@nvidia.com","phone":"052-889-1960","status":"מאושר","type":"הרצאה","cost":"","notes":"הרצאה בזום   צשלחתי הודעה 30.9","id":2,"deliveryMethod":"זום","physicalLocation":"","academicYear":"2025-2026"},
+  {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2025-11-30","startTime":"18:00","endTime":"19:30","lecturer":"חיה וגנר מישורי וסטודנטית שלה ","topic":"מסלול קרירה והתקדמות סטודנטית ","email":"hayawagner@gmail.com","phone":"054-7004049","status":"מאושר","type":"הרצאה","cost":"","notes":"תבדוק עם למלם מגיעה  .","id":3,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2025-10-26","lecturer":"אופיר קרקו","topic":"גיוס טכנולוגי ","email":"ofirk@nishapro.co.il","phone":"050-4014350","status":"מאושר","type":"הרצאה","cost":"","notes":"צאיך לאשר כניסה","startTime":"18:30","endTime":"19:30","id":4,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-01-11","lecturer":"איילה ראובן ללונג","topic":"מיומנויות קריטיות ","email":"Ayalla@eq-el.co.il","phone":"054-4805614","status":"מאושר","type":"סדנה","cost":"5000","notes":"קיבלה תאריך","startTime":"18:00","endTime":"20:00","id":5,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"ב","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-03-22","lecturer":"ענבל בנימין אלרן","topic":"התמודדות משאבי אנוש עם מצבי קיצון -  תכלול","email":"","phone":"054-7889607","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את ענבל ","startTime":"17:00","endTime":"20:00","id":6,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"ב","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-05-10","lecturer":"אורית ","topic":"Linkdin","email":"","phone":"","status":"ממתין","type":"סדנה","cost":"","notes":"פגישה עם אורית 16.4","startTime":"17:00","endTime":"20:00","id":7,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-04-27","lecturer":"חיה וגנר מישורי","topic":"בניית תכנית התערבות ","email":"hayawagner@gmail.com","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","startTime":"19:00","endTime":"21:00","id":8,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-04","lecturer":"שלה דיין","topic":"הנחיית קבוצות ","email":"shelladh@gmail.com","phone":"054-811-1247","status":"ממתין","type":"הרצאה","cost":"1000","notes":"לבדוק בסילבוס ","startTime":"19:00","endTime":"21:00","id":9,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות  יעוץ א ","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-01","lecturer":"איילה ראובן ללונג","topic":"מיומנויות קריטיות ","email":"Ayalla@eq-el.co.il","phone":"054-480-5614","status":"מאושר","type":"סדנה","cost":"3000","notes":"אולי להזיז ל. - 8 לעדכן את אילה עוד שבוע  ","startTime":"19:00","endTime":"21:00","id":10,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-11","startTime":"09:30","endTime":"12:00","lecturer":"מרכז סימולציות ","topic":"סימולציות גיוס ","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"תל חי","id":11,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-18","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"תל חי","startTime":"09:30","endTime":"12:00","id":12,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-25","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"תל חי","startTime":"09:30","endTime":"12:00","id":13,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2026-01-01","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"50-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"תל חי","startTime":"09:30","endTime":"12:00","id":14,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2026-01-15","lecturer":"נועה שמיר","topic":"סימולציית התעמרות ","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"תל חי","startTime":"09:30","endTime":"12:00","id":15,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות  יעוץ א ","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-08","lecturer":"מרכז סימולציות","topic":"סימוציית כניסה לארגון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":16,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות  יעוץ א ","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-15","lecturer":"מרכז סימולציות ","topic":"סימולציית כניסה לארגון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":17,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות  יעוץ א ","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-29","lecturer":"מרכז סימולציות","topic":"סימולציית ראיון","email":"","phone":"","status":"בוטל","type":"הרצאה","cost":"","notes":"לעדכן את גלית וספיר ","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":18,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות  יעוץ א ","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-01-05","lecturer":"מרכז סימולציות","topic":"ראיון אבחוני ","email":"","phone":"","status":"בוטל","type":"הרצאה","cost":"","notes":"לעדכן את גלית וספיר","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":19,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-03-23","lecturer":"מרכז סימולציות","topic":"התנגדויות ","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את עולא וספיר","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":20,"academicYear":"2025-2026"},
+  {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-03-30","lecturer":"מרכז סימולציות","topic":"התנגדויות ","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את עולא וספיר ומרכז סימולציות ","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"15:00","endTime":"16:30","id":21,"academicYear":"2025-2026"},
+  {"semester":"א","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-11","startTime":"19:00","endTime":"20:30","lecturer":"למלם","topic":"תמיכה בהפעלת סדנאות ","email":"","phone":"","status":"ממתין","type":"סדנה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","id":22,"academicYear":"2025-2026"},
+  {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-18","lecturer":"פא״י ","topic":"האקטון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","startTime":"19:00","endTime":"20:30","id":23,"academicYear":"2025-2026"}
+];
+
+// ============ HEBREW HOLIDAYS (Hebcal API + fallback) ============
+async function fetchHolidaysForYear(gregYear){
+  const cacheKey = 'hebcal_'+gregYear;
+  if(DB.settings.holidayCache && DB.settings.holidayCache[cacheKey]) return DB.settings.holidayCache[cacheKey];
+  try {
+    const url = 'https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&min=on&mod=on&nx=on&year='+gregYear+'&month=x&ss=on&mf=on&c=on&geo=city&city=IL-Tel%20Aviv&m=50&s=off&lg=h';
+    const resp = await fetch(url, {mode:'cors'});
+    if(!resp.ok) throw new Error('status '+resp.status);
+    const json = await resp.json();
+    const items = (json.items||[])
+      .filter(it => it.category === 'holiday' || it.category === 'candles' || it.category === 'havdalah' || it.category === 'roshchodesh')
+      .map(it => ({
+        date: it.date.split('T')[0],
+        title: it.hebrew || it.title,
+        category: it.category,
+        yomtov: !!it.yomtov
+      }));
+    if(!DB.settings.holidayCache) DB.settings.holidayCache = {};
+    DB.settings.holidayCache[cacheKey] = items;
+    saveToStorage();
+    return items;
+  } catch(err){
+    console.warn('Hebcal API failed, using fallback:', err);
+    return HOLIDAYS_FALLBACK[gregYear] || [];
+  }
+}
+
+// Local fallback holiday table (offline)
+const HOLIDAYS_FALLBACK = {
+  2025: [
+    {date:'2025-09-23', title:'ראש השנה א', yomtov:true},
+    {date:'2025-09-24', title:'ראש השנה ב', yomtov:true},
+    {date:'2025-10-02', title:'יום כיפור', yomtov:true},
+    {date:'2025-10-07', title:'סוכות', yomtov:true},
+    {date:'2025-10-14', title:'שמחת תורה', yomtov:true},
+    {date:'2025-12-15', title:'חנוכה א'},
+    {date:'2025-12-22', title:'חנוכה ח'}
+  ],
+  2026: [
+    {date:'2026-03-03', title:'פורים'},
+    {date:'2026-04-02', title:'פסח א', yomtov:true},
+    {date:'2026-04-08', title:'שביעי של פסח', yomtov:true},
+    {date:'2026-04-22', title:'יום הזיכרון'},
+    {date:'2026-04-23', title:'יום העצמאות'},
+    {date:'2026-05-26', title:'שבועות', yomtov:true},
+    {date:'2026-07-23', title:'תשעה באב'},
+    {date:'2026-09-12', title:'ראש השנה א', yomtov:true},
+    {date:'2026-09-13', title:'ראש השנה ב', yomtov:true},
+    {date:'2026-09-21', title:'יום כיפור', yomtov:true},
+    {date:'2026-09-26', title:'סוכות', yomtov:true},
+    {date:'2026-12-05', title:'חנוכה א'}
+  ],
+  2027: [
+    {date:'2027-03-23', title:'פורים'},
+    {date:'2027-04-22', title:'פסח א', yomtov:true},
+    {date:'2027-04-28', title:'שביעי של פסח', yomtov:true},
+    {date:'2027-05-12', title:'יום הזיכרון'},
+    {date:'2027-05-13', title:'יום העצמאות'},
+    {date:'2027-06-11', title:'שבועות', yomtov:true},
+    {date:'2027-08-12', title:'תשעה באב'},
+    {date:'2027-10-02', title:'ראש השנה א', yomtov:true},
+    {date:'2027-10-11', title:'יום כיפור', yomtov:true}
+  ]
+};
+
+async function getHolidaysForMonth(year, month){
+  // month is 0-indexed
+  let items = [];
+  const years = new Set([year]);
+  // Also include adjacent year for month boundaries
+  if(month === 0) years.add(year-1);
+  if(month === 11) years.add(year+1);
+  for(const y of years){
+    const yearItems = await fetchHolidaysForYear(y);
+    items = items.concat(yearItems);
+  }
+  const mm = String(month+1).padStart(2,'0');
+  return items.filter(it => it.date && it.date.startsWith(year+'-'+mm));
 }
 
 // ============ SETTINGS ============
@@ -1668,6 +2338,7 @@ function showPage(page){
   if(page === 'settings') renderSettingsPage();
   if(page === 'backup') populateCopyEmployersSelect();
   if(page === 'calendar') renderCalendar();
+  if(page === 'lectures') renderLectures();
   if(page === 'email') renderEmailPage();
   if(page === 'documents') renderDocumentsPage();
 }
@@ -1729,10 +2400,27 @@ function getCalendarEvents(){
     }
   });
 
+  // Lectures
+  (DB.lectures || []).forEach(l => {
+    if(!l.date) return;
+    if(DB.currentCourse !== '__all__' && l.courseId && l.courseId !== DB.currentCourse) return;
+    if(DB.currentYear !== '__all__' && l.year && normalizeYear(l.year) !== DB.currentYear) return;
+    const color = l.status === 'בוטל' ? '#9ca3af' : (l.status === 'ממתין' ? '#f59e0b' : '#2563eb');
+    events.push({
+      date: l.date,
+      time: l.startTime,
+      type: 'lecture',
+      color: color,
+      title: (l.type||'הרצאה')+': '+(l.topic || l.course || l.lecturer || ''),
+      details: (l.lecturer||'')+(l.institution?' | '+l.institution:'')+(l.deliveryMethod?' | '+l.deliveryMethod:''),
+      onclick: 'editLecture('+l.id+')'
+    });
+  });
+
   return events;
 }
 
-function renderCalendar(){
+async function renderCalendar(){
   const year = calendarDate.getFullYear();
   const month = calendarDate.getMonth();
   const monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -1750,6 +2438,19 @@ function renderCalendar(){
     if(!eventsByDate[e.date]) eventsByDate[e.date] = [];
     eventsByDate[e.date].push(e);
   });
+
+  // Hebrew holidays for this month
+  let holidays = [];
+  try { holidays = await getHolidaysForMonth(year, month); } catch(e){ holidays = []; }
+  const holidaysByDate = {};
+  holidays.forEach(h => {
+    if(!holidaysByDate[h.date]) holidaysByDate[h.date] = [];
+    holidaysByDate[h.date].push(h);
+  });
+
+  // Academic year range for highlighting
+  const curYearKey = DB.currentYear !== '__all__' ? DB.currentYear : '';
+  const yearRange = curYearKey && DB.settings.yearDates ? DB.settings.yearDates[curYearKey] : null;
 
   // Today highlight
   const today = new Date();
@@ -1772,18 +2473,34 @@ function renderCalendar(){
     const dateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     const isToday = dateStr === todayStr;
     const dayEvents = eventsByDate[dateStr] || [];
-    const bg = isToday ? 'rgba(47,109,246,.08)' : '#fff';
-    const border = isToday ? '2px solid var(--primary)' : 'none';
+    const dayHolidays = holidaysByDate[dateStr] || [];
+    const isYomTov = dayHolidays.some(h => h.yomtov);
+    const inAcademicYear = yearRange && yearRange.start && yearRange.end && dateStr >= yearRange.start && dateStr <= yearRange.end;
+
+    let bg = '#fff';
+    if(isToday) bg = 'rgba(47,109,246,.08)';
+    else if(isYomTov) bg = 'rgba(220,38,38,.08)';
+    else if(dayHolidays.length > 0) bg = 'rgba(220,38,38,.03)';
+    else if(inAcademicYear) bg = 'rgba(23,163,74,.02)';
+
+    const border = isToday ? '2px solid var(--primary)' : (isYomTov ? '1px solid rgba(220,38,38,.3)' : 'none');
 
     html += '<div style="background:'+bg+';padding:4px;min-height:80px;font-size:12px;border:'+border+'">';
-    html += '<div style="font-weight:'+(isToday?'700':'600')+';color:'+(isToday?'var(--primary)':'var(--text)')+';margin-bottom:3px">'+d+'</div>';
+    html += '<div style="font-weight:'+(isToday?'700':'600')+';color:'+(isToday?'var(--primary)':(isYomTov?'#dc2626':'var(--text)'))+';margin-bottom:3px">'+d+'</div>';
 
-    dayEvents.slice(0, 3).forEach(e => {
+    // Holidays first
+    dayHolidays.forEach(h => {
+      html += '<div style="background:rgba(220,38,38,.12);color:#dc2626;padding:1px 5px;border-radius:4px;font-size:10px;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(h.title)+'">✡ '+escHtml(h.title)+'</div>';
+    });
+
+    dayEvents.slice(0, 3 - Math.min(dayHolidays.length, 2)).forEach(e => {
       const label = (e.time ? e.time + ' ' : '') + e.title;
       html += '<div onclick="'+e.onclick+'" style="background:'+e.color+';color:#fff;padding:2px 5px;border-radius:4px;font-size:10px;margin:2px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(e.title + (e.details ? ' - ' + e.details : ''))+'">'+escHtml(label)+'</div>';
     });
-    if(dayEvents.length > 3){
-      html += '<div style="font-size:10px;color:var(--muted);margin-top:2px">+'+(dayEvents.length-3)+' נוספים</div>';
+    const shown = dayHolidays.length + Math.min(dayEvents.length, Math.max(0, 3 - Math.min(dayHolidays.length, 2)));
+    const total = dayHolidays.length + dayEvents.length;
+    if(total > shown){
+      html += '<div style="font-size:10px;color:var(--muted);margin-top:2px">+'+(total-shown)+' נוספים</div>';
     }
     html += '</div>';
   }
@@ -2163,8 +2880,93 @@ function renderCloudSyncSection(){
   }
 }
 
+function renderYearDatesSection(){
+  const cont = document.getElementById('year-dates-container');
+  if(!cont) return;
+  if(!DB.settings.yearDates) DB.settings.yearDates = {};
+  const rows = DB.academicYears.map(y => {
+    const d = DB.settings.yearDates[y] || {};
+    return '<div style="display:grid;grid-template-columns:100px 1fr 1fr;gap:8px;align-items:center;padding:6px 0">'+
+      '<strong>'+escHtml(y)+'</strong>'+
+      '<div><label style="font-size:11px;display:block">התחלה</label><input type="date" data-year="'+escHtml(y)+'" data-type="start" value="'+(d.start||'')+'"></div>'+
+      '<div><label style="font-size:11px;display:block">סיום</label><input type="date" data-year="'+escHtml(y)+'" data-type="end" value="'+(d.end||'')+'"></div>'+
+      '</div>';
+  }).join('');
+  cont.innerHTML = rows || '<p style="color:var(--muted)">אין שנים אקדמיות</p>';
+}
+
+function saveYearDates(){
+  if(!DB.settings.yearDates) DB.settings.yearDates = {};
+  document.querySelectorAll('#year-dates-container input[type=date]').forEach(inp => {
+    const y = inp.dataset.year;
+    const t = inp.dataset.type;
+    if(!DB.settings.yearDates[y]) DB.settings.yearDates[y] = {};
+    DB.settings.yearDates[y][t] = inp.value;
+  });
+  saveToStorage();
+  alert('✅ תאריכי השנים נשמרו');
+  if(document.querySelector('#calendar').classList.contains('active')) renderCalendar();
+}
+
+async function refreshAllHolidays(){
+  DB.settings.holidayCache = {};
+  const years = new Set();
+  DB.academicYears.forEach(y => {
+    const r = DB.settings.yearDates[y];
+    if(r && r.start) years.add(parseInt(r.start.split('-')[0]));
+    if(r && r.end) years.add(parseInt(r.end.split('-')[0]));
+  });
+  if(years.size === 0){ years.add(new Date().getFullYear()); years.add(new Date().getFullYear()+1); }
+  let ok=0, fail=0;
+  for(const y of years){
+    try { await fetchHolidaysForYear(y); ok++; } catch(e){ fail++; }
+  }
+  saveToStorage();
+  alert('✅ נטענו חגים עבור '+ok+' שנים'+(fail?' ('+fail+' נכשלו)':''));
+  if(document.querySelector('#calendar').classList.contains('active')) renderCalendar();
+}
+
+function renderInstitutionsSection(){
+  const list = document.getElementById('institutions-list');
+  if(!list) return;
+  if(!DB.institutions || DB.institutions.length === 0){
+    list.innerHTML = '<p style="color:var(--muted)">אין מוסדות. הוספה ראשונה תיצור את הרשימה.</p>';
+    return;
+  }
+  list.innerHTML = DB.institutions.map((i, idx) =>
+    '<div style="display:flex;gap:8px;padding:6px;background:var(--panel);border-radius:6px;margin:2px 0;align-items:center">'+
+      '<span style="flex:1">'+escHtml(i)+'</span>'+
+      '<span style="font-size:11px;color:var(--muted)">'+DB.courses.filter(c=>c.institution===i).length+' קורסים</span>'+
+      '<button class="btn btn-sm btn-danger" onclick="removeInstitution('+idx+')">🗑️</button>'+
+    '</div>'
+  ).join('');
+}
+
+function addInstitution(){
+  const name = document.getElementById('new-institution-name').value.trim();
+  if(!name) return;
+  if(!DB.institutions) DB.institutions = [];
+  if(DB.institutions.includes(name)){ alert('כבר קיים'); return; }
+  DB.institutions.push(name);
+  saveToStorage();
+  document.getElementById('new-institution-name').value = '';
+  renderInstitutionsSection();
+}
+
+function removeInstitution(idx){
+  if(!DB.institutions || !DB.institutions[idx]) return;
+  const n = DB.institutions[idx];
+  const inUse = DB.courses.filter(c => c.institution === n).length + DB.lectures.filter(l => l.institution === n).length;
+  if(inUse && !confirm('המוסד "'+n+'" בשימוש ב-'+inUse+' רשומות. למחוק בכל מקרה?')) return;
+  DB.institutions.splice(idx, 1);
+  saveToStorage();
+  renderInstitutionsSection();
+}
+
 function renderSettingsPage(){
   renderCloudSyncSection();
+  renderYearDatesSection();
+  renderInstitutionsSection();
   document.getElementById('base-path').value = DB.settings.basePath || '';
   document.getElementById('cv-folder-link').value = DB.settings.cvFolderLink || '';
   document.getElementById('form-folder-link').value = DB.settings.formFolderLink || '';
@@ -2395,6 +3197,7 @@ function renderAll(){
     <div class="stat"><div class="stat-value">${students.reduce((sum,s)=>sum+(s.submitted||[]).length,0)}</div><div class="stat-label">הגשות</div></div>
     <div class="stat" style="border-color:var(--success)"><div class="stat-value" style="color:var(--success)">${students.filter(s=>s.acceptedOrg).length}</div><div class="stat-label">התקבלו</div></div>
     <div class="stat" style="border-color:var(--primary)"><div class="stat-value" style="color:var(--primary)">${students.filter(s=>s.hired).length}</div><div class="stat-label">נקלטו</div></div>
+    <div class="stat" style="border-color:#2563eb" onclick="showPage('lectures')"><div class="stat-value" style="color:#2563eb">${(DB.lectures||[]).filter(l => (DB.currentCourse==='__all__' || l.courseId===DB.currentCourse || !l.courseId) && (DB.currentYear==='__all__' || normalizeYear(l.year||'')===DB.currentYear)).length}</div><div class="stat-label">🎓 הרצאות</div></div>
   `;
 
   document.getElementById('candidate-count').textContent = candidates.length;
@@ -2410,6 +3213,7 @@ function renderAll(){
   renderStudents();
   renderEmployers();
   renderCommunications();
+  if(document.getElementById('lecture-list')) renderLectures();
   updateBackupIndicator();
   saveToStorage();
 }
