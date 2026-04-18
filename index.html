@@ -441,9 +441,11 @@ input[type=file]{display:none}
     <div class="section" style="border:2px solid #7c3aed;background:rgba(139,92,246,.03);margin-top:14px">
       <h3 style="color:#7c3aed">📋 טופס הערכת סטודנט בפרקטיקום (לחונך בארגון)</h3>
       <p style="font-size:12px;color:var(--muted);margin:6px 0">טופס הערכה מפורט המבוסס על הסילבוס - 50% מהציון הסופי</p>
-      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <select id="doc-eval-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
-        <button class="btn" style="background:#7c3aed;color:#fff" onclick="generateEvaluationForm()">צור טופס הערכה</button>
+        <button class="btn" style="background:#7c3aed;color:#fff" onclick="generateEvaluationForm()">צור טופס ממולא</button>
+        <span style="color:var(--muted);font-size:12px">או</span>
+        <button class="btn btn-outline" style="border-color:#7c3aed;color:#7c3aed" onclick="generateEvaluationForm(true)">📄 טופס ריק (כללי)</button>
       </div>
     </div>
 
@@ -585,6 +587,18 @@ input[type=file]{display:none}
         <label class="btn btn-info" style="cursor:pointer">ייבוא סטודנטים<input type="file" accept=".csv,.xlsx,.xls" onchange="importData(event,'students')"></label>
         <label class="btn btn-success" style="cursor:pointer">ייבוא מעסיקים<input type="file" accept=".csv,.xlsx,.xls" onchange="importData(event,'employers')"></label>
       </div>
+    </div>
+    <div class="section" style="border-color:var(--primary);background:rgba(47,109,246,.03)">
+      <h3 style="color:var(--primary)">📋 העתקת מעסיקים משנה לשנה</h3>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0">בחר שנה מקור וקורס מקור כדי להעתיק את כל המעסיקים לשנה ולקורס הנוכחיים (<strong id="copy-target-label"></strong>)</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+        <label style="font-size:12px">מקור:</label>
+        <select id="copy-emp-year" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border)"></select>
+        <select id="copy-emp-course" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border)"></select>
+        <button class="btn btn-primary btn-sm" onclick="copyEmployersToCurrentYear()">📋 העתק מעסיקים</button>
+        <button class="btn btn-outline btn-sm" onclick="populateCopyEmployersSelect()">🔄 רענן</button>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px">💡 כפילויות (לפי שם + איש קשר) ידולגו אוטומטית</p>
     </div>
   </div>
 </div>
@@ -1567,6 +1581,7 @@ function showPage(page){
   const btn = document.getElementById('btn-'+page);
   if(btn) btn.classList.add('active');
   if(page === 'settings') renderSettingsPage();
+  if(page === 'backup') populateCopyEmployersSelect();
   if(page === 'email') renderEmailPage();
   if(page === 'documents') renderDocumentsPage();
 }
@@ -1587,30 +1602,34 @@ function renderDocumentsPage(){
 function openDocWindow(title, bodyHtml){
   const w = window.open('','','width=900,height=1000');
   w.document.write('<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>'+escHtml(title)+'</title><style>'+
-    '@page { size: A4; margin: 2cm; }'+
-    '* { box-sizing: border-box; }'+
-    'body { font-family: Arial, "Heebo", sans-serif; direction: rtl; color: #222; line-height: 1.7; padding: 0; }'+
+    '@page { size: A4; margin: 2cm; mso-page-orientation: portrait; }'+
+    '* { box-sizing: border-box; direction: rtl; }'+
+    'body { font-family: Arial, "Heebo", sans-serif; direction: rtl; color: #222; line-height: 1.7; padding: 0; text-align: right; }'+
+    'div, p, span, td, th, li { direction: rtl; unicode-bidi: embed; text-align: right; }'+
     '.letterhead { border-bottom: 3px solid #2f6df6; padding-bottom: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }'+
-    '.letterhead h1 { color: #2f6df6; margin: 0; font-size: 22px; }'+
+    '.letterhead h1 { color: #2f6df6; margin: 0; font-size: 22px; text-align: right; direction: rtl; }'+
     '.letterhead .sub { color: #64728a; font-size: 13px; margin-top: 4px; }'+
-    '.letterhead .date { color: #64728a; font-size: 12px; text-align: left; }'+
-    '.recipient { margin-bottom: 20px; font-size: 14px; }'+
+    '.letterhead .date { color: #64728a; font-size: 12px; text-align: left; direction: ltr; }'+
+    '.recipient { margin-bottom: 20px; font-size: 14px; text-align: right; }'+
+    'h1, h2, h3, h4 { direction: rtl; text-align: right; }'+
     'h2 { font-size: 17px; color: #2f6df6; margin: 18px 0 10px; }'+
     'h3 { font-size: 14px; color: #333; margin: 14px 0 6px; }'+
-    'p { margin: 8px 0; font-size: 13px; }'+
-    '.signature { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; }'+
+    'p { margin: 8px 0; font-size: 13px; text-align: right; }'+
+    '.signature { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; text-align: right; }'+
     '.signature .name { font-weight: 700; font-size: 14px; }'+
     '.footer { margin-top: 30px; padding-top: 8px; border-top: 1px solid #ddd; color: #64728a; font-size: 10px; text-align: center; }'+
-    'table.info { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }'+
-    'table.info td { padding: 6px 10px; border-bottom: 1px solid #eee; }'+
+    'table { direction: rtl; border-collapse: collapse; }'+
+    'table.info { width: 100%; margin: 12px 0; font-size: 13px; direction: rtl; }'+
+    'table.info td { padding: 6px 10px; border-bottom: 1px solid #eee; text-align: right; direction: rtl; vertical-align: top; }'+
     'table.info td:first-child { font-weight: 700; color: #555; width: 35%; background: #f7f8fa; }'+
-    'table.eval { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }'+
-    'table.eval th { background: #7c3aed; color: #fff; padding: 8px; text-align: right; border: 1px solid #6b2ed1; }'+
-    'table.eval td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }'+
+    'table.eval { width: 100%; margin: 12px 0; font-size: 12px; direction: rtl; }'+
+    'table.eval th { background: #7c3aed; color: #fff; padding: 8px; text-align: right; border: 1px solid #6b2ed1; direction: rtl; }'+
+    'table.eval td { border: 1px solid #ddd; padding: 8px; vertical-align: top; text-align: right; direction: rtl; }'+
     'table.eval td:first-child { font-weight: 600; background: #f7f8fa; width: 35%; }'+
-    '.rating-row { display: flex; gap: 4px; margin-top: 4px; }'+
+    '.rating-row { display: flex; gap: 4px; margin-top: 4px; direction: rtl; }'+
     '.rating-box { width: 24px; height: 24px; border: 1px solid #999; display: inline-block; text-align: center; line-height: 24px; font-size: 11px; }'+
-    '.section-title { background: #7c3aed; color: #fff; padding: 6px 12px; margin: 18px 0 0; font-size: 14px; border-radius: 6px 6px 0 0; }'+
+    '.section-title { background: #7c3aed; color: #fff; padding: 6px 12px; margin: 18px 0 0; font-size: 14px; border-radius: 6px 6px 0 0; text-align: right; direction: rtl; }'+
+    'ul, ol { text-align: right; direction: rtl; padding-right: 30px; padding-left: 0; }'+
     '@media screen { body { max-width: 800px; margin: 20px auto; background: #fff; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,.1); } .print-btn { position: fixed; top: 10px; left: 10px; padding: 10px 18px; background: #2f6df6; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; z-index:9999 } }'+
     '@media print { .print-btn { display: none; } body { padding: 0; } }'+
     '</style></head><body>'+
@@ -1637,17 +1656,23 @@ function openDocWindow(title, bodyHtml){
   w.document.close();
 }
 
-function generateEvaluationForm(){
-  const id = document.getElementById('doc-eval-student').value;
-  if(!id){ alert('נא לבחור סטודנט'); return; }
-  const s = DB.students.find(x => x.id == id);
-  if(!s) return;
-  const emp = DB.employers.find(e => e.name === s.acceptedOrg);
+function generateEvaluationForm(blank){
+  let s = null, emp = null;
+  if(!blank){
+    const id = document.getElementById('doc-eval-student').value;
+    if(!id){ alert('נא לבחור סטודנט, או ללחוץ על "טופס ריק" לפורמט כללי'); return; }
+    s = DB.students.find(x => x.id == id);
+    if(!s) return;
+    emp = DB.employers.find(e => e.name === s.acceptedOrg);
+  }
   const date = new Date().toLocaleDateString('he-IL');
-  const ratingBoxes = (name) => '<div class="rating-row">'+
-    '<span style="margin-left:8px;font-size:11px;color:#666">1 (חלש) →</span>'+
-    [1,2,3,4,5,6,7,8,9,10].map(n => '<span class="rating-box">'+n+'</span>').join('')+
-    '<span style="margin-right:8px;font-size:11px;color:#666">← 10 (מצוין)</span></div>';
+  const ratingBoxes = (name) => '<div style="display:flex;align-items:center;gap:10px;font-size:12px">'+
+    '<span style="color:#666;font-size:11px">ציון 1-100:</span>'+
+    '<div style="display:inline-block;border:2px solid #7c3aed;border-radius:6px;padding:6px 16px;min-width:80px;text-align:center;background:#fafbff;font-weight:700;font-size:15px;min-height:28px">&nbsp;</div>'+
+    '<span style="color:#888;font-size:10px">(1=חלש מאוד | 60=מספק | 85=טוב מאוד | 100=מצוין)</span>'+
+    '</div>';
+  const emptyCell = '<td style="height:28px;border-bottom:1px dotted #999"></td>';
+  const fillCell = (val) => val ? '<td><strong>'+escHtml(val)+'</strong></td>' : emptyCell;
 
   const body =
     '<div class="letterhead">'+
@@ -1657,11 +1682,11 @@ function generateEvaluationForm(){
 
     '<h2>פרטי הסטודנט/ית</h2>'+
     '<table class="info">'+
-      '<tr><td>שם הסטודנט/ית:</td><td><strong>'+escHtml(s.name)+'</strong></td></tr>'+
-      '<tr><td>ארגון ההתנסות:</td><td><strong>'+escHtml(s.acceptedOrg||'-')+'</strong></td></tr>'+
-      (emp ? '<tr><td>תחום / מחלקה:</td><td>'+escHtml(emp.description||'-').substring(0,200)+'</td></tr>' : '')+
-      '<tr><td>שעות התנסות:</td><td>'+(s.hoursApproved||s.hoursReported||0)+' שעות</td></tr>'+
-      '<tr><td>שם החונך/ת בארגון:</td><td style="height:28px;border-bottom:1px dotted #999">'+escHtml(emp?emp.contact:'')+'</td></tr>'+
+      '<tr><td>שם הסטודנט/ית:</td>'+(s ? fillCell(s.name) : emptyCell)+'</tr>'+
+      '<tr><td>ארגון ההתנסות:</td>'+(s ? fillCell(s.acceptedOrg) : emptyCell)+'</tr>'+
+      (emp ? '<tr><td>תחום / מחלקה:</td><td>'+escHtml((emp.description||'').substring(0,200))+'</td></tr>' : '<tr><td>תחום / מחלקה:</td>'+emptyCell+'</tr>')+
+      '<tr><td>שעות התנסות:</td>'+(s ? '<td>'+(s.hoursApproved||s.hoursReported||0)+' שעות</td>' : emptyCell)+'</tr>'+
+      '<tr><td>שם החונך/ת בארגון:</td><td style="height:28px;border-bottom:1px dotted #999">'+escHtml(emp?emp.contact||'':'')+'</td></tr>'+
       '<tr><td>תפקיד החונך/ת:</td><td style="height:28px;border-bottom:1px dotted #999">'+escHtml(emp?emp.role||'':'')+'</td></tr>'+
       '<tr><td>תאריך מילוי הטופס:</td><td style="height:28px;border-bottom:1px dotted #999"></td></tr>'+
     '</table>'+
@@ -3873,6 +3898,105 @@ function globalSearch(query){
 }
 
 // ============ IMPORT (CSV + Excel) ============
+// ============ COPY EMPLOYERS BETWEEN YEARS ============
+function populateCopyEmployersSelect(){
+  const yearSel = document.getElementById('copy-emp-year');
+  const courseSel = document.getElementById('copy-emp-course');
+  const targetLabel = document.getElementById('copy-target-label');
+  if(!yearSel || !courseSel) return;
+
+  // Target label shows where we're copying TO
+  const curCourse = DB.courses.find(c => c.id === DB.currentCourse);
+  const curCourseName = DB.currentCourse === '__all__' ? 'כל הקורסים' : (curCourse ? curCourse.name : '');
+  const curYear = DB.currentYear === '__all__' ? 'כל השנים' : DB.currentYear;
+  if(targetLabel) targetLabel.textContent = curCourseName + ' | ' + curYear;
+
+  // Find year-course combos that have employers
+  const combos = new Set();
+  DB.employers.forEach(e => {
+    if(e.courseId && e.year) combos.add(e.year + '||' + e.courseId);
+  });
+
+  // Populate years dropdown
+  const years = [...new Set(DB.employers.map(e => normalizeYear(e.year)).filter(Boolean))].sort();
+  yearSel.innerHTML = '<option value="">— בחר שנה —</option>' + years.map(y =>
+    '<option value="'+escHtml(y)+'">'+escHtml(y)+'</option>'
+  ).join('');
+
+  // Populate course dropdown based on selected year
+  yearSel.onchange = function(){
+    const selectedYear = yearSel.value;
+    const courseIds = new Set();
+    if(selectedYear){
+      DB.employers.forEach(e => {
+        if(normalizeYear(e.year) === selectedYear) courseIds.add(e.courseId);
+      });
+    }
+    const courseOptions = [...courseIds].map(cid => {
+      const c = DB.courses.find(x => x.id === cid);
+      const name = c ? c.name : cid;
+      const count = DB.employers.filter(e => e.courseId === cid && normalizeYear(e.year) === selectedYear).length;
+      return '<option value="'+escHtml(cid)+'">'+escHtml(name)+' ('+count+' מעסיקים)</option>';
+    });
+    courseSel.innerHTML = '<option value="">— בחר קורס —</option>' + (courseOptions.length ? courseOptions.join('') : '<option disabled>אין מעסיקים בשנה זו</option>');
+  };
+  courseSel.innerHTML = '<option value="">— בחר שנה תחילה —</option>';
+}
+
+function copyEmployersToCurrentYear(){
+  const srcYear = document.getElementById('copy-emp-year').value;
+  const srcCourse = document.getElementById('copy-emp-course').value;
+  if(!srcYear || !srcCourse){ alert('נא לבחור שנת מקור וקורס מקור'); return; }
+
+  const targetYear = DB.currentYear === '__all__' ? null : DB.currentYear;
+  const targetCourse = DB.currentCourse === '__all__' ? null : DB.currentCourse;
+  if(!targetYear || !targetCourse){
+    alert('נא לבחור בבר העליון את הקורס והשנה שאליהם תרצה להעתיק (לא "כל השנים" / "כל הקורסים")');
+    return;
+  }
+  if(srcYear === targetYear && srcCourse === targetCourse){
+    alert('המקור והיעד זהים - אין מה להעתיק');
+    return;
+  }
+
+  const srcEmployers = DB.employers.filter(e =>
+    normalizeYear(e.year) === srcYear && e.courseId === srcCourse
+  );
+  if(srcEmployers.length === 0){ alert('אין מעסיקים בשנה ובקורס שבחרת'); return; }
+
+  // Existing employers in target (for duplicate check)
+  const existingTarget = DB.employers.filter(e =>
+    normalizeYear(e.year) === targetYear && e.courseId === targetCourse
+  );
+  const isDup = (emp) => existingTarget.some(x =>
+    x.name.trim().toLowerCase() === emp.name.trim().toLowerCase() &&
+    (x.contact||'').trim().toLowerCase() === (emp.contact||'').trim().toLowerCase()
+  );
+
+  const confirmMsg = 'להעתיק ' + srcEmployers.length + ' מעסיקים\n' +
+    'מ: ' + srcYear + ' (' + (DB.courses.find(c=>c.id===srcCourse)?.name||'') + ')\n' +
+    'אל: ' + targetYear + ' (' + (DB.courses.find(c=>c.id===targetCourse)?.name||'') + ')?';
+  if(!confirm(confirmMsg)) return;
+
+  saveBeforeAction();
+  let copied = 0, skipped = 0;
+  let nextId = DB.employers.length > 0 ? Math.max(...DB.employers.map(x=>x.id)) + 1 : 1;
+
+  srcEmployers.forEach(emp => {
+    if(isDup(emp)){ skipped++; return; }
+    // Deep-copy but reset placement-specific data
+    const newEmp = JSON.parse(JSON.stringify(emp));
+    newEmp.id = nextId++;
+    newEmp.courseId = targetCourse;
+    newEmp.year = targetYear;
+    DB.employers.push(newEmp);
+    copied++;
+  });
+
+  renderAll();
+  alert('הועתקו ' + copied + ' מעסיקים' + (skipped ? '\nדולגו ' + skipped + ' כפילויות' : ''));
+}
+
 function importData(event, type){
   const file = event.target.files[0];
   if(!file)return;
