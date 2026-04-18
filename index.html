@@ -239,6 +239,7 @@ input[type=file]{display:none}
   <button onclick="showPage('reports')" id="btn-reports">דוחות</button>
   <button onclick="showPage('email')" id="btn-email">מייל</button>
   <button onclick="showPage('documents')" id="btn-documents">מסמכים</button>
+  <button onclick="showPage('calendar')" id="btn-calendar">📅 לוח שנה</button>
   <button onclick="showPage('settings')" id="btn-settings">הגדרות</button>
   <button onclick="showPage('backup')" id="btn-backup">גיבוי</button>
   <button onclick="undoLastAction()" class="btn btn-warning btn-sm" style="margin-right:auto">↶ ביטול</button>
@@ -433,6 +434,39 @@ input[type=file]{display:none}
 
 <!-- SETTINGS -->
 <!-- DOCUMENTS PAGE -->
+<!-- CALENDAR PAGE -->
+<div id="calendar" class="page">
+  <div class="card">
+    <div class="card-header">
+      <h2>📅 לוח שנה</h2>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="calendarPrev()">‹ חודש קודם</button>
+        <span id="calendar-title" style="font-weight:700;font-size:16px;min-width:160px;text-align:center"></span>
+        <button class="btn btn-sm btn-outline" onclick="calendarNext()">חודש הבא ›</button>
+        <button class="btn btn-sm btn-primary" onclick="calendarToday()">היום</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f97316;border-radius:3px;display:inline-block"></span> ראיון מועמד</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#17a34a;border-radius:3px;display:inline-block"></span> הכנה</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2f6df6;border-radius:3px;display:inline-block"></span> מועד הגשה</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#7c3aed;border-radius:3px;display:inline-block"></span> אירוע כללי</span>
+    </div>
+    <div id="calendar-grid"></div>
+  </div>
+  <div class="card">
+    <h2>➕ הוסף אירוע</h2>
+    <p style="font-size:12px;color:var(--muted)">אירוע שיוצג בלוח השנה (פגישות קורס, הרצאות אורח, מועדי הגשה וכו')</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px">
+      <div class="form-group"><label>כותרת</label><input id="cal-event-title" placeholder="למשל: מפגש קורס #3"></div>
+      <div class="form-group"><label>תאריך</label><input type="date" id="cal-event-date"></div>
+      <div class="form-group"><label>שעה (אופציונלי)</label><input type="time" id="cal-event-time"></div>
+    </div>
+    <div class="form-group"><label>הערות</label><textarea id="cal-event-notes" style="min-height:50px"></textarea></div>
+    <button class="btn btn-primary" onclick="addCalendarEvent()">הוסף אירוע</button>
+  </div>
+</div>
+
 <div id="documents" class="page">
   <div class="card">
     <h2>📄 יצירת מסמכים</h2>
@@ -1582,11 +1616,191 @@ function showPage(page){
   if(btn) btn.classList.add('active');
   if(page === 'settings') renderSettingsPage();
   if(page === 'backup') populateCopyEmployersSelect();
+  if(page === 'calendar') renderCalendar();
   if(page === 'email') renderEmailPage();
   if(page === 'documents') renderDocumentsPage();
 }
 
 // ============ DOCUMENTS PAGE ============
+// ============ CALENDAR ============
+let calendarDate = new Date();
+
+function calendarPrev(){ calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth()-1, 1); renderCalendar(); }
+function calendarNext(){ calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth()+1, 1); renderCalendar(); }
+function calendarToday(){ calendarDate = new Date(); renderCalendar(); }
+
+function getCalendarEvents(){
+  // Collect all events from candidates, students, and manual events
+  const events = [];
+
+  // Candidate interviews
+  DB.candidates.forEach(c => {
+    if(c.interviewDate && (DB.currentCourse === '__all__' || c.courseId === DB.currentCourse) && (DB.currentYear === '__all__' || normalizeYear(c.year) === DB.currentYear)){
+      events.push({
+        date: c.interviewDate,
+        type: 'interview',
+        color: '#f97316',
+        title: 'ראיון: ' + c.name,
+        details: c.interviewResult === 'passed' ? 'עבר ✓' : c.interviewResult === 'failed' ? 'לא עבר ✗' : 'טרם הוחלט',
+        onclick: 'editCandidate('+c.id+')'
+      });
+    }
+  });
+
+  // Student prep dates
+  DB.students.forEach(s => {
+    if(s.prepDate && s.prepDone && (DB.currentCourse === '__all__' || s.courseId === DB.currentCourse) && (DB.currentYear === '__all__' || normalizeYear(s.year) === DB.currentYear)){
+      events.push({
+        date: s.prepDate,
+        type: 'prep',
+        color: '#17a34a',
+        title: 'הכנה: ' + s.name,
+        details: 'סטודנט עבר הכנה',
+        onclick: 'editStudent('+s.id+')'
+      });
+    }
+  });
+
+  // Manual events
+  if(!DB.calendarEvents) DB.calendarEvents = [];
+  DB.calendarEvents.forEach((ev, idx) => {
+    if((DB.currentCourse === '__all__' || ev.courseId === DB.currentCourse || !ev.courseId) && (DB.currentYear === '__all__' || ev.year === DB.currentYear || !ev.year)){
+      events.push({
+        date: ev.date,
+        time: ev.time,
+        type: 'custom',
+        color: '#7c3aed',
+        title: ev.title,
+        details: ev.notes || '',
+        onclick: 'deleteCalendarEvent('+idx+')',
+        isCustom: true
+      });
+    }
+  });
+
+  return events;
+}
+
+function renderCalendar(){
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const dayNames = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+  document.getElementById('calendar-title').textContent = monthNames[month] + ' ' + year;
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+  const events = getCalendarEvents();
+  const eventsByDate = {};
+  events.forEach(e => {
+    if(!eventsByDate[e.date]) eventsByDate[e.date] = [];
+    eventsByDate[e.date].push(e);
+  });
+
+  // Today highlight
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden">';
+
+  // Day headers
+  dayNames.forEach(d => {
+    html += '<div style="background:var(--chip);padding:8px;text-align:center;font-weight:700;font-size:12px">'+d+'</div>';
+  });
+
+  // Previous month days (padding)
+  for(let i = firstDay - 1; i >= 0; i--){
+    html += '<div style="background:var(--surface);opacity:.4;padding:8px;min-height:80px;font-size:12px"><div style="color:var(--muted)">'+(daysInPrevMonth-i)+'</div></div>';
+  }
+
+  // Current month days
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = year + '-' + String(month+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    const isToday = dateStr === todayStr;
+    const dayEvents = eventsByDate[dateStr] || [];
+    const bg = isToday ? 'rgba(47,109,246,.08)' : '#fff';
+    const border = isToday ? '2px solid var(--primary)' : 'none';
+
+    html += '<div style="background:'+bg+';padding:4px;min-height:80px;font-size:12px;border:'+border+'">';
+    html += '<div style="font-weight:'+(isToday?'700':'600')+';color:'+(isToday?'var(--primary)':'var(--text)')+';margin-bottom:3px">'+d+'</div>';
+
+    dayEvents.slice(0, 3).forEach(e => {
+      const label = (e.time ? e.time + ' ' : '') + e.title;
+      html += '<div onclick="'+e.onclick+'" style="background:'+e.color+';color:#fff;padding:2px 5px;border-radius:4px;font-size:10px;margin:2px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(e.title + (e.details ? ' - ' + e.details : ''))+'">'+escHtml(label)+'</div>';
+    });
+    if(dayEvents.length > 3){
+      html += '<div style="font-size:10px;color:var(--muted);margin-top:2px">+'+(dayEvents.length-3)+' נוספים</div>';
+    }
+    html += '</div>';
+  }
+
+  // Next month padding
+  const totalCells = firstDay + daysInMonth;
+  const remainingCells = (7 - (totalCells % 7)) % 7;
+  for(let i = 1; i <= remainingCells; i++){
+    html += '<div style="background:var(--surface);opacity:.4;padding:8px;min-height:80px;font-size:12px"><div style="color:var(--muted)">'+i+'</div></div>';
+  }
+
+  html += '</div>';
+
+  // Events list for this month
+  const monthEvents = events.filter(e => {
+    const d = new Date(e.date);
+    return d.getFullYear() === year && d.getMonth() === month;
+  }).sort((a,b) => a.date.localeCompare(b.date));
+
+  if(monthEvents.length > 0){
+    html += '<div style="margin-top:20px"><h3 style="font-size:14px;margin-bottom:10px">אירועים החודש ('+monthEvents.length+')</h3>';
+    monthEvents.forEach(e => {
+      const d = new Date(e.date);
+      const dayName = dayNames[d.getDay()];
+      html += '<div style="display:flex;gap:10px;padding:8px;background:var(--surface);border-right:3px solid '+e.color+';margin:4px 0;border-radius:0 6px 6px 0;align-items:center">';
+      html += '<div style="min-width:100px;font-size:12px;color:var(--muted)">'+dayName+' '+e.date+(e.time?' '+e.time:'')+'</div>';
+      html += '<div style="flex:1"><strong>'+escHtml(e.title)+'</strong>';
+      if(e.details) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+escHtml(e.details)+'</div>';
+      html += '</div>';
+      html += '<button class="btn btn-sm btn-outline" onclick="'+e.onclick+'">'+(e.isCustom?'מחק':'ערוך')+'</button>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('calendar-grid').innerHTML = html;
+}
+
+function addCalendarEvent(){
+  const title = document.getElementById('cal-event-title').value.trim();
+  const date = document.getElementById('cal-event-date').value;
+  const time = document.getElementById('cal-event-time').value;
+  const notes = document.getElementById('cal-event-notes').value.trim();
+  if(!title || !date){ alert('נא למלא כותרת ותאריך'); return; }
+  if(!DB.calendarEvents) DB.calendarEvents = [];
+  DB.calendarEvents.push({
+    title, date, time, notes,
+    courseId: DB.currentCourse === '__all__' ? null : DB.currentCourse,
+    year: DB.currentYear === '__all__' ? null : DB.currentYear,
+    createdBy: DB.currentUser?.name || ''
+  });
+  saveToStorage();
+  document.getElementById('cal-event-title').value = '';
+  document.getElementById('cal-event-date').value = '';
+  document.getElementById('cal-event-time').value = '';
+  document.getElementById('cal-event-notes').value = '';
+  renderCalendar();
+  alert('האירוע נוסף');
+}
+
+function deleteCalendarEvent(idx){
+  if(!DB.calendarEvents || !DB.calendarEvents[idx]) return;
+  if(!confirm('למחוק את האירוע "' + DB.calendarEvents[idx].title + '"?')) return;
+  DB.calendarEvents.splice(idx, 1);
+  saveToStorage();
+  renderCalendar();
+}
+
 function renderDocumentsPage(){
   const students = getFilteredStudents();
   const employers = getFilteredEmployers();
