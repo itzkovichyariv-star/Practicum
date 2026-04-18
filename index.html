@@ -526,6 +526,16 @@ input[type=file]{display:none}
         <button class="btn btn-sm" style="background:#6c757d;color:#fff" onclick="resetAndReload()">איפוס מלא</button>
       </div>
     </div>
+    <div class="section" style="background:rgba(229,72,77,.05);border:2px solid var(--danger);margin-top:12px">
+      <h3 style="color:var(--danger)">🚨 כלי שחזור חירום</h3>
+      <p style="font-size:13px;margin:8px 0">השתמש אם יש אי-התאמה בין מכשירים או אובדן נתונים. שים לב - הפעולות האלו דורסות נתונים!</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-danger" onclick="emergencyPushLocalToCloud()">📤 דחף נתוני המכשיר הזה לכל המכשירים (דורס ענן)</button>
+        <button class="btn" style="background:#7c3aed;color:#fff" onclick="emergencyPullFromCloud()">📥 משוך מהענן ודרוס מקומי</button>
+        <button class="btn btn-info" onclick="showVersionHistory()">🕐 היסטוריית גרסאות (שחזור)</button>
+        <button class="btn btn-warning" onclick="emergencyDiagnostics()">🔍 דיאגנוסטיקה</button>
+      </div>
+    </div>
     <div class="section">
       <h3>ייצוא Excel</h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -960,6 +970,8 @@ window.onload = function(){
   renderEmailPage();
   updateBackupIndicator();
   updateHeaderUser();
+  // Run integrity check on load
+  runIntegrityCheck();
   // Auto-connect cloud sync if enabled
   setTimeout(() => { autoConnectCloud().catch(err => console.warn('Cloud sync auto-connect failed:', err)); }, 500);
   document.addEventListener('click', function(e){
@@ -4330,6 +4342,100 @@ function openStudentFile(type){
 }
 
 // ============ RESET ============
+// ============ EMERGENCY TOOLS ============
+async function emergencyPushLocalToCloud(){
+  if(!supabaseEnabled || !supabaseUser){
+    alert('⚠️ סנכרון ענן לא פעיל. הפעל אותו קודם בהגדרות.');
+    return;
+  }
+  const localCount = (DB.students?.length||0) + (DB.employers?.length||0) + (DB.candidates?.length||0) + (DB.courses?.length||0);
+  if(!confirm('⚠️ פעולה מסוכנת!\n\nפעולה זו תעתיק את הנתונים מהמכשיר הזה לענן ותדרוס את כל המכשירים האחרים.\n\nנמצאו במכשיר:\n- '+(DB.courses?.length||0)+' קורסים\n- '+(DB.students?.length||0)+' סטודנטים\n- '+(DB.employers?.length||0)+' מעסיקים\n- '+(DB.candidates?.length||0)+' מועמדים\n\nלהמשיך?'))return;
+  if(!confirm('אישור אחרון - כל הנתונים במכשירים האחרים יידרסו.\n\nהאם הנתונים במכשיר הזה הם הנכונים?'))return;
+  // Force push
+  try {
+    updateSyncIndicator('syncing');
+    lastSaveHash = null; // Force a new save
+    const result = await supabaseSaveData(true);
+    if(result){
+      alert('✅ הנתונים נדחפו לענן.\n\nכעת במכשירים האחרים:\n1. סגרו ופתחו את האפליקציה מחדש\n2. או לכו ל-גיבוי → 🔄 רענן מהענן\n\nהם יקבלו את הנתונים החדשים.');
+    } else {
+      alert('❌ שגיאה בדחיפה. בדוק את הלוג (F12)');
+    }
+  } catch(err){
+    alert('שגיאה: ' + err.message);
+  }
+}
+
+async function emergencyPullFromCloud(){
+  if(!supabaseEnabled || !supabaseUser){
+    alert('⚠️ סנכרון ענן לא פעיל. הפעל אותו קודם בהגדרות.');
+    return;
+  }
+  if(!confirm('פעולה זו תמשוך את הנתונים מהענן ותדרוס את הנתונים במכשיר הזה. להמשיך?'))return;
+  try {
+    const cloudData = await supabaseLoadData();
+    if(!cloudData){ alert('לא נמצאו נתונים בענן'); return; }
+    suppressSave = true;
+    applySupabaseData(cloudData);
+    lastSaveHash = hashData(cloudData);
+    renderContextBar();
+    renderAll();
+    setTimeout(() => { suppressSave = false; }, 500);
+    alert('✅ נמשכו מהענן:\n- '+(DB.courses?.length||0)+' קורסים\n- '+(DB.students?.length||0)+' סטודנטים\n- '+(DB.employers?.length||0)+' מעסיקים');
+  } catch(err){ alert('שגיאה: ' + err.message); }
+}
+
+async function emergencyDiagnostics(){
+  let report = '═══ דיאגנוסטיקה ═══\n\n';
+
+  // Local
+  report += '📱 מכשיר זה:\n';
+  report += '  משתמש: ' + (DB.currentUser?.name || 'לא מוגדר') + ' (' + (DB.currentUser?.email || '-') + ')\n';
+  report += '  קורסים: ' + (DB.courses?.length || 0) + '\n';
+  DB.courses.forEach(c => {
+    const sCount = DB.students.filter(s => s.courseId === c.id).length;
+    const eCount = DB.employers.filter(e => e.courseId === c.id).length;
+    report += '    • ' + c.name + ' [' + c.id + ']\n';
+    report += '      סטודנטים: ' + sCount + ' | מעסיקים: ' + eCount + '\n';
+  });
+  report += '  סטודנטים סה"כ: ' + (DB.students?.length || 0) + '\n';
+  report += '  מעסיקים סה"כ: ' + (DB.employers?.length || 0) + '\n';
+  report += '  מועמדים סה"כ: ' + (DB.candidates?.length || 0) + '\n';
+
+  // Orphans
+  const validIds = new Set(DB.courses.map(c => c.id));
+  const orphans = [DB.students, DB.employers, DB.candidates].reduce((sum, arr) => sum + arr.filter(x => !validIds.has(x.courseId)).length, 0);
+  if(orphans > 0) report += '  ⚠️ יתומים (ללא קורס מתאים): ' + orphans + '\n';
+
+  // Cloud
+  if(supabaseEnabled && supabaseUser){
+    report += '\n☁️ ענן:\n';
+    try {
+      const cloudData = await supabaseLoadData();
+      if(cloudData){
+        report += '  קורסים בענן: ' + (cloudData.courses?.length || 0) + '\n';
+        (cloudData.courses || []).forEach(c => {
+          const sCount = (cloudData.students || []).filter(s => s.courseId === c.id).length;
+          const eCount = (cloudData.employers || []).filter(e => e.courseId === c.id).length;
+          report += '    • ' + c.name + ' [' + c.id + ']\n';
+          report += '      סטודנטים: ' + sCount + ' | מעסיקים: ' + eCount + '\n';
+        });
+        report += '  סטודנטים סה"כ: ' + (cloudData.students?.length || 0) + '\n';
+        report += '  מעסיקים סה"כ: ' + (cloudData.employers?.length || 0) + '\n';
+      } else {
+        report += '  אין נתונים\n';
+      }
+    } catch(err){
+      report += '  שגיאה: ' + err.message + '\n';
+    }
+  } else {
+    report += '\n☁️ ענן: לא פעיל\n';
+  }
+
+  alert(report);
+  console.log(report);
+}
+
 function resetAndReload(){
   if(!confirm('זהירות! פעולה זו תמחק את כל הנתונים מהדפדפן.\nוודא שיש לך גיבוי JSON לפני!\n\nלהמשיך?')) return;
   localStorage.removeItem('practicum_db_v5');
@@ -4427,12 +4533,38 @@ function hashData(obj){
   return hash + '_' + str.length;
 }
 
+// Get total record count from a snapshot
+function countRecords(snapshot){
+  if(!snapshot) return {total:0,courses:0,students:0,employers:0,candidates:0,communications:0};
+  return {
+    courses: (snapshot.courses||[]).length,
+    students: (snapshot.students||[]).length,
+    employers: (snapshot.employers||[]).length,
+    candidates: (snapshot.candidates||[]).length,
+    communications: (snapshot.communications||[]).length,
+    total: (snapshot.courses||[]).length + (snapshot.students||[]).length + (snapshot.employers||[]).length + (snapshot.candidates||[]).length
+  };
+}
+
+// Save to version history (backup before overwrite)
+async function supabaseSaveVersion(snapshot, counts){
+  if(!supabaseClient || !supabaseUser) return;
+  try {
+    await supabaseClient.from('practicum_versions').insert({
+      org_id: 'default',
+      data: snapshot,
+      counts: counts,
+      editor_name: DB.currentUser.name || 'Unknown',
+      editor_email: DB.currentUser.email || ''
+    });
+  } catch(err){ console.warn('Version save failed:', err); }
+}
+
 async function supabaseSaveData(force){
   if(!supabaseClient || !supabaseUser || !supabaseRecordId) return false;
-  if(suppressSave){ return false; } // Don't save during realtime update application
+  if(suppressSave){ return false; }
   if(syncInProgress && !force){ pendingSync = true; return false; }
 
-  // Build snapshot
   const snapshot = {
     courses: DB.courses, academicYears: DB.academicYears,
     currentCourse: DB.currentCourse, currentYear: DB.currentYear,
@@ -4441,11 +4573,42 @@ async function supabaseSaveData(force){
     version: '5.0'
   };
   const currentHash = hashData(snapshot);
-  // Skip if nothing changed
   if(currentHash === lastSaveHash && !force){ return true; }
+
+  const newCounts = countRecords(snapshot);
 
   syncInProgress = true;
   try {
+    // SAFEGUARD: Fetch current cloud data to check for data loss
+    if(!force){
+      const {data:current} = await supabaseClient.from('practicum_data')
+        .select('data').eq('id', supabaseRecordId).single();
+      if(current && current.data){
+        const oldCounts = countRecords(current.data);
+        // Detect significant data loss (lose more than 20% of any category)
+        const lossThreshold = 0.2;
+        const studentLoss = oldCounts.students > 5 && newCounts.students < oldCounts.students * (1 - lossThreshold);
+        const employerLoss = oldCounts.employers > 5 && newCounts.employers < oldCounts.employers * (1 - lossThreshold);
+        const courseLoss = oldCounts.courses > 1 && newCounts.courses < oldCounts.courses;
+        if(studentLoss || employerLoss || courseLoss){
+          syncInProgress = false;
+          const warning = 'אזהרה: זוהה אובדן נתונים!\n\n' +
+            'קורסים: ' + oldCounts.courses + ' → ' + newCounts.courses + '\n' +
+            'סטודנטים: ' + oldCounts.students + ' → ' + newCounts.students + '\n' +
+            'מעסיקים: ' + oldCounts.employers + ' → ' + newCounts.employers + '\n' +
+            'מועמדים: ' + oldCounts.candidates + ' → ' + newCounts.candidates + '\n\n' +
+            'ייתכן שמישהו מחק בטעות או שהנתונים לא נטענו נכון.\n' +
+            'לאשר את השמירה בכל זאת?';
+          if(!confirm(warning)){
+            updateSyncIndicator('offline');
+            return false;
+          }
+        }
+        // Save current version to history before overwriting
+        await supabaseSaveVersion(current.data, oldCounts);
+      }
+    }
+
     const {data, error} = await supabaseClient.from('practicum_data')
       .update({
         data: snapshot,
@@ -4473,6 +4636,107 @@ async function supabaseSaveData(force){
     syncInProgress = false;
     return false;
   }
+}
+
+// List all versions from history
+async function listVersions(){
+  if(!supabaseClient || !supabaseUser){ alert('סנכרון ענן לא פעיל'); return []; }
+  const {data, error} = await supabaseClient.from('practicum_versions')
+    .select('id,counts,editor_name,editor_email,created_at')
+    .eq('org_id','default')
+    .order('created_at',{ascending:false})
+    .limit(20);
+  if(error){ console.error(error); return []; }
+  return data;
+}
+
+async function restoreVersion(versionId){
+  if(!confirm('פעולה זו תחליף את הנתונים הנוכחיים בגרסה הנבחרת. להמשיך?'))return;
+  const {data, error} = await supabaseClient.from('practicum_versions')
+    .select('data').eq('id', versionId).single();
+  if(error || !data){ alert('שגיאה בטעינת הגרסה'); return; }
+  suppressSave = true;
+  applySupabaseData(data.data);
+  lastSaveHash = null; // Force a save
+  renderContextBar();
+  renderAll();
+  setTimeout(() => { suppressSave = false; supabaseSaveData(true); }, 500);
+  closeModal('version-history-modal');
+  alert('הגרסה שוחזרה ונדחפה לענן');
+}
+
+async function showVersionHistory(){
+  const versions = await listVersions();
+  if(!versions.length){ alert('אין גרסאות היסטוריות'); return; }
+  let html = '<div class="modal-content" style="max-width:700px">';
+  html += '<h2>🕐 היסטוריית גרסאות (20 אחרונות)</h2>';
+  html += '<p style="font-size:12px;color:var(--muted);margin-bottom:12px">בחר גרסה לשחזור. השחזור ידרוס את הנתונים הנוכחיים.</p>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--chip)"><th style="padding:6px;text-align:right">תאריך</th><th style="padding:6px;text-align:right">ערך</th><th style="padding:6px;text-align:center">קורסים</th><th style="padding:6px;text-align:center">סטודנטים</th><th style="padding:6px;text-align:center">מעסיקים</th><th style="padding:6px;text-align:center">מועמדים</th><th style="padding:6px"></th></tr></thead><tbody>';
+  versions.forEach(v => {
+    const dt = new Date(v.created_at).toLocaleString('he-IL');
+    const c = v.counts || {};
+    html += '<tr style="border-bottom:1px solid var(--border)">';
+    html += '<td style="padding:6px">'+dt+'</td>';
+    html += '<td style="padding:6px;font-size:11px">'+escHtml(v.editor_name||'-')+'</td>';
+    html += '<td style="padding:6px;text-align:center">'+(c.courses||0)+'</td>';
+    html += '<td style="padding:6px;text-align:center"><strong>'+(c.students||0)+'</strong></td>';
+    html += '<td style="padding:6px;text-align:center">'+(c.employers||0)+'</td>';
+    html += '<td style="padding:6px;text-align:center">'+(c.candidates||0)+'</td>';
+    html += '<td style="padding:6px"><button class="btn btn-sm btn-primary" onclick="restoreVersion('+v.id+')">שחזר</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div style="margin-top:14px"><button class="btn" onclick="closeModal(\'version-history-modal\')">סגור</button></div>';
+  html += '</div>';
+
+  let modal = document.getElementById('version-history-modal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'version-history-modal';
+    modal.className = 'modal active';
+    document.body.appendChild(modal);
+  } else {
+    modal.classList.add('active');
+  }
+  modal.innerHTML = html;
+}
+
+// Data integrity check on load
+function runIntegrityCheck(){
+  const issues = [];
+  // Check orphan records
+  const validIds = new Set(DB.courses.map(c => c.id));
+  const orphanStudents = DB.students.filter(s => !validIds.has(s.courseId)).length;
+  const orphanEmployers = DB.employers.filter(e => !validIds.has(e.courseId)).length;
+  const orphanCandidates = DB.candidates.filter(c => !validIds.has(c.courseId)).length;
+  if(orphanStudents) issues.push(orphanStudents + ' סטודנטים ללא קורס תקין');
+  if(orphanEmployers) issues.push(orphanEmployers + ' מעסיקים ללא קורס תקין');
+  if(orphanCandidates) issues.push(orphanCandidates + ' מועמדים ללא קורס תקין');
+
+  // Compare with last known counts
+  const lastKnown = JSON.parse(localStorage.getItem('last_known_counts') || '{}');
+  const current = {
+    students: DB.students.length,
+    employers: DB.employers.length,
+    candidates: DB.candidates.length,
+    courses: DB.courses.length
+  };
+  // Only warn if significant drop from last session
+  if(lastKnown.students && current.students < lastKnown.students * 0.8 && lastKnown.students > 5){
+    issues.push('ירידה משמעותית במספר הסטודנטים: ' + lastKnown.students + ' → ' + current.students);
+  }
+  if(lastKnown.courses && current.courses < lastKnown.courses){
+    issues.push('קורס נעלם: ' + lastKnown.courses + ' → ' + current.courses);
+  }
+
+  if(issues.length > 0){
+    const msg = '⚠️ זוהו בעיות פוטנציאליות בנתונים:\n\n• ' + issues.join('\n• ') +
+      '\n\nמומלץ:\n1. לך לגיבוי → דיאגנוסטיקה\n2. בדוק את היסטוריית הגרסאות\n3. אם יש בעיה - שחזר גרסה קודמת';
+    setTimeout(() => alert(msg), 1000);
+  }
+
+  // Save current counts for next time
+  localStorage.setItem('last_known_counts', JSON.stringify(current));
 }
 
 function updateSyncIndicator(status){
