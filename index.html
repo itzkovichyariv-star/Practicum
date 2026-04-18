@@ -373,14 +373,18 @@ input[type=file]{display:none}
 <div id="reports" class="page">
   <div class="card">
     <div class="card-header"><h2>דוחות מפורטים</h2></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button class="btn btn-orange" onclick="generateCandidateReport()">דוח מועמדים</button>
       <button class="btn btn-primary" onclick="generateStudentReport()">דוח סטודנטים</button>
       <button class="btn btn-success" onclick="generateEmployerReport()">דוח מעסיקים</button>
       <button class="btn btn-info" onclick="generateFullReport()">דוח מלא</button>
       <button class="btn btn-purple" onclick="generateStatusReport()">דוח סטטוס</button>
       <button class="btn btn-teal" onclick="generateComparisonReport()">דוח השוואתי</button>
-      <button class="btn btn-warning" onclick="printReport()">הדפס</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;padding:10px;background:var(--surface);border-radius:8px">
+      <strong style="align-self:center;font-size:12px;color:var(--muted)">ייצוא והדפסה:</strong>
+      <button class="btn btn-sm btn-warning" onclick="printReport()">🖨️ הדפס דוח נוכחי</button>
+      <button class="btn btn-sm" style="background:#107c41;color:#fff" onclick="exportReportToExcel()">📊 ייצא ל-Excel</button>
     </div>
     <div class="filter-bar">
       <select id="report-filter-org" onchange="refreshReport()"><option value="all">כל הארגונים</option></select>
@@ -1254,6 +1258,36 @@ function loadBackup(event){
 }
 
 // ============ CONTEXT (COURSE + YEAR) ============
+function cleanupOrphanCourseIds(){
+  // Ensure every student/employer/candidate has a valid courseId
+  // If a record has courseId that doesn't exist in DB.courses, try to match by name or assign to first course
+  const validIds = new Set(DB.courses.map(c => c.id));
+  const courseByName = {};
+  DB.courses.forEach(c => { courseByName[c.name.trim()] = c.id; });
+
+  let orphansFixed = 0;
+  [DB.students, DB.employers, DB.candidates].forEach(arr => {
+    arr.forEach(item => {
+      if(!validIds.has(item.courseId)){
+        // Try to find by the courseId pattern matching a course name
+        const matchByIdLike = DB.courses.find(c =>
+          item.courseId && (item.courseId.includes(c.name.replace(/\s+/g,'-')) ||
+          c.id === item.courseId)
+        );
+        if(matchByIdLike){
+          item.courseId = matchByIdLike.id;
+          orphansFixed++;
+        } else if(DB.courses.length === 1){
+          item.courseId = DB.courses[0].id;
+          orphansFixed++;
+        }
+      }
+    });
+  });
+  if(orphansFixed > 0) console.log('Fixed', orphansFixed, 'orphan courseIds');
+  return orphansFixed;
+}
+
 function renderContextBar(){
   const courseSelect = document.getElementById('ctx-course');
   const yearSelect = document.getElementById('ctx-year');
@@ -1263,10 +1297,29 @@ function renderContextBar(){
   DB.employers.forEach(e => e.year = normalizeYear(e.year));
   DB.candidates.forEach(c => c.year = normalizeYear(c.year));
 
+  // Cleanup any orphan records
+  cleanupOrphanCourseIds();
+
+  // Verify currentCourse exists
+  if(DB.currentCourse !== '__all__' && !DB.courses.find(c => c.id === DB.currentCourse)){
+    DB.currentCourse = DB.courses[0]?.id || '__all__';
+  }
+
+  // Debug info
+  if(window._debugContext){
+    console.log('renderContextBar:',
+      'currentCourse=', DB.currentCourse,
+      'currentYear=', DB.currentYear,
+      'courses=', DB.courses.map(c => ({id:c.id, name:c.name})),
+      'students per courseId=', DB.students.reduce((acc,s)=>{acc[s.courseId]=(acc[s.courseId]||0)+1;return acc;},{})
+    );
+  }
+
   courseSelect.innerHTML = '<option value="__all__">כל הקורסים</option>' +
-    DB.courses.map(c =>
-    '<option value="'+escHtml(c.id)+'"'+(c.id===DB.currentCourse?' selected':'')+'>'+escHtml(c.name)+'</option>'
-  ).join('');
+    DB.courses.map(c => {
+      const count = DB.students.filter(s => s.courseId === c.id).length;
+      return '<option value="'+escHtml(c.id)+'"'+(c.id===DB.currentCourse?' selected':'')+'>'+escHtml(c.name)+' ('+count+')</option>';
+    }).join('');
   yearSelect.innerHTML = '<option value="__all__">כל השנים</option>' +
     DB.academicYears.map(y =>
     '<option value="'+escHtml(y)+'"'+(y===DB.currentYear?' selected':'')+'>'+escHtml(y)+'</option>'
@@ -3386,39 +3439,150 @@ function refreshReport(){
   html += '<p style="color:var(--muted);font-size:12px">'+date+'</p></div>';
 
   if(lastReportType==='candidates' || lastReportType==='full'){
+    // Group candidates by interview date
     html += '<h2 style="color:var(--orange);margin:20px 0 10px">דוח מועמדים ('+candidates.length+')</h2>';
-    html += '<table><thead><tr style="background:var(--orange);color:#fff"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>תאריך הגשה</th><th>CV</th><th>טופס</th><th>ראיון</th><th>סטטוס</th></tr></thead><tbody>';
-    candidates.forEach((c,i) => {
-      html += '<tr><td>'+(i+1)+'</td><td><strong>'+escHtml(c.name)+'</strong></td><td>'+(c.phone||'-')+'</td><td>'+(c.email||'-')+'</td>';
-      html += '<td>'+(c.applicationDate||'-')+'</td>';
-      html += '<td>'+(c.file_cv?'\u2713':'\u2717')+'</td>';
-      html += '<td>'+(c.file_application?'\u2713':'\u2717')+'</td>';
-      html += '<td>'+(c.interviewDate||'-')+'</td>';
-      html += '<td>'+CAND_STATUS_LABELS[c.status]+'</td></tr>';
+
+    const scheduled = candidates.filter(c => c.interviewDate).sort((a,b) => a.interviewDate.localeCompare(b.interviewDate));
+    const noInterview = candidates.filter(c => !c.interviewDate);
+
+    // Group by date
+    const byDate = {};
+    scheduled.forEach(c => {
+      const d = c.interviewDate;
+      if(!byDate[d]) byDate[d] = [];
+      byDate[d].push(c);
     });
-    html += '</tbody></table>';
+
+    const dates = Object.keys(byDate).sort();
+
+    if(dates.length === 0 && noInterview.length === 0){
+      html += '<p style="color:var(--muted);text-align:center;padding:20px">אין מועמדים</p>';
+    } else {
+      if(dates.length){
+        html += '<h3 style="color:var(--orange);margin:14px 0 8px;font-size:15px">מועמדים עם ראיון משובץ ('+scheduled.length+')</h3>';
+        dates.forEach(d => {
+          const dateObj = new Date(d);
+          const dateStr = dateObj.toLocaleDateString('he-IL', {weekday:'long', year:'numeric', month:'2-digit', day:'2-digit'});
+          html += '<div style="margin:14px 0;page-break-inside:avoid">';
+          html += '<h4 style="background:var(--orange);color:#fff;padding:6px 10px;border-radius:6px 6px 0 0;margin:0;font-size:14px">📅 '+dateStr+' ('+byDate[d].length+' מועמדים)</h4>';
+          html += '<table style="margin:0"><thead><tr style="background:rgba(249,115,22,.08)"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>עיר</th><th>תחום</th><th>ציון</th><th>תוצאה</th><th>סיכום ראיון</th></tr></thead><tbody>';
+          byDate[d].forEach((c,i) => {
+            const result = c.interviewResult === 'passed' ? '✓ עבר' : c.interviewResult === 'failed' ? '✗ לא עבר' : 'ממתין';
+            const resultColor = c.interviewResult === 'passed' ? 'var(--success)' : c.interviewResult === 'failed' ? 'var(--danger)' : 'var(--warn)';
+            html += '<tr>';
+            html += '<td>'+(i+1)+'</td>';
+            html += '<td><strong>'+escHtml(c.name)+'</strong></td>';
+            html += '<td>'+escHtml(c.phone||'-')+'</td>';
+            html += '<td>'+escHtml(c.email||'-')+'</td>';
+            html += '<td>'+escHtml(c.city||'-')+'</td>';
+            html += '<td>'+escHtml(c.preferredArea||'-')+'</td>';
+            html += '<td>'+(c.evalScore||'-')+'</td>';
+            html += '<td style="color:'+resultColor+';font-weight:700">'+result+'</td>';
+            html += '<td style="max-width:200px;font-size:11px">'+escHtml((c.interviewSummary||'-').substring(0,150))+'</td>';
+            html += '</tr>';
+          });
+          html += '</tbody></table></div>';
+        });
+      }
+      if(noInterview.length){
+        html += '<h3 style="color:var(--muted);margin:14px 0 8px;font-size:15px">מועמדים ללא ראיון משובץ ('+noInterview.length+')</h3>';
+        html += '<table><thead><tr style="background:var(--chip)"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>עיר</th><th>תאריך הגשה</th><th>CV</th><th>טופס</th><th>סטטוס</th></tr></thead><tbody>';
+        noInterview.forEach((c,i) => {
+          html += '<tr>';
+          html += '<td>'+(i+1)+'</td>';
+          html += '<td><strong>'+escHtml(c.name)+'</strong></td>';
+          html += '<td>'+escHtml(c.phone||'-')+'</td>';
+          html += '<td>'+escHtml(c.email||'-')+'</td>';
+          html += '<td>'+escHtml(c.city||'-')+'</td>';
+          html += '<td>'+(c.applicationDate||'-')+'</td>';
+          html += '<td>'+(c.file_cv?'✓':'✗')+'</td>';
+          html += '<td>'+(c.file_application?'✓':'✗')+'</td>';
+          html += '<td>'+(CAND_STATUS_LABELS[c.status]||c.status)+'</td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
   }
 
   if(lastReportType==='students' || lastReportType==='full'){
     html += '<h2 style="color:var(--primary);margin:20px 0 10px">דוח סטודנטים ('+students.length+')</h2>';
-    html += '<table><thead><tr style="background:var(--primary);color:#fff"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>הכנה</th><th>הגשות</th><th>התקבל</th><th>סטטוס</th></tr></thead><tbody>';
+
+    // Summary stats
+    const accepted = students.filter(s=>s.acceptedOrg).length;
+    const hired = students.filter(s=>s.hired).length;
+    const prepDone = students.filter(s=>s.prepDone).length;
+    html += '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+    html += '<div style="padding:8px 14px;background:rgba(47,109,246,.08);border-radius:6px;font-size:13px"><strong>'+students.length+'</strong> סה"כ</div>';
+    html += '<div style="padding:8px 14px;background:rgba(246,177,0,.08);border-radius:6px;font-size:13px"><strong>'+prepDone+'</strong> עברו הכנה</div>';
+    html += '<div style="padding:8px 14px;background:rgba(32,201,151,.08);border-radius:6px;font-size:13px"><strong>'+accepted+'</strong> התקבלו</div>';
+    html += '<div style="padding:8px 14px;background:rgba(47,109,246,.08);border-radius:6px;font-size:13px"><strong>'+hired+'</strong> נקלטו</div>';
+    html += '</div>';
+
+    html += '<table><thead><tr style="background:var(--primary);color:#fff"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>עיר</th><th>הכנה</th><th>העדפות</th><th>הגישו ל</th><th>ראיונות</th><th>התקבל ב</th><th>נקלט</th><th>שעות</th><th>חוו"ד ארגון</th><th>הערות</th></tr></thead><tbody>';
     students.forEach((s,i) => {
-      html += '<tr><td>'+(i+1)+'</td><td><strong>'+escHtml(s.name)+'</strong></td><td>'+(s.phone||'-')+'</td><td>'+(s.email||'-')+'</td>';
-      html += '<td>'+(s.prepDone?'V':'X')+'</td>';
-      html += '<td>'+(s.submitted||[]).join(', ')+'</td>';
-      html += '<td>'+(s.acceptedOrg||'-')+'</td>';
-      html += '<td>'+(s.hired?'נקלט':s.acceptedOrg?'בהתנסות':(s.submitted||[]).length?'הגיש':'חיפוש')+'</td></tr>';
+      const statusText = s.hired?'✓ נקלט':s.acceptedOrg?'בהתנסות':(s.submitted||[]).length?'הגיש':'חיפוש';
+      const statusColor = s.hired?'var(--primary)':s.acceptedOrg?'var(--success)':(s.submitted||[]).length?'var(--warn)':'var(--muted)';
+      const prefs = (s.preferences||[]).filter(p=>p);
+      const hours = (s.hoursApproved||s.hoursReported||0) + (s.hoursConfirmed?' ✓':'');
+      html += '<tr>';
+      html += '<td>'+(i+1)+'</td>';
+      html += '<td><strong>'+escHtml(s.name)+'</strong></td>';
+      html += '<td>'+escHtml(s.phone||'-')+'</td>';
+      html += '<td style="font-size:11px">'+escHtml(s.email||'-')+'</td>';
+      html += '<td>'+escHtml(s.city||'-')+'</td>';
+      html += '<td>'+(s.prepDone?'✓':'✗')+(s.prepDate?'<br><small>'+s.prepDate+'</small>':'')+'</td>';
+      html += '<td style="font-size:11px">'+(prefs.length?prefs.map((p,i)=>(i+1)+'.'+escHtml(p)).join('<br>'):'-')+'</td>';
+      html += '<td style="font-size:11px">'+((s.submitted||[]).length?escHtml(s.submitted.join(', ')):'-')+'</td>';
+      html += '<td>'+(s.interviews||0)+'</td>';
+      html += '<td style="color:'+(s.acceptedOrg?'var(--success)':'var(--muted)')+'"><strong>'+escHtml(s.acceptedOrg||'-')+'</strong></td>';
+      html += '<td style="color:'+statusColor+';font-weight:700">'+statusText+'</td>';
+      html += '<td>'+hours+'</td>';
+      html += '<td style="max-width:150px;font-size:11px">'+escHtml((s.orgFeedback||'-').substring(0,100))+'</td>';
+      html += '<td style="max-width:150px;font-size:11px">'+escHtml((s.notes||'-').substring(0,100))+'</td>';
+      html += '</tr>';
     });
     html += '</tbody></table>';
   }
 
   if(lastReportType==='employers' || lastReportType==='full'){
-    html += '<h2 style="color:var(--success);margin:20px 0 10px">דוח מעסיקים</h2>';
-    html += '<table><thead><tr style="background:var(--success);color:#fff"><th>#</th><th>מעסיק</th><th>מיקום</th><th>משרות</th><th>הגישו</th><th>התקבלו</th><th>פנויות</th></tr></thead><tbody>';
+    html += '<h2 style="color:var(--success);margin:20px 0 10px">דוח מעסיקים ('+employers.length+')</h2>';
+
+    // Summary
+    const totalSlots = employers.reduce((sum,e)=>sum+(parseInt(e.slots)||0),0);
+    const filledSlots = employers.reduce((sum,e)=>{
+      const acc = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name).length;
+      return sum + acc;
+    },0);
+    html += '<div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+    html += '<div style="padding:8px 14px;background:rgba(32,201,151,.08);border-radius:6px;font-size:13px"><strong>'+employers.length+'</strong> מעסיקים</div>';
+    html += '<div style="padding:8px 14px;background:rgba(32,201,151,.08);border-radius:6px;font-size:13px"><strong>'+totalSlots+'</strong> משרות כ"הכ</div>';
+    html += '<div style="padding:8px 14px;background:rgba(32,201,151,.08);border-radius:6px;font-size:13px"><strong>'+filledSlots+'</strong> מאוישות</div>';
+    html += '<div style="padding:8px 14px;background:rgba(246,177,0,.08);border-radius:6px;font-size:13px"><strong>'+(totalSlots-filledSlots)+'</strong> פנויות</div>';
+    html += '</div>';
+
+    html += '<table><thead><tr style="background:var(--success);color:#fff"><th>#</th><th>מעסיק</th><th>איש קשר</th><th>תפקיד</th><th>טלפון</th><th>מייל</th><th>מיקום</th><th>משרות</th><th>הגישו</th><th>התקבלו</th><th>פנויות</th><th>סטודנטים שהתקבלו</th><th>תיאור</th></tr></thead><tbody>';
     employers.forEach((e,i) => {
       const sub = students.filter(s=>(s.submitted||[]).some(x=>x.toLowerCase().includes(e.name.toLowerCase()))).length;
-      const acc = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name).length;
-      html += '<tr><td>'+(i+1)+'</td><td><strong>'+escHtml(e.name)+'</strong></td><td>'+(e.location||'-')+'</td><td>'+e.slots+'</td><td>'+sub+'</td><td>'+acc+'</td><td style="color:'+(e.slots-acc>0?'var(--success)':'var(--danger)')+'">'+( e.slots-acc)+'</td></tr>';
+      const acceptedStudents = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name);
+      const acc = acceptedStudents.length;
+      const emailClean = (e.email||'').replace('mailto:','');
+      const remainingColor = e.slots-acc>0?'var(--success)':e.slots-acc===0?'var(--warn)':'var(--danger)';
+      html += '<tr>';
+      html += '<td>'+(i+1)+'</td>';
+      html += '<td><strong>'+escHtml(e.name)+'</strong></td>';
+      html += '<td>'+escHtml(e.contact||'-')+'</td>';
+      html += '<td style="font-size:11px">'+escHtml(e.role||'-')+'</td>';
+      html += '<td>'+escHtml(e.phone||'-')+'</td>';
+      html += '<td style="font-size:11px">'+escHtml(emailClean||'-')+'</td>';
+      html += '<td>'+escHtml(e.location||'-')+'</td>';
+      html += '<td style="text-align:center"><strong>'+(e.slots||0)+'</strong></td>';
+      html += '<td style="text-align:center">'+sub+'</td>';
+      html += '<td style="text-align:center"><strong>'+acc+'</strong></td>';
+      html += '<td style="text-align:center;color:'+remainingColor+';font-weight:700">'+(e.slots-acc)+'</td>';
+      html += '<td style="font-size:11px">'+(acceptedStudents.map(s=>escHtml(s.name)).join(', ')||'-')+'</td>';
+      html += '<td style="max-width:200px;font-size:11px">'+escHtml((e.description||'-').substring(0,120))+'</td>';
+      html += '</tr>';
     });
     html += '</tbody></table>';
   }
@@ -3462,11 +3626,236 @@ function refreshReport(){
   if(document.querySelector('#reports').classList.contains('active') === false) showPage('reports');
 }
 
+// ============ EXPORT REPORT TO EXCEL ============
+function exportReportToExcel(){
+  if(typeof XLSX === 'undefined'){ alert('ספריית Excel לא נטענה. ודא חיבור לאינטרנט וטען מחדש.'); return; }
+  if(!lastReportType){ alert('נא ליצור דוח תחילה (לחץ על אחד מכפתורי הדוח)'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const courseName = DB.courses.find(c=>c.id===DB.currentCourse)?.name || '';
+  const fileName = 'דוח_'+(lastReportType)+'_'+courseName.replace(/\s+/g,'_')+'_'+DB.currentYear.replace(/[״"]/g,'')+'_'+new Date().toISOString().split('T')[0]+'.xlsx';
+
+  // Apply filters as in refreshReport
+  const filterOrg = document.getElementById('report-filter-org')?.value || 'all';
+  const filterStatus = document.getElementById('report-filter-status')?.value || 'all';
+  let students = getFilteredStudents();
+  const employers = getFilteredEmployers();
+  const candidates = getFilteredCandidates();
+  if(filterOrg!=='all') students = students.filter(s => s.acceptedOrg===filterOrg || (s.submitted||[]).some(x=>x.toLowerCase().includes(filterOrg.toLowerCase())));
+  if(filterStatus!=='all'){
+    if(filterStatus==='searching') students = students.filter(s=>!s.acceptedOrg && !(s.submitted||[]).length);
+    if(filterStatus==='submitted') students = students.filter(s=>(s.submitted||[]).length>0);
+    if(filterStatus==='accepted') students = students.filter(s=>s.acceptedOrg);
+    if(filterStatus==='hired') students = students.filter(s=>s.hired);
+  }
+
+  // STUDENTS SHEET
+  if(lastReportType==='students' || lastReportType==='full'){
+    const rows = students.map((s,i) => ({
+      '#': i+1,
+      'שם': s.name || '',
+      'טלפון': s.phone || '',
+      'מייל': s.email || '',
+      'עיר': s.city || '',
+      'עבר הכנה': s.prepDone ? 'כן' : 'לא',
+      'תאריך הכנה': s.prepDate || '',
+      'העדפה 1': (s.preferences||[])[0] || '',
+      'העדפה 2': (s.preferences||[])[1] || '',
+      'העדפה 3': (s.preferences||[])[2] || '',
+      'הגישו מועמדות ל': (s.submitted||[]).join(', '),
+      'מספר ראיונות': s.interviews || 0,
+      'התקבל ב': s.acceptedOrg || '',
+      'נקלט לעבודה': s.hired ? 'כן' : 'לא',
+      'שעות מדווחות': s.hoursReported || 0,
+      'שעות מאושרות': s.hoursApproved || 0,
+      'אישור ארגון': s.hoursConfirmed ? 'כן' : 'לא',
+      'חוות דעת ארגון': s.orgFeedback || '',
+      'סטטוס': s.hired?'נקלט':s.acceptedOrg?'בהתנסות':(s.submitted||[]).length?'הגיש':'חיפוש',
+      'הערות': s.notes || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:4},{wch:22},{wch:14},{wch:28},{wch:12},{wch:10},{wch:12},{wch:20},{wch:20},{wch:20},{wch:30},{wch:8},{wch:20},{wch:10},{wch:10},{wch:10},{wch:10},{wch:40},{wch:12},{wch:30}];
+    // Right-to-left sheet
+    if(!ws['!views']) ws['!views'] = [{RTL:true}];
+    XLSX.utils.book_append_sheet(wb, ws, 'סטודנטים');
+  }
+
+  // EMPLOYERS SHEET
+  if(lastReportType==='employers' || lastReportType==='full'){
+    const rows = employers.map((e,i) => {
+      const sub = students.filter(s=>(s.submitted||[]).some(x=>x.toLowerCase().includes(e.name.toLowerCase()))).length;
+      const acceptedStudents = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===DB.currentYear && s.acceptedOrg===e.name);
+      const acc = acceptedStudents.length;
+      return {
+        '#': i+1,
+        'שם המעסיק': e.name || '',
+        'איש קשר': e.contact || '',
+        'תפקיד איש קשר': e.role || '',
+        'טלפון': e.phone || '',
+        'מייל': (e.email||'').replace('mailto:',''),
+        'מיקום': e.location || '',
+        'מספר משרות': e.slots || 0,
+        'הגישו מועמדות': sub,
+        'התקבלו': acc,
+        'משרות פנויות': (e.slots||0) - acc,
+        'סטודנטים שהתקבלו': acceptedStudents.map(s=>s.name).join(', '),
+        'תיאור': e.description || ''
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:4},{wch:25},{wch:18},{wch:20},{wch:14},{wch:28},{wch:15},{wch:10},{wch:10},{wch:10},{wch:12},{wch:35},{wch:50}];
+    if(!ws['!views']) ws['!views'] = [{RTL:true}];
+    XLSX.utils.book_append_sheet(wb, ws, 'מעסיקים');
+  }
+
+  // CANDIDATES SHEET - grouped by interview date
+  if(lastReportType==='candidates' || lastReportType==='full'){
+    // Sort by interview date, then by name
+    const sorted = [...candidates].sort((a,b) => {
+      const da = a.interviewDate || '9999-99-99';
+      const db = b.interviewDate || '9999-99-99';
+      if(da !== db) return da.localeCompare(db);
+      return a.name.localeCompare(b.name);
+    });
+    const rows = sorted.map((c,i) => ({
+      '#': i+1,
+      'תאריך ראיון': c.interviewDate || 'טרם נקבע',
+      'יום': c.interviewDate ? new Date(c.interviewDate).toLocaleDateString('he-IL',{weekday:'long'}) : '',
+      'שם': c.name || '',
+      'טלפון': c.phone || '',
+      'מייל': c.email || '',
+      'עיר': c.city || '',
+      'תחום מבוקש': c.preferredArea || '',
+      'תאריך הגשה': c.applicationDate || '',
+      'CV': c.file_cv ? 'הוגש' : 'חסר',
+      'טופס הגשה': c.file_application ? 'הוגש' : 'חסר',
+      'מחויבות': c.evalCommitment || '',
+      'מוטיבציה': c.evalMotivation || '',
+      'תקשורת': c.evalCommunication || '',
+      'אנגלית': c.evalEnglish || '',
+      'הכרות קודמת': c.evalAcquaintance || '',
+      'ציון ממוצע': c.evalScore || '',
+      'תוצאת ראיון': c.interviewResult === 'passed' ? 'עבר' : c.interviewResult === 'failed' ? 'לא עבר' : 'ממתין',
+      'סיבת דחייה': c.rejectionReason || '',
+      'סיכום ראיון': c.interviewSummary || '',
+      'סטטוס': CAND_STATUS_LABELS[c.status] || c.status || '',
+      'הערות': c.notes || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:4},{wch:12},{wch:10},{wch:22},{wch:14},{wch:28},{wch:12},{wch:22},{wch:12},{wch:8},{wch:10},{wch:12},{wch:12},{wch:14},{wch:12},{wch:14},{wch:8},{wch:10},{wch:30},{wch:60},{wch:14},{wch:40}];
+    if(!ws['!views']) ws['!views'] = [{RTL:true}];
+    XLSX.utils.book_append_sheet(wb, ws, 'מועמדים');
+  }
+
+  // COMPARISON SHEET
+  if(lastReportType==='comparison'){
+    const rows = DB.academicYears.map(year => {
+      const yc = DB.candidates.filter(c=>c.courseId===DB.currentCourse && c.year===year);
+      const ys = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===year);
+      const ye = DB.employers.filter(e=>e.courseId===DB.currentCourse && e.year===year);
+      const acc = ys.filter(s=>s.acceptedOrg).length;
+      const hir = ys.filter(s=>s.hired).length;
+      const pct = ys.length ? Math.round(acc/ys.length*100) : 0;
+      return {
+        'שנה': year, 'מועמדים': yc.length, 'סטודנטים': ys.length, 'מעסיקים': ye.length,
+        'התקבלו': acc, 'נקלטו': hir, 'אחוז קליטה': pct + '%'
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12}];
+    if(!ws['!views']) ws['!views'] = [{RTL:true}];
+    XLSX.utils.book_append_sheet(wb, ws, 'השוואה בין שנים');
+  }
+
+  // STATUS SHEET
+  if(lastReportType==='status'){
+    const groups = [
+      {title:'בחיפוש', list: students.filter(s=>!s.acceptedOrg && !(s.submitted||[]).length)},
+      {title:'הגישו מועמדות', list: students.filter(s=>(s.submitted||[]).length>0 && !s.acceptedOrg)},
+      {title:'בהתנסות', list: students.filter(s=>s.acceptedOrg && !s.hired)},
+      {title:'נקלטו', list: students.filter(s=>s.hired)}
+    ];
+    const rows = [];
+    groups.forEach(g => {
+      g.list.forEach(s => {
+        rows.push({
+          'סטטוס': g.title, 'שם': s.name, 'טלפון': s.phone||'', 'מייל': s.email||'',
+          'ארגון': s.acceptedOrg||'', 'הערות': s.notes||''
+        });
+      });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:15},{wch:22},{wch:14},{wch:28},{wch:20},{wch:40}];
+    if(!ws['!views']) ws['!views'] = [{RTL:true}];
+    XLSX.utils.book_append_sheet(wb, ws, 'סטטוס');
+  }
+
+  // Check if we have any sheets
+  if(wb.SheetNames.length === 0){
+    alert('לא נוצרו נתונים. בחר דוח אחר.');
+    return;
+  }
+
+  XLSX.writeFile(wb, fileName);
+}
+
 function printReport(){
   const content = document.getElementById('report-content').innerHTML;
   if(!content || content.includes('בחר סוג דוח')){alert('נא ליצור דוח תחילה');return;}
-  const w = window.open('','','width=900,height=700');
-  w.document.write('<html dir="rtl"><head><title>דוח</title><style>body{font-family:Arial,Heebo,sans-serif;padding:20px;direction:rtl}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:right}@media print{button{display:none}}</style></head><body>'+content+'</body></html>');
+  const courseName = DB.courses.find(c=>c.id===DB.currentCourse)?.name || '';
+  const date = new Date().toLocaleDateString('he-IL');
+  const reportTitles = {students:'דוח סטודנטים', employers:'דוח מעסיקים', candidates:'דוח מועמדים', full:'דוח מלא', status:'דוח סטטוס', comparison:'דוח השוואתי'};
+  const title = reportTitles[lastReportType] || 'דוח';
+
+  const w = window.open('','','width=1200,height=800');
+  w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${escHtml(title)} - ${escHtml(courseName)}</title>
+    <style>
+      @page { size: A4 landscape; margin: 1cm; }
+      * { box-sizing: border-box; }
+      body { font-family: 'Heebo', Arial, sans-serif; padding: 20px; direction: rtl; color: #222; font-size: 12px; line-height: 1.4; }
+      .print-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2f6df6; padding-bottom: 12px; margin-bottom: 20px; }
+      .print-header h1 { font-size: 22px; color: #2f6df6; margin: 0; }
+      .print-header .meta { font-size: 11px; color: #64728a; text-align: left; }
+      .print-meta-line { font-size: 13px; color: #333; margin-bottom: 16px; padding: 8px 12px; background: #f7f8fa; border-radius: 6px; }
+      h2 { font-size: 16px; color: #2f6df6; margin: 18px 0 8px; border-right: 3px solid #2f6df6; padding-right: 10px; }
+      h3 { font-size: 14px; margin: 12px 0 6px; }
+      h4 { font-size: 13px; margin: 10px 0 4px; }
+      table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 11px; }
+      th { background: #2f6df6; color: #fff; padding: 8px 6px; text-align: right; border: 1px solid #1e4fc0; font-weight: 700; }
+      td { border: 1px solid #d0d7de; padding: 6px; text-align: right; vertical-align: top; }
+      tr:nth-child(even) td { background: #f9fafb; }
+      tr { page-break-inside: avoid; }
+      .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #d0d7de; font-size: 10px; color: #64728a; text-align: center; }
+      @media print {
+        body { padding: 0; }
+        button { display: none; }
+        .print-header { break-inside: avoid; }
+        h2 { break-after: avoid; }
+        tr { break-inside: avoid; }
+        table { break-inside: auto; }
+        thead { display: table-header-group; }
+      }
+      @media screen {
+        body { max-width: 1150px; margin: 0 auto; background: #fff; }
+        .print-btn { position: fixed; top: 10px; left: 10px; padding: 10px 20px; background: #2f6df6; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; }
+      }
+    </style>
+    </head><body>
+    <button class="print-btn" onclick="window.print()">🖨️ הדפס</button>
+    <div class="print-header">
+      <div>
+        <h1>${escHtml(title)}</h1>
+        <div style="font-size:13px;color:#64728a;margin-top:4px">${escHtml(courseName)} | ${escHtml(DB.currentYear)}</div>
+      </div>
+      <div class="meta">
+        <div><strong>ד"ר יריב איצקוביץ</strong></div>
+        <div>אוניברסיטת אריאל בשומרון</div>
+        <div>תאריך: ${date}</div>
+      </div>
+    </div>
+    ${content}
+    <div class="footer">מערכת ניהול פרקטיקום - הודפס ב-${new Date().toLocaleString('he-IL')}</div>
+    </body></html>`);
   w.document.close();
   w.print();
 }
