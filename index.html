@@ -553,8 +553,8 @@ input[type=file]{display:none}
       <span style="width:1px;background:var(--border);margin:0 4px"></span>
       <strong style="color:var(--muted);margin-left:4px">📐 סגנון = סטטוס:</strong>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;border-radius:3px;display:inline-block"></span> מאושר</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:repeating-linear-gradient(45deg,#2563eb,#2563eb 4px,rgba(255,255,255,.25) 4px,rgba(255,255,255,.25) 7px);border-radius:3px;display:inline-block"></span> ממתין</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;opacity:.5;border-radius:3px;display:inline-block;position:relative"><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;text-decoration:line-through">X</span></span> בוטל</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;opacity:.75;border:2px dashed rgba(255,255,255,.7);border-radius:3px;display:inline-block;box-sizing:border-box"></span> ⏳ ממתין</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#9ca3af;border-radius:3px;display:inline-block"></span> ✗ בוטל</span>
     </div>
     <div id="calendar-grid"></div>
   </div>
@@ -2970,11 +2970,24 @@ async function renderCalendar(){
       const timeLbl = e.time ? '<strong style="margin-left:4px">'+escHtml(e.time)+'</strong>' : '';
       const iconLbl = e.icon ? e.icon+' ' : '';
       const fullTip = (e.lectureType?e.lectureType+': ':'') + e.title + (e.details ? '\n' + e.details : '') + (e.status?'\nסטטוס: '+e.status:'');
-      // Status-driven visual: cancelled = strikethrough+muted, pending = dashed border, approved = solid
+      // Status-driven visual: all solid rectangles with readable text
+      // Approved = solid full color; Pending = solid but lighter + ⏳ + dashed outline; Cancelled = muted grey + strikethrough
+      let bgColor = e.color;
+      let border = '1px solid rgba(0,0,0,.08)';
       let extraStyle = '';
-      if(e.status === 'בוטל'){ extraStyle = 'opacity:.5;text-decoration:line-through;'; }
-      else if(e.status === 'ממתין'){ extraStyle = 'background:repeating-linear-gradient(45deg,'+e.color+','+e.color+' 6px,rgba(255,255,255,.25) 6px,rgba(255,255,255,.25) 10px);'; }
-      html += '<div onclick="'+e.onclick+'" style="background:'+e.color+';color:#fff;padding:5px 8px;border-radius:6px;font-size:11px;margin:3px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .1s;font-weight:500;'+extraStyle+'" onmouseover="this.style.transform=\'translateY(-1px) scale(1.02)\'" onmouseout="this.style.transform=\'\'" title="'+escHtml(fullTip)+'">'+iconLbl+timeLbl+escHtml(e.title)+'</div>';
+      let statusPrefix = '';
+      if(e.status === 'בוטל'){
+        bgColor = '#9ca3af';
+        extraStyle = 'text-decoration:line-through;opacity:.8;';
+        statusPrefix = '✗ ';
+      } else if(e.status === 'ממתין'){
+        // Lighter shade + dashed outline + hourglass icon
+        bgColor = e.color;
+        extraStyle = 'opacity:.75;';
+        border = '2px dashed rgba(255,255,255,.7)';
+        statusPrefix = '⏳ ';
+      }
+      html += '<div onclick="'+e.onclick+'" style="background:'+bgColor+';color:#fff;padding:5px 8px;border-radius:6px;font-size:11px;margin:3px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.12);transition:transform .1s;font-weight:500;border:'+border+';'+extraStyle+'" onmouseover="this.style.transform=\'translateY(-1px) scale(1.02)\'" onmouseout="this.style.transform=\'\'" title="'+escHtml(fullTip)+'">'+statusPrefix+iconLbl+timeLbl+escHtml(e.title)+'</div>';
     });
     const shown = dayHolidays.length + Math.min(dayEvents.length, Math.max(0, 3 - Math.min(dayHolidays.length, 2)));
     const total = dayHolidays.length + dayEvents.length;
