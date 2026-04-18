@@ -549,12 +549,15 @@ input[type=file]{display:none}
         <button class="btn btn-sm btn-info" onclick="openMyOutlookCalendar()">📧 פתח Outlook</button>
       </div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px">
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;border-radius:3px;display:inline-block"></span> הרצאה/סדנה</span>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;padding:10px 12px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+      <strong style="color:var(--muted);margin-left:4px">מקרא:</strong>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#2563eb;border-radius:3px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,.1)"></span> הרצאה מאושרת</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f59e0b;border-radius:3px;display:inline-block;box-shadow:0 1px 2px rgba(0,0,0,.1)"></span> הרצאה ממתינה</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#9ca3af;border-radius:3px;display:inline-block"></span> הרצאה בוטלה</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f97316;border-radius:3px;display:inline-block"></span> ראיון מועמד</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#17a34a;border-radius:3px;display:inline-block"></span> הכנה</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#17a34a;border-radius:3px;display:inline-block"></span> הכנה לפרקטיקום</span>
       <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#7c3aed;border-radius:3px;display:inline-block"></span> אירוע כללי</span>
-      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.4);border-radius:3px;display:inline-block"></span> חג יהודי</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:linear-gradient(90deg,#fee2e2,#fef2f2);border-right:3px solid #dc2626;border-radius:3px;display:inline-block"></span> חג יהודי</span>
     </div>
     <div id="calendar-grid"></div>
   </div>
@@ -1861,52 +1864,120 @@ function renderLectures(){
     <div class="stat"><div class="stat-value">₪${totalCost.toLocaleString()}</div><div class="stat-label">עלות</div></div>
   `;
 
-  // Table
+  // Cards view
   if(list.length === 0){
-    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:20px;color:var(--muted)">אין הרצאות להצגה</p>';
+    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:30px;color:var(--muted)">🎓 אין הרצאות להצגה</p>';
   } else {
-    let html = '<table class="data-table"><thead><tr>'+
-      '<th>סמ\'</th><th>תאריך</th><th>יום</th><th>שעה</th><th>סוג</th><th>קורס</th><th>מוסד</th><th>מרצה</th><th>נושא</th><th>סטטוס</th><th>עלות</th><th>פעולות</th></tr></thead><tbody>';
+    const today = new Date(); today.setHours(0,0,0,0);
+    let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px">';
     list.forEach(l => {
-      html += '<tr>';
-      html += '<td>'+escHtml(l.semester||'')+'</td>';
-      html += '<td>'+escHtml(l.date||'')+'</td>';
-      html += '<td>'+escHtml(l.day||'')+'</td>';
-      html += '<td>'+escHtml((l.startTime||'')+'-'+(l.endTime||''))+'</td>';
-      html += '<td>'+escHtml(l.type||'')+'</td>';
-      html += '<td>'+escHtml(l.course||'')+'</td>';
-      html += '<td>'+escHtml(l.institution||'')+'</td>';
-      html += '<td>'+escHtml(l.lecturer||'')+'</td>';
-      html += '<td style="max-width:200px">'+escHtml(l.topic||'')+'</td>';
-      html += '<td><span class="chip" style="background:'+getLectureStatusColor(l.status)+';color:#fff">'+escHtml(l.status||'')+'</span></td>';
-      html += '<td>'+(l.cost?('₪'+parseFloat(l.cost).toLocaleString()):'')+'</td>';
-      html += '<td style="white-space:nowrap">'+
-        '<button class="btn btn-sm" onclick="editLecture('+l.id+')" title="ערוך">✏️</button> '+
-        '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')" title="הוסף ללוח Outlook">📧</button> '+
-        '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="הורד ICS">📅</button> '+
-        (l.email?'<button class="btn btn-sm" onclick="emailLecturer('+l.id+')" title="מייל למרצה">✉️</button> ':'')+
-        '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" title="מחק">🗑️</button>'+
-        '</td>';
-      html += '</tr>';
+      const color = getLectureStatusColor(l.status);
+      const typeIcon = l.type === 'סדנה' ? '🛠️' : '🎓';
+      const deliveryIcon = l.deliveryMethod === 'זום' ? '💻' : (l.deliveryMethod === 'היברידי' ? '🔄' : '🏛️');
+      const isPast = l.date && new Date(l.date) < today;
+      const isFuture = l.date && new Date(l.date) >= today;
+      const daysUntil = l.date ? Math.ceil((new Date(l.date)-today)/(1000*60*60*24)) : null;
+      const urgencyBadge = (daysUntil !== null && daysUntil >= 0 && daysUntil <= 7 && l.status !== 'בוטל')
+        ? '<span style="background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700">⚡ '+(daysUntil === 0 ? 'היום' : 'בעוד '+daysUntil+' ימים')+'</span>'
+        : '';
+      const opacity = isPast || l.status === 'בוטל' ? '.72' : '1';
+
+      html += '<div style="background:var(--panel);border:1px solid var(--border);border-right:4px solid '+color+';border-radius:12px;padding:14px;box-shadow:0 2px 4px rgba(0,0,0,.04);opacity:'+opacity+';transition:all .2s;position:relative" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,.08)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.boxShadow=\'0 2px 4px rgba(0,0,0,.04)\';this.style.transform=\'\'">';
+
+      // Header - type + status + urgency
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px">';
+      html += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">';
+      html += '<span style="font-size:18px">'+typeIcon+'</span>';
+      html += '<span style="font-weight:700;font-size:13px;color:'+color+'">'+escHtml(l.type||'הרצאה')+'</span>';
+      html += '<span class="chip" style="background:'+color+';color:#fff;font-size:10px;padding:2px 8px">'+escHtml(l.status||'')+'</span>';
+      if(l.semester) html += '<span class="chip" style="background:var(--chip);font-size:10px">סמ׳ '+escHtml(l.semester)+'</span>';
+      html += '</div>';
+      html += urgencyBadge;
+      html += '</div>';
+
+      // Main title - topic
+      if(l.topic){
+        html += '<div style="font-weight:700;font-size:15px;margin-bottom:6px;line-height:1.3">'+escHtml(l.topic)+'</div>';
+      }
+
+      // Course + institution
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--border)">';
+      if(l.course) html += '<div>📚 '+escHtml(l.course)+'</div>';
+      if(l.institution) html += '<div>🏛️ '+escHtml(l.institution)+'</div>';
+      html += '</div>';
+
+      // Date + time + day
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:8px">';
+      if(l.date){
+        const dStr = l.date + (l.day ? ' ('+l.day+')' : '');
+        html += '<div>📅 <strong>'+escHtml(dStr)+'</strong></div>';
+      }
+      if(l.startTime || l.endTime){
+        html += '<div>🕐 <strong>'+escHtml((l.startTime||'')+'–'+(l.endTime||''))+'</strong></div>';
+      }
+      html += '</div>';
+
+      // Lecturer
+      if(l.lecturer){
+        html += '<div style="font-size:12px;margin-bottom:6px">👤 <strong>'+escHtml(l.lecturer)+'</strong>';
+        if(l.email) html += ' <a href="mailto:'+escHtml(l.email)+'" style="color:var(--primary);text-decoration:none;font-size:11px">'+escHtml(l.email)+'</a>';
+        html += '</div>';
+      }
+
+      // Delivery + location
+      html += '<div style="font-size:12px;margin-bottom:6px;color:var(--muted)">'+deliveryIcon+' '+escHtml(l.deliveryMethod||'');
+      if(l.physicalLocation && l.deliveryMethod !== 'זום') html += ' — '+escHtml(l.physicalLocation);
+      if(l.videoLink) html += ' <a href="'+escHtml(l.videoLink)+'" target="_blank" rel="noopener" style="color:var(--primary)">🔗 קישור</a>';
+      html += '</div>';
+
+      // Cost
+      if(l.cost){
+        html += '<div style="font-size:12px;margin-bottom:6px">💰 <strong>₪'+parseFloat(l.cost).toLocaleString()+'</strong></div>';
+      }
+
+      // Notes
+      if(l.notes){
+        html += '<div style="font-size:11px;color:var(--muted);background:var(--surface);padding:6px 8px;border-radius:6px;margin-top:8px;border-right:2px solid var(--border)">💬 '+escHtml(l.notes)+'</div>';
+      }
+
+      // Actions
+      html += '<div style="display:flex;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap">';
+      html += '<button class="btn btn-sm" onclick="editLecture('+l.id+')" title="ערוך">✏️ ערוך</button>';
+      html += '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')" title="הוסף ללוח Outlook">📧</button>';
+      html += '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')" title="הורד ICS">📅</button>';
+      if(l.email) html += '<button class="btn btn-sm" onclick="emailLecturer('+l.id+')" title="מייל למרצה">✉️</button>';
+      html += '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" title="מחק" style="margin-right:auto">🗑️</button>';
+      html += '</div>';
+
+      html += '</div>';
     });
-    html += '</tbody></table>';
+    html += '</div>';
     document.getElementById('lecture-list').innerHTML = html;
   }
 
-  // Lecturer DB
+  // Lecturer DB - card grid
   rebuildLecturerDB();
   const names = Object.keys(DB.lecturerDB).sort();
   document.getElementById('lecturer-db-count').textContent = names.length;
   if(names.length === 0){
-    document.getElementById('lecturer-db-list').innerHTML = '<p style="color:var(--muted)">אין מרצים עדיין</p>';
+    document.getElementById('lecturer-db-list').innerHTML = '<p style="color:var(--muted);padding:20px;text-align:center">👥 אין מרצים עדיין - הם יתווספו אוטומטית בהוספת הרצאה</p>';
   } else {
-    let h = '<table class="data-table"><thead><tr><th>שם</th><th>אימייל</th><th>טלפון</th><th>הרצאות</th></tr></thead><tbody>';
+    let h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">';
     names.forEach(n => {
       const info = DB.lecturerDB[n];
       const count = DB.lectures.filter(l => l.lecturer === n).length;
-      h += '<tr><td>'+escHtml(n)+'</td><td>'+escHtml(info.email||'')+'</td><td>'+escHtml(info.phone||'')+'</td><td>'+count+'</td></tr>';
+      const initials = n.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('');
+      h += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;gap:10px;align-items:flex-start">';
+      h += '<div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">'+escHtml(initials)+'</div>';
+      h += '<div style="flex:1;min-width:0">';
+      h += '<div style="font-weight:700;font-size:13px;margin-bottom:4px">'+escHtml(n)+'</div>';
+      if(info.email) h += '<div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">✉️ <a href="mailto:'+escHtml(info.email)+'" style="color:var(--primary);text-decoration:none">'+escHtml(info.email)+'</a></div>';
+      if(info.phone) h += '<div style="font-size:11px;color:var(--muted)">📞 <a href="tel:'+escHtml(info.phone)+'" style="color:var(--text);text-decoration:none">'+escHtml(info.phone)+'</a></div>';
+      h += '<div style="margin-top:6px"><span class="chip" style="background:var(--primary);color:#fff;font-size:10px">'+count+' '+(count===1?'הרצאה':'הרצאות')+'</span></div>';
+      h += '</div>';
+      h += '</div>';
     });
-    h += '</tbody></table>';
+    h += '</div>';
     document.getElementById('lecturer-db-list').innerHTML = h;
   }
 }
@@ -2555,29 +2626,34 @@ async function renderCalendar(){
     const inAcademicYear = yearRange && yearRange.start && yearRange.end && dateStr >= yearRange.start && dateStr <= yearRange.end;
 
     let bg = '#fff';
-    if(isToday) bg = 'rgba(47,109,246,.08)';
-    else if(isYomTov) bg = 'rgba(220,38,38,.08)';
+    if(isToday) bg = 'linear-gradient(135deg,rgba(47,109,246,.08),rgba(47,109,246,.02))';
+    else if(isYomTov) bg = 'linear-gradient(135deg,rgba(220,38,38,.10),rgba(220,38,38,.02))';
     else if(dayHolidays.length > 0) bg = 'rgba(220,38,38,.03)';
-    else if(inAcademicYear) bg = 'rgba(23,163,74,.02)';
+    else if(inAcademicYear) bg = 'rgba(23,163,74,.015)';
 
-    const border = isToday ? '2px solid var(--primary)' : (isYomTov ? '1px solid rgba(220,38,38,.3)' : 'none');
+    const border = isToday ? '2px solid var(--primary)' : (isYomTov ? '1px solid rgba(220,38,38,.35)' : '1px solid transparent');
+    const shadow = isToday ? 'box-shadow:inset 0 0 0 1px rgba(47,109,246,.2)' : '';
 
-    html += '<div style="background:'+bg+';padding:4px;min-height:80px;font-size:12px;border:'+border+'">';
-    html += '<div style="font-weight:'+(isToday?'700':'600')+';color:'+(isToday?'var(--primary)':(isYomTov?'#dc2626':'var(--text)'))+';margin-bottom:3px">'+d+'</div>';
+    html += '<div style="background:'+bg+';padding:6px;min-height:110px;font-size:12px;border:'+border+';'+shadow+';transition:all .15s">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+    html += '<span style="font-weight:'+(isToday?'800':'600')+';font-size:'+(isToday?'15px':'13px')+';color:'+(isToday?'var(--primary)':(isYomTov?'#dc2626':'var(--text)'))+'">'+d+'</span>';
+    if(isToday) html += '<span style="font-size:9px;background:var(--primary);color:#fff;padding:1px 6px;border-radius:8px;font-weight:700">היום</span>';
+    html += '</div>';
 
-    // Holidays first
+    // Holidays first - elegant red chip
     dayHolidays.forEach(h => {
-      html += '<div style="background:rgba(220,38,38,.12);color:#dc2626;padding:1px 5px;border-radius:4px;font-size:10px;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(h.title)+'">✡ '+escHtml(h.title)+'</div>';
+      html += '<div style="background:linear-gradient(90deg,#fee2e2,#fef2f2);color:#b91c1c;border-right:3px solid #dc2626;padding:3px 7px;border-radius:4px;font-size:10px;margin:3px 0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(h.title)+'">✡ '+escHtml(h.title)+'</div>';
     });
 
     dayEvents.slice(0, 3 - Math.min(dayHolidays.length, 2)).forEach(e => {
-      const label = (e.time ? e.time + ' ' : '') + e.title;
-      html += '<div onclick="'+e.onclick+'" style="background:'+e.color+';color:#fff;padding:2px 5px;border-radius:4px;font-size:10px;margin:2px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+escHtml(e.title + (e.details ? ' - ' + e.details : ''))+'">'+escHtml(label)+'</div>';
+      const timeLbl = e.time ? '<strong style="margin-left:4px">'+escHtml(e.time)+'</strong>' : '';
+      const fullTip = e.title + (e.details ? '\n' + e.details : '');
+      html += '<div onclick="'+e.onclick+'" style="background:'+e.color+';color:#fff;padding:3px 7px;border-radius:4px;font-size:10px;margin:3px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .1s" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'" title="'+escHtml(fullTip)+'">'+timeLbl+escHtml(e.title)+'</div>';
     });
     const shown = dayHolidays.length + Math.min(dayEvents.length, Math.max(0, 3 - Math.min(dayHolidays.length, 2)));
     const total = dayHolidays.length + dayEvents.length;
     if(total > shown){
-      html += '<div style="font-size:10px;color:var(--muted);margin-top:2px">+'+(total-shown)+' נוספים</div>';
+      html += '<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">+'+(total-shown)+' נוספים</div>';
     }
     html += '</div>';
   }
@@ -2598,19 +2674,33 @@ async function renderCalendar(){
   }).sort((a,b) => a.date.localeCompare(b.date));
 
   if(monthEvents.length > 0){
-    html += '<div style="margin-top:20px"><h3 style="font-size:14px;margin-bottom:10px">אירועים החודש ('+monthEvents.length+')</h3>';
+    html += '<div style="margin-top:24px"><h3 style="font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px">📋 אירועים החודש <span class="chip" style="background:var(--primary);color:#fff">'+monthEvents.length+'</span></h3>';
+    html += '<div style="display:grid;gap:8px">';
     monthEvents.forEach(e => {
       const d = new Date(e.date);
       const dayName = dayNames[d.getDay()];
-      html += '<div style="display:flex;gap:10px;padding:8px;background:var(--surface);border-right:3px solid '+e.color+';margin:4px 0;border-radius:0 6px 6px 0;align-items:center">';
-      html += '<div style="min-width:100px;font-size:12px;color:var(--muted)">'+dayName+' '+e.date+(e.time?' '+e.time:'')+'</div>';
-      html += '<div style="flex:1"><strong>'+escHtml(e.title)+'</strong>';
-      if(e.details) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">'+escHtml(e.details)+'</div>';
+      const dayNum = d.getDate();
+      const typeIcon = e.type === 'lecture' ? '🎓' : (e.type === 'interview' ? '👤' : (e.type === 'prep' ? '✅' : '📌'));
+      html += '<div style="display:flex;gap:12px;padding:12px 14px;background:var(--panel);border:1px solid var(--border);border-right:4px solid '+e.color+';border-radius:10px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:all .15s;cursor:pointer" onmouseover="this.style.boxShadow=\'0 4px 10px rgba(0,0,0,.08)\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.boxShadow=\'0 1px 2px rgba(0,0,0,.04)\';this.style.transform=\'\'" onclick="'+e.onclick+'">';
+      // Date block
+      html += '<div style="background:'+e.color+';color:#fff;min-width:55px;text-align:center;padding:8px 6px;border-radius:8px;font-weight:700">';
+      html += '<div style="font-size:10px;opacity:.9">'+escHtml(dayName)+'</div>';
+      html += '<div style="font-size:22px;line-height:1">'+dayNum+'</div>';
+      if(e.time) html += '<div style="font-size:10px;margin-top:2px;opacity:.9">'+escHtml(e.time)+'</div>';
       html += '</div>';
-      html += '<button class="btn btn-sm btn-outline" onclick="'+e.onclick+'">'+(e.isCustom?'מחק':'ערוך')+'</button>';
+      // Content
+      html += '<div style="flex:1;min-width:0">';
+      html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px">';
+      html += '<span style="font-size:14px">'+typeIcon+'</span>';
+      html += '<strong style="font-size:14px">'+escHtml(e.title)+'</strong>';
+      html += '</div>';
+      if(e.details) html += '<div style="font-size:12px;color:var(--muted);line-height:1.4">'+escHtml(e.details)+'</div>';
+      html += '</div>';
+      // Action
+      html += '<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();'+e.onclick+'">'+(e.isCustom?'🗑️':'✏️')+'</button>';
       html += '</div>';
     });
-    html += '</div>';
+    html += '</div></div>';
   }
 
   document.getElementById('calendar-grid').innerHTML = html;
