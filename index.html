@@ -536,6 +536,16 @@ input[type=file]{display:none}
       <h3>שנים אקדמיות</h3>
       <div id="years-list"></div>
     </div>
+    <div class="section" style="border:2px solid var(--primary);background:rgba(47,109,246,.03)">
+      <h3 style="color:var(--primary)">📁 תיקיות קבצים ב-OneDrive</h3>
+      <p style="font-size:12px;color:var(--muted);margin:6px 0">יצירה אוטומטית של מבנה התיקיות (קורות חיים, טפסי הגשה, חוות דעת וכו\') לכל שנה וקורס - ישירות ב-OneDrive שלך.</p>
+      <p style="font-size:11px;color:var(--muted);margin:4px 0">💡 בפעם הראשונה תתבקש לבחור את תיקיית "data". בפעמים הבאות זה יעבוד אוטומטית.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn btn-primary" onclick="createFoldersForAllCourses()">🗂️ צור תיקיות לכל הקורסים</button>
+        <button class="btn btn-outline" onclick="getOrRequestDataDir(true)">🔄 בחר תיקיית data מחדש</button>
+      </div>
+      <p style="font-size:11px;color:var(--warn);margin-top:8px">⚠️ עובד רק ב-Chrome/Edge במחשב. בטלפון/Safari תצטרך ליצור ידנית או להשתמש בסקריפטים.</p>
+    </div>
   </div>
   <div class="card">
     <h2>הגדרות מייל ותיקיות</h2>
@@ -1500,7 +1510,7 @@ function showAddCourse(editId){
   document.getElementById('course-modal').classList.add('active');
 }
 
-function addCourse(){
+async function addCourse(){
   const name = document.getElementById('new-course-name').value.trim();
   const year = normalizeYear(document.getElementById('new-course-year').value);
   if(!name){alert('נא למלא שם קורס');return;}
@@ -1522,6 +1532,7 @@ function addCourse(){
     requireInterview: document.getElementById('course-req-interview').checked,
     requirePrep: document.getElementById('course-req-prep').checked
   };
+  const isNew = !editId;
   if(editId){
     const c = DB.courses.find(x=>x.id===editId);
     if(c){ c.name = name; c.year = year; Object.assign(c, reqs); }
@@ -1535,6 +1546,15 @@ function addCourse(){
   renderContextBar();
   renderAll();
   closeModal('course-modal');
+
+  // For new courses - offer to create folders in OneDrive
+  if(isNew){
+    setTimeout(() => {
+      if(confirm('הקורס "'+name+'" נוסף לשנה '+year+'.\n\nהאם ליצור עכשיו את תיקיות הקבצים ב-OneDrive?\n(קורות חיים, טפסי הגשה, חוות דעת ארגון וכו\')')){
+        createCourseFolders(year, name);
+      }
+    }, 300);
+  }
 }
 function showAddYear(){
   document.getElementById('new-year-name').value = '';
@@ -2640,6 +2660,100 @@ const FILE_FOLDERS = {
   feedback:    'חוות_דעת_ארגון',
   application: 'טפסי_מועמדות'
 };
+
+// ============ FOLDER CREATION (File System Access API) ============
+let dataDirectoryHandle = null;
+
+async function getOrRequestDataDir(force){
+  if(dataDirectoryHandle && !force){
+    // Verify permission still valid
+    try {
+      const perm = await dataDirectoryHandle.queryPermission({mode:'readwrite'});
+      if(perm === 'granted') return dataDirectoryHandle;
+      const req = await dataDirectoryHandle.requestPermission({mode:'readwrite'});
+      if(req === 'granted') return dataDirectoryHandle;
+    } catch(e){ /* fall through to re-pick */ }
+  }
+  if(!window.showDirectoryPicker){
+    alert('הדפדפן שלך לא תומך ביצירת תיקיות אוטומטית.\nהשתמש ב-Chrome/Edge במחשב, או צור את התיקיות ידנית ב-OneDrive.');
+    return null;
+  }
+  alert('בחר את תיקיית "data" שבתוך תיקיית המערכת ב-OneDrive:\n\nOneDrive → Yariv → מערכת לניהול פרקטיקום → data\n\n(הפעולה תידרש פעם אחת בלבד בכל מכשיר)');
+  try {
+    dataDirectoryHandle = await window.showDirectoryPicker({
+      id: 'practicum-data',
+      mode: 'readwrite',
+      startIn: 'documents'
+    });
+    return dataDirectoryHandle;
+  } catch(err){
+    if(err.name !== 'AbortError') alert('שגיאה: ' + err.message);
+    return null;
+  }
+}
+
+async function createCourseFolders(year, courseName){
+  const dataDir = await getOrRequestDataDir();
+  if(!dataDir) return false;
+  try {
+    // Create year folder (or use existing)
+    const yearDir = await dataDir.getDirectoryHandle(year, {create:true});
+    const courseFolder = courseName.replace(/\s+/g,'_');
+    const courseDir = await yearDir.getDirectoryHandle(courseFolder, {create:true});
+    // Create all type subfolders
+    const folderNames = Object.values(FILE_FOLDERS);
+    for(const fname of folderNames){
+      await courseDir.getDirectoryHandle(fname, {create:true});
+    }
+    alert('✅ נוצרו ' + folderNames.length + ' תיקיות עבור:\n' + year + ' / ' + courseFolder + '\n\n' + folderNames.join(', '));
+    return true;
+  } catch(err){
+    console.error(err);
+    alert('שגיאה ביצירת התיקיות: ' + err.message);
+    return false;
+  }
+}
+
+// Create folders for ALL existing courses (used from settings)
+async function createFoldersForAllCourses(){
+  const dataDir = await getOrRequestDataDir();
+  if(!dataDir) return;
+  let created = 0, errors = 0;
+  const log = [];
+
+  // Find all unique year+course combos actually in use
+  const combos = new Set();
+  DB.courses.forEach(c => {
+    // Find years where this course has data
+    const yearsForCourse = new Set();
+    DB.students.forEach(s => { if(s.courseId === c.id && s.year) yearsForCourse.add(normalizeYear(s.year)); });
+    DB.employers.forEach(e => { if(e.courseId === c.id && e.year) yearsForCourse.add(normalizeYear(e.year)); });
+    DB.candidates.forEach(x => { if(x.courseId === c.id && x.year) yearsForCourse.add(normalizeYear(x.year)); });
+    if(c.year) yearsForCourse.add(normalizeYear(c.year));
+    // If no data, use all academic years
+    if(yearsForCourse.size === 0) DB.academicYears.forEach(y => yearsForCourse.add(y));
+    yearsForCourse.forEach(y => combos.add(y + '|' + c.name));
+  });
+
+  const folderNames = Object.values(FILE_FOLDERS);
+  for(const combo of combos){
+    const [year, courseName] = combo.split('|');
+    try {
+      const yearDir = await dataDir.getDirectoryHandle(year, {create:true});
+      const courseDir = await yearDir.getDirectoryHandle(courseName.replace(/\s+/g,'_'), {create:true});
+      for(const fname of folderNames){
+        await courseDir.getDirectoryHandle(fname, {create:true});
+      }
+      created++;
+      log.push('✓ ' + year + '/' + courseName);
+    } catch(err){
+      errors++;
+      log.push('✗ ' + year + '/' + courseName + ' - ' + err.message);
+    }
+  }
+  alert('נוצרו ' + created + ' מבני תיקיות (' + (created * folderNames.length) + ' תיקיות)\n' +
+    (errors ? errors + ' שגיאות\n' : '') + '\n' + log.join('\n'));
+}
 
 function getYearFolder(){
   const y = DB.currentYear === '__all__' ? DB.academicYears[0] : DB.currentYear;
