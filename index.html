@@ -1940,15 +1940,19 @@ function renderLectures(){
 
       const rowBg = isSelected ? 'rgba(47,109,246,.08)' : 'transparent';
       const opacity = (isCancelled || isPast) ? '.6' : '1';
-      const sepBorder = i < list.length - 1 ? 'border-bottom:2px solid #d1d5db' : '';
+      // Separator wraps main row + details together
+      const unitSep = i < list.length - 1 ? 'border-bottom:2px solid #d1d5db' : '';
 
       const dateDisplay = l.date ? (l.date + (l.day ? ' · '+l.day : '')) : '—';
       const timeDisplay = (l.startTime || l.endTime) ? ((l.startTime||'')+'–'+(l.endTime||'')) : '—';
       const locDisplay = l.deliveryMethod === 'זום' ? '💻 זום' : (l.physicalLocation ? '🏛️ '+l.physicalLocation : (l.institution||'—'));
 
+      // Lecture unit wrapper - separator goes on this, so details stay with the main row
+      html += '<div style="'+unitSep+'">';
+
       // Main row - clickable to toggle selection
       html += '<div class="lec-row" data-lec-id="'+l.id+'" '+
-        'style="display:grid;grid-template-columns:40px 2fr 1.3fr 1.1fr .9fr 1.3fr 1.1fr 1fr 110px;gap:12px;align-items:center;padding:14px;background:'+rowBg+';'+sepBorder+';opacity:'+opacity+';cursor:pointer;transition:background .15s" '+
+        'style="display:grid;grid-template-columns:40px 2fr 1.3fr 1.1fr .9fr 1.3fr 1.1fr 1fr 110px;gap:12px;align-items:center;padding:14px;background:'+rowBg+';opacity:'+opacity+';cursor:pointer;transition:background .15s" '+
         'onclick="selectLecture('+l.id+')">';
 
       // Radio
@@ -1990,8 +1994,8 @@ function renderLectures(){
 
       html += '</div>';
 
-      // Expandable details (hidden by default)
-      html += '<div id="lec-details-'+l.id+'" style="display:none;background:linear-gradient(0deg,rgba(47,109,246,.02),rgba(47,109,246,0));border-bottom:1.5px solid var(--border);padding:16px 20px 20px 20px">';
+      // Expandable details - part of the same lecture unit (no border - handled by wrapper)
+      html += '<div id="lec-details-'+l.id+'" style="display:none;background:rgba(47,109,246,.03);padding:16px 20px 20px 20px;border-top:1px dashed #cbd5e1">';
       html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 24px;font-size:13px;line-height:1.5">';
 
       const addField = (label, value, icon) => {
@@ -2020,7 +2024,8 @@ function renderLectures(){
         html += '<div style="margin-top:12px;padding:10px 14px;background:var(--surface);border-right:3px solid var(--border);border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;white-space:pre-wrap"><strong style="color:var(--muted);font-size:11px">💬 הערות:</strong><div style="margin-top:4px">'+escHtml(l.notes)+'</div></div>';
       }
 
-      html += '</div>';
+      html += '</div>';  // close lec-details
+      html += '</div>';  // close unit wrapper (holds the separator border)
     });
 
     html += '</div>';
