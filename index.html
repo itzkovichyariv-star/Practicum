@@ -2879,15 +2879,37 @@ function renderStudents(){
     return true;
   });
 
-  let html = '';
+  // Bulk actions bar
+  const selectedIds = getSelectedStudentIds();
+  let bulkBar = '';
+  if(filtered.length > 0){
+    bulkBar = '<div id="bulk-bar" style="background:rgba(47,109,246,.06);border:1px solid rgba(47,109,246,.2);padding:10px;border-radius:8px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+    bulkBar += '<label class="checkbox-group" style="margin:0;cursor:pointer"><input type="checkbox" id="select-all-students" '+(selectedIds.length>0&&selectedIds.length===filtered.length?'checked':'')+' onchange="toggleSelectAllStudents(this)"> <strong>בחר הכל</strong></label>';
+    bulkBar += '<span id="bulk-count" style="color:var(--primary);font-weight:700">'+(selectedIds.length>0?selectedIds.length+' נבחרו':'אין נבחרים')+'</span>';
+    if(selectedIds.length > 0){
+      bulkBar += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-right:auto">';
+      bulkBar += '<button class="btn btn-sm btn-success" onclick="bulkEmailStudents()">📧 מייל קבוצתי</button>';
+      bulkBar += '<button class="btn btn-sm btn-info" onclick="bulkUpdatePrep()">✓ סמן כעברו הכנה</button>';
+      bulkBar += '<button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="bulkExport()">📊 ייצא נבחרים</button>';
+      bulkBar += '<button class="btn btn-sm btn-danger" onclick="bulkDeleteStudents()">🗑 מחק</button>';
+      bulkBar += '<button class="btn btn-sm btn-outline" onclick="clearStudentSelection()">נקה בחירה</button>';
+      bulkBar += '</div>';
+    }
+    bulkBar += '</div>';
+  }
+
+  let html = bulkBar;
   filtered.forEach(s => {
+    const checked = selectedIds.includes(s.id) ? 'checked' : '';
     html += '<div class="item">';
-    html += '<div class="item-header"><div>';
+    html += '<div class="item-header"><div style="display:flex;align-items:flex-start;gap:10px">';
+    html += '<input type="checkbox" class="bulk-student-cb" data-id="'+s.id+'" '+checked+' onchange="toggleStudentSelection('+s.id+')" style="width:18px;height:18px;margin-top:4px;cursor:pointer">';
+    html += '<div>';
     html += '<div class="item-name">'+escHtml(s.name);
     if(s.hired) html += ' <span style="background:linear-gradient(135deg,#2f6df6,#20c997);color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;margin-right:6px">נקלט לעבודה</span>';
     html += '</div>';
     html += '<div class="item-details">'+(s.phone||'-')+' &bull; '+(s.email||'-')+(s.city?' &bull; '+escHtml(s.city):'')+'</div>';
-    html += '</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
+    html += '</div></div><div style="display:flex;gap:4px;flex-wrap:wrap">';
     if(s.email) html += '<button class="btn btn-sm btn-success" onclick="quickEmail('+s.id+')">מייל</button>';
     html += '<button class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:transparent" onclick="showStudentSummaryById('+s.id+')">סיכום</button>';
     html += '<button class="btn btn-sm btn-info" onclick="editStudent('+s.id+')">ערוך</button>';
@@ -3684,6 +3706,130 @@ function sendAndLog(){
     courseId: DB.currentCourse === '__all__' ? '' : DB.currentCourse
   });
   renderAll();
+}
+
+// ============ BULK ACTIONS ============
+let selectedStudentIds = [];
+
+function getSelectedStudentIds(){ return selectedStudentIds; }
+
+function toggleStudentSelection(id){
+  const idx = selectedStudentIds.indexOf(id);
+  if(idx >= 0) selectedStudentIds.splice(idx, 1);
+  else selectedStudentIds.push(id);
+  renderStudents();
+}
+
+function toggleSelectAllStudents(cb){
+  if(cb.checked){
+    // Select all visible students (after filter)
+    const visibleStudents = getFilteredStudents();
+    const search = (document.getElementById('student-search')?.value || '').toLowerCase();
+    const filterPrep = document.getElementById('student-filter-prep')?.value || 'all';
+    const filterStatus = document.getElementById('student-filter-status')?.value || 'all';
+    const filterOrg = document.getElementById('student-filter-org')?.value || 'all';
+    const filtered = visibleStudents.filter(s => {
+      if(search){
+        const txt = (s.name+' '+s.phone+' '+s.email+' '+s.notes+' '+(s.submitted||[]).join(' ')+' '+s.acceptedOrg).toLowerCase();
+        if(!txt.includes(search)) return false;
+      }
+      if(filterPrep==='prep-done' && !s.prepDone) return false;
+      if(filterPrep==='prep-pending' && s.prepDone) return false;
+      if(filterStatus==='searching' && (s.acceptedOrg || (s.submitted||[]).length)) return false;
+      if(filterStatus==='submitted' && !(s.submitted||[]).length) return false;
+      if(filterStatus==='accepted' && !s.acceptedOrg) return false;
+      if(filterStatus==='hired' && !s.hired) return false;
+      if(filterOrg!=='all'){
+        const match = s.acceptedOrg===filterOrg || (s.submitted||[]).some(x=>x.toLowerCase().includes(filterOrg.toLowerCase()));
+        if(!match) return false;
+      }
+      return true;
+    });
+    selectedStudentIds = filtered.map(s => s.id);
+  } else {
+    selectedStudentIds = [];
+  }
+  renderStudents();
+}
+
+function clearStudentSelection(){
+  selectedStudentIds = [];
+  renderStudents();
+}
+
+function bulkEmailStudents(){
+  const selected = DB.students.filter(s => selectedStudentIds.includes(s.id) && s.email);
+  if(!selected.length){ alert('אין סטודנטים נבחרים עם מייל'); return; }
+  const emails = selected.map(s => s.email).join(',');
+  const subject = prompt('נושא המייל:', 'עדכון מפרקטיקום');
+  if(subject === null) return;
+  const body = prompt('תוכן המייל (יישלח BCC לכל הנבחרים):', 'שלום,\n\n');
+  if(body === null) return;
+  const fromEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  const senderName = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
+  const fullBody = body + '\n\n' + senderName + '\n' + fromEmail;
+  // BCC group email via mailto
+  window.open('mailto:?bcc=' + encodeURIComponent(emails) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(fullBody));
+  alert('נפתח מייל ל-' + selected.length + ' סטודנטים ב-BCC');
+}
+
+function bulkUpdatePrep(){
+  if(!selectedStudentIds.length) return;
+  const date = prompt('תאריך ההכנה (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(!date) return;
+  if(!confirm('לסמן ' + selectedStudentIds.length + ' סטודנטים כעברו הכנה בתאריך ' + date + '?')) return;
+  saveBeforeAction();
+  DB.students.forEach(s => {
+    if(selectedStudentIds.includes(s.id)){
+      s.prepDone = true;
+      s.prepDate = date;
+    }
+  });
+  saveToStorage();
+  renderAll();
+  alert('עודכנו ' + selectedStudentIds.length + ' סטודנטים');
+  selectedStudentIds = [];
+}
+
+function bulkDeleteStudents(){
+  if(!selectedStudentIds.length) return;
+  if(!confirm('למחוק ' + selectedStudentIds.length + ' סטודנטים לצמיתות? פעולה זו לא ניתנת לביטול.')) return;
+  if(!confirm('אישור אחרון - למחוק ' + selectedStudentIds.length + ' סטודנטים?')) return;
+  saveBeforeAction();
+  DB.students = DB.students.filter(s => !selectedStudentIds.includes(s.id));
+  saveToStorage();
+  const count = selectedStudentIds.length;
+  selectedStudentIds = [];
+  renderAll();
+  alert('נמחקו ' + count + ' סטודנטים');
+}
+
+function bulkExport(){
+  if(!selectedStudentIds.length) return;
+  if(typeof XLSX === 'undefined'){ alert('ספריית Excel לא נטענה'); return; }
+  const selected = DB.students.filter(s => selectedStudentIds.includes(s.id));
+  const rows = selected.map((s,i) => ({
+    '#': i+1,
+    'שם': s.name || '',
+    'טלפון': s.phone || '',
+    'מייל': s.email || '',
+    'עיר': s.city || '',
+    'עבר הכנה': s.prepDone ? 'כן' : 'לא',
+    'תאריך הכנה': s.prepDate || '',
+    'העדפות': (s.preferences||[]).filter(p=>p).join(' | '),
+    'הגישו ל': (s.submitted||[]).join(', '),
+    'התקבל ב': s.acceptedOrg || '',
+    'נקלט': s.hired ? 'כן' : 'לא',
+    'שעות': s.hoursApproved || s.hoursReported || 0,
+    'חוות דעת': s.orgFeedback || '',
+    'הערות': s.notes || ''
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:4},{wch:22},{wch:14},{wch:28},{wch:12},{wch:10},{wch:12},{wch:30},{wch:30},{wch:20},{wch:8},{wch:8},{wch:40},{wch:30}];
+  if(!ws['!views']) ws['!views'] = [{RTL:true}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'סטודנטים נבחרים');
+  XLSX.writeFile(wb, 'סטודנטים_נבחרים_' + new Date().toISOString().split('T')[0] + '.xlsx');
 }
 
 function quickEmail(studentId){
