@@ -5805,19 +5805,25 @@ function refreshReport(){
   }
 
   if(lastReportType==='comparison'){
-    html += '<h2 style="margin:20px 0 10px">דוח השוואתי בין שנים</h2>';
+    const courseLabel = DB.currentCourse === '__all__'
+      ? 'כל הקורסים'
+      : (DB.courses.find(c => c.id === DB.currentCourse)?.name || '');
+    html += '<h2 style="margin:20px 0 10px">דוח השוואתי בין שנים'+(courseLabel?' - '+escHtml(courseLabel):'')+'</h2>';
     html += '<table><thead><tr style="background:var(--primary);color:#fff"><th>שנה</th><th>מועמדים</th><th>סטודנטים</th><th>מעסיקים</th><th>התקבלו</th><th>נקלטו</th><th>אחוז קליטה</th></tr></thead><tbody>';
+    const inCurrentCourse = (courseId) => DB.currentCourse === '__all__' || courseId === DB.currentCourse;
     DB.academicYears.forEach(year => {
-      const yc = DB.candidates.filter(c=>c.courseId===DB.currentCourse && c.year===year);
-      const ys = DB.students.filter(s=>s.courseId===DB.currentCourse && s.year===year);
-      const ye = DB.employers.filter(e=>e.courseId===DB.currentCourse && e.year===year);
-      const acc = ys.filter(s=>s.acceptedOrg).length;
-      const hir = ys.filter(s=>s.hired).length;
+      const nYear = normalizeYear(year);
+      const yc = DB.candidates.filter(c => inCurrentCourse(c.courseId) && normalizeYear(c.year||'') === nYear);
+      const ys = DB.students.filter(s => inCurrentCourse(s.courseId) && normalizeYear(s.year||'') === nYear);
+      const ye = DB.employers.filter(e => inCurrentCourse(e.courseId) && normalizeYear(e.year||'') === nYear);
+      const acc = ys.filter(s => s.acceptedOrg || s.hired).length;
+      const hir = ys.filter(s => s.hired).length;
       const pct = ys.length ? Math.round(acc/ys.length*100) : 0;
-      html += '<tr'+(year===DB.currentYear?' style="background:rgba(47,109,246,.08)"':'')+'>';
+      html += '<tr'+(nYear===DB.currentYear?' style="background:rgba(47,109,246,.08)"':'')+'>';
       html += '<td><strong>'+escHtml(year)+'</strong></td><td>'+yc.length+'</td><td>'+ys.length+'</td><td>'+ye.length+'</td><td>'+acc+'</td><td>'+hir+'</td><td>'+pct+'%</td></tr>';
     });
     html += '</tbody></table>';
+    html += '<p style="font-size:11px;color:var(--muted);margin-top:6px">💡 "התקבלו" = הוצבו בארגון (יש ערך ב-acceptedOrg) או נקלטו. "נקלטו" = התקבלו לעבודה לאחר הפרקטיקום.</p>';
   }
 
   html += '</div>';
