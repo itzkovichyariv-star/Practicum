@@ -6576,10 +6576,43 @@ function applySupabaseData(data){
   if(data.students) DB.students = data.students;
   if(data.employers) DB.employers = data.employers;
   if(data.communications) DB.communications = data.communications;
+  if(data.lectures) DB.lectures = data.lectures;
+  if(data.lecturerDB) DB.lecturerDB = data.lecturerDB;
+  if(data.institutions) DB.institutions = data.institutions;
+  if(data.calendarEvents) DB.calendarEvents = data.calendarEvents;
   if(data.settings) DB.settings = {...DB.settings, ...data.settings};
   if(data.currentCourse) DB.currentCourse = data.currentCourse;
   if(data.currentYear) DB.currentYear = normalizeYear(data.currentYear);
+
+  // Normalize + migrate loaded data (same as loadFromStorage)
+  DB.students.forEach(s => { if(s.year) s.year = normalizeYear(s.year); });
+  DB.employers.forEach(e => { if(e.year) e.year = normalizeYear(e.year); });
+  DB.candidates.forEach(c => { if(c.year) c.year = normalizeYear(c.year); });
+  (DB.lectures||[]).forEach(l => { if(l.year) l.year = normalizeYear(l.year); });
+  // Assign a year to yearless courses
+  DB.courses.forEach(c => {
+    if(!c.year){
+      const s = DB.students.find(x => x.courseId === c.id && x.year);
+      const e = DB.employers.find(x => x.courseId === c.id && x.year);
+      const n = DB.candidates.find(x => x.courseId === c.id && x.year);
+      c.year = normalizeYear((s&&s.year) || (e&&e.year) || (n&&n.year) || DB.academicYears[0] || 'תשפ\u05F4ו');
+    } else {
+      c.year = normalizeYear(c.year);
+    }
+  });
+  // Validate currentCourse/currentYear still exist in loaded data
+  if(DB.currentCourse !== '__all__' && !DB.courses.find(c => c.id === DB.currentCourse)){
+    DB.currentCourse = '__all__';
+  }
+  if(DB.currentYear !== '__all__' && !DB.academicYears.includes(DB.currentYear)){
+    DB.currentYear = DB.academicYears[DB.academicYears.length-1] || '__all__';
+  }
+  // Merge duplicates
+  try { dedupeCourses(); } catch(err){ console.warn('dedupe failed:', err); }
+
   localStorage.setItem('practicum_db_v5', JSON.stringify(DB));
+  // Refresh UI
+  try { renderContextBar(); } catch(err){ console.warn('renderContextBar failed:', err); }
 }
 
 function showConflictNotice(editorName){
