@@ -400,6 +400,16 @@ input[type=file]{display:none}
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="lec-filter-past" checked onchange="renderLectures()"> הסתר עבר</label>
     </div>
 
+    <!-- Action toolbar - operates on selected lecture -->
+    <div id="lecture-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+      <span id="lecture-toolbar-label" style="font-size:13px;color:var(--muted);font-weight:600">בחר הרצאה לפעולה ◀</span>
+      <button class="btn btn-sm btn-primary" id="lec-tb-edit" onclick="editSelectedLecture()" disabled>✏️ ערוך</button>
+      <button class="btn btn-sm btn-info" id="lec-tb-outlook" onclick="outlookSelectedLecture()" disabled>📅 Outlook</button>
+      <button class="btn btn-sm" id="lec-tb-email" onclick="emailSelectedLecture()" disabled>✉️ מייל למרצה</button>
+      <button class="btn btn-sm" id="lec-tb-ics" onclick="icsSelectedLecture()" disabled>💾 ICS</button>
+      <button class="btn btn-sm btn-danger" id="lec-tb-delete" onclick="deleteSelectedLecture()" disabled style="margin-right:auto">🗑️ מחק</button>
+    </div>
+
     <div id="lecture-list" style="overflow-x:auto"></div>
   </div>
 
@@ -1842,96 +1852,101 @@ function renderLectures(){
     <div class="stat"><div class="stat-value">₪${totalCost.toLocaleString()}</div><div class="stat-label">עלות</div></div>
   `;
 
-  // List view — one row per lecture with clear separators and proper text flow
+  // Compact list view — primary fields only, details expandable, selection-based actions
   if(list.length === 0){
     document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">אין הרצאות להצגה</p>';
   } else {
     const today = new Date(); today.setHours(0,0,0,0);
-    let html = '<div style="display:flex;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
+    const selId = window._selectedLectureId || null;
+    let html = '<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
+
+    // Column headers
+    html += '<div style="display:grid;grid-template-columns:40px 2fr 1.3fr 1.1fr .9fr 1.3fr 1.1fr 1fr 110px;gap:12px;align-items:center;padding:10px 14px;background:var(--surface);border-bottom:2px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">';
+    html += '<div></div><div>קורס</div><div>מיקום</div><div>תאריך</div><div>שעה</div><div>מרצה</div><div>טלפון</div><div>סטטוס</div><div style="text-align:center">פרטים</div>';
+    html += '</div>';
 
     list.forEach((l, i) => {
       const daysUntil = l.date ? Math.floor((new Date(l.date)-today)/(1000*60*60*24)) : null;
       const isPast = daysUntil !== null && daysUntil < 0;
       const isCancelled = l.status === 'בוטל';
-
-      // Left accent bar color by status
-      let accent = '#6b7280';
-      if(l.status === 'מאושר') accent = '#10b981';
-      else if(l.status === 'ממתין') accent = '#f59e0b';
-      else if(l.status === 'בוטל') accent = '#9ca3af';
-
-      // Urgency chip
-      let urgHtml = '';
-      if(daysUntil !== null && !isCancelled){
-        if(daysUntil < 0) urgHtml = '<span style="background:#f3f4f6;color:#6b7280;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600">עבר</span>';
-        else if(daysUntil === 0) urgHtml = '<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700">⚡ היום!</span>';
-        else if(daysUntil <= 3) urgHtml = '<span style="background:#fde68a;color:#92400e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700">עוד '+daysUntil+' ימים</span>';
-        else if(daysUntil <= 14) urgHtml = '<span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600">עוד '+daysUntil+' ימים</span>';
-        else urgHtml = '<span style="background:var(--chip);color:var(--muted);padding:3px 10px;border-radius:999px;font-size:11px">עוד '+daysUntil+' ימים</span>';
-      }
+      const isSelected = selId === l.id;
 
       const statusBg = l.status === 'מאושר' ? '#d1fae5' : (l.status === 'ממתין' ? '#fef3c7' : '#e5e7eb');
       const statusFg = l.status === 'מאושר' ? '#065f46' : (l.status === 'ממתין' ? '#92400e' : '#6b7280');
 
-      const sep = i > 0 ? 'border-top:1px solid var(--border)' : '';
-      const opacity = (isCancelled || isPast) ? '.65' : '1';
+      const rowBg = isSelected ? 'rgba(47,109,246,.08)' : 'transparent';
+      const opacity = (isCancelled || isPast) ? '.6' : '1';
+      const sepBorder = i < list.length - 1 ? 'border-bottom:1.5px solid var(--border)' : '';
 
-      html += '<div style="'+sep+';padding:16px 18px;border-right:5px solid '+accent+';background:'+(i%2===0?'transparent':'rgba(0,0,0,.015)')+';opacity:'+opacity+';transition:background .15s" onmouseover="this.style.background=\'rgba(47,109,246,.04)\'" onmouseout="this.style.background=\''+(i%2===0?'transparent':'rgba(0,0,0,.015)')+'\'">';
+      const dateDisplay = l.date ? (l.date + (l.day ? ' · '+l.day : '')) : '—';
+      const timeDisplay = (l.startTime || l.endTime) ? ((l.startTime||'')+'–'+(l.endTime||'')) : '—';
+      const locDisplay = l.deliveryMethod === 'זום' ? '💻 זום' : (l.physicalLocation ? '🏛️ '+l.physicalLocation : (l.institution||'—'));
 
-      // Row 1: Title line - Type + Topic + Status + Urgency
-      html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">';
-      html += '<span style="background:'+(l.type==='סדנה'?'#ede9fe':'#dbeafe')+';color:'+(l.type==='סדנה'?'#6d28d9':'#1e40af')+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">'+escHtml(l.type||'הרצאה')+'</span>';
-      html += '<span style="background:var(--chip);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">סמ׳ '+escHtml(l.semester||'')+'</span>';
-      if(l.topic) html += '<span style="font-weight:700;font-size:15px;color:var(--text)">'+escHtml(l.topic)+'</span>';
-      html += '<span style="margin-right:auto;display:flex;gap:6px;align-items:center">';
-      html += urgHtml;
-      html += '<span style="background:'+statusBg+';color:'+statusFg+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">'+escHtml(l.status||'')+'</span>';
-      html += '</span>';
+      // Main row - clickable to toggle selection
+      html += '<div class="lec-row" data-lec-id="'+l.id+'" '+
+        'style="display:grid;grid-template-columns:40px 2fr 1.3fr 1.1fr .9fr 1.3fr 1.1fr 1fr 110px;gap:12px;align-items:center;padding:14px;background:'+rowBg+';'+sepBorder+';opacity:'+opacity+';cursor:pointer;transition:background .15s" '+
+        'onclick="selectLecture('+l.id+')">';
+
+      // Radio
+      html += '<div style="text-align:center"><input type="radio" name="lecture-select" '+(isSelected?'checked':'')+' onclick="event.stopPropagation();selectLecture('+l.id+')" style="cursor:pointer;width:18px;height:18px;accent-color:var(--primary)"></div>';
+
+      // Course
+      html += '<div style="min-width:0"><div style="font-weight:600;font-size:13px;line-height:1.3;white-space:normal;overflow:hidden;text-overflow:ellipsis">'+escHtml(l.course||'—')+'</div>';
+      if(l.topic) html += '<div style="font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(l.topic)+'</div>';
       html += '</div>';
 
-      // Row 2: Course + Institution + Date/Time
-      html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.5">';
-      if(l.course) html += '<span>📚 <strong>'+escHtml(l.course)+'</strong></span>';
-      if(l.institution) html += '<span>🏛️ '+escHtml(l.institution)+'</span>';
-      if(l.date){
-        const dateStr = l.date + (l.day ? ' · '+l.day : '');
-        html += '<span>📅 <strong>'+escHtml(dateStr)+'</strong></span>';
+      // Location
+      html += '<div style="font-size:12px;line-height:1.3">'+escHtml(locDisplay)+'</div>';
+
+      // Date
+      html += '<div style="font-size:12px;line-height:1.3">'+escHtml(dateDisplay)+'</div>';
+
+      // Time
+      html += '<div style="font-size:12px;line-height:1.3;white-space:nowrap" dir="ltr">'+escHtml(timeDisplay)+'</div>';
+
+      // Lecturer
+      html += '<div style="font-size:12px;line-height:1.3;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escHtml(l.lecturer||'—')+'</div>';
+
+      // Phone
+      html += '<div style="font-size:12px;line-height:1.3" dir="ltr">'+(l.phone?'<a href="tel:'+escHtml(l.phone)+'" onclick="event.stopPropagation()" style="color:var(--text);text-decoration:none">'+escHtml(l.phone)+'</a>':'—')+'</div>';
+
+      // Status
+      html += '<div><span style="background:'+statusBg+';color:'+statusFg+';padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap">'+escHtml(l.status||'')+'</span></div>';
+
+      // Details toggle
+      html += '<div style="text-align:center"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();toggleLectureDetails('+l.id+')" style="font-size:11px;padding:4px 8px">פרטים ▼</button></div>';
+
+      html += '</div>';
+
+      // Expandable details (hidden by default)
+      html += '<div id="lec-details-'+l.id+'" style="display:none;background:linear-gradient(0deg,rgba(47,109,246,.02),rgba(47,109,246,0));border-bottom:1.5px solid var(--border);padding:16px 20px 20px 20px">';
+      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 24px;font-size:13px;line-height:1.5">';
+
+      const addField = (label, value, icon) => {
+        if(!value) return '';
+        return '<div><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">'+(icon?icon+' ':'')+label+'</div><div style="font-weight:500">'+value+'</div></div>';
+      };
+
+      html += addField('סוג', escHtml(l.type||''), '🎓');
+      html += addField('סמסטר', escHtml(l.semester||''), '📖');
+      html += addField('מוסד', escHtml(l.institution||''), '🏛️');
+      html += addField('אופן העברה', escHtml(l.deliveryMethod||''), '📡');
+      html += addField('מיקום פיזי', escHtml(l.physicalLocation||''), '📍');
+      html += addField('נושא', escHtml(l.topic||''), '💡');
+      html += addField('אימייל', l.email ? '<a href="mailto:'+escHtml(l.email)+'" style="color:var(--primary);text-decoration:none" dir="ltr">'+escHtml(l.email)+'</a>' : '', '✉️');
+      html += addField('קישור פגישה', l.videoLink ? '<a href="'+escHtml(l.videoLink)+'" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;word-break:break-all">🔗 פתח</a>' : '', '💻');
+      html += addField('עלות', l.cost ? '₪'+parseFloat(l.cost).toLocaleString() : '', '💰');
+
+      if(daysUntil !== null){
+        const urgText = daysUntil < 0 ? 'עבר '+Math.abs(daysUntil)+' ימים' : (daysUntil === 0 ? 'היום!' : 'עוד '+daysUntil+' ימים');
+        html += addField('דחיפות', urgText, '⏱️');
       }
-      if(l.startTime || l.endTime) html += '<span>🕐 <strong>'+escHtml((l.startTime||'')+' – '+(l.endTime||''))+'</strong></span>';
+
       html += '</div>';
 
-      // Row 3: Delivery + Location + Video link
-      const deliveryIcon = l.deliveryMethod === 'זום' ? '💻' : (l.deliveryMethod === 'היברידי' ? '🔄' : '🏛️');
-      html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5">';
-      html += '<span>'+deliveryIcon+' '+escHtml(l.deliveryMethod||'פרונטלי');
-      if(l.physicalLocation && l.deliveryMethod !== 'זום') html += ' · <strong style="color:var(--text)">'+escHtml(l.physicalLocation)+'</strong>';
-      html += '</span>';
-      if(l.videoLink) html += '<a href="'+escHtml(l.videoLink)+'" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-weight:600">🔗 קישור לפגישה</a>';
-      html += '</div>';
-
-      // Row 4: Lecturer + contact
-      if(l.lecturer || l.email || l.phone){
-        html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;margin-bottom:8px;line-height:1.5">';
-        if(l.lecturer) html += '<span style="color:var(--text)">👤 <strong>'+escHtml(l.lecturer)+'</strong></span>';
-        if(l.email) html += '<a href="mailto:'+escHtml(l.email)+'" style="color:var(--primary);text-decoration:none" dir="ltr">✉️ '+escHtml(l.email)+'</a>';
-        if(l.phone) html += '<a href="tel:'+escHtml(l.phone)+'" style="color:var(--text);text-decoration:none" dir="ltr">📞 '+escHtml(l.phone)+'</a>';
-        if(l.cost) html += '<span style="color:var(--text)">💰 <strong>₪'+parseFloat(l.cost).toLocaleString()+'</strong></span>';
-        html += '</div>';
-      }
-
-      // Row 5: Notes (if any)
       if(l.notes){
-        html += '<div style="background:var(--surface);border-right:2px solid var(--border);padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;white-space:pre-wrap">💬 '+escHtml(l.notes)+'</div>';
+        html += '<div style="margin-top:12px;padding:10px 14px;background:var(--surface);border-right:3px solid var(--border);border-radius:0 6px 6px 0;font-size:12px;line-height:1.5;white-space:pre-wrap"><strong style="color:var(--muted);font-size:11px">💬 הערות:</strong><div style="margin-top:4px">'+escHtml(l.notes)+'</div></div>';
       }
-
-      // Row 6: Action buttons
-      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">';
-      html += '<button class="btn btn-sm" onclick="editLecture('+l.id+')">✏️ ערוך</button>';
-      html += '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')">📅 Outlook</button>';
-      html += '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')">💾 ICS</button>';
-      if(l.email) html += '<button class="btn btn-sm" onclick="emailLecturer('+l.id+')">✉️ מייל</button>';
-      html += '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" style="margin-right:auto">🗑️ מחק</button>';
-      html += '</div>';
 
       html += '</div>';
     });
@@ -1940,6 +1955,9 @@ function renderLectures(){
     html += '<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">מציג '+list.length+' מתוך '+DB.lectures.length+' הרצאות</div>';
     document.getElementById('lecture-list').innerHTML = html;
   }
+
+  // Update toolbar button states
+  updateLectureToolbar();
 
   // Lecturer DB - card grid
   rebuildLecturerDB();
@@ -2058,17 +2076,76 @@ function saveLecture(){
     year: DB.currentYear === '__all__' ? normalizeYear('תשפ\u05F4ו') : DB.currentYear
   };
 
+  let savedLecture;
+  const isNew = !editId;
   if(editId){
     const idx = DB.lectures.findIndex(x => x.id === parseInt(editId));
-    if(idx >= 0) DB.lectures[idx] = {...DB.lectures[idx], ...data};
+    if(idx >= 0){ DB.lectures[idx] = {...DB.lectures[idx], ...data}; savedLecture = DB.lectures[idx]; }
   } else {
     const newId = DB.lectures.length ? Math.max(...DB.lectures.map(l=>l.id||0))+1 : 1;
-    DB.lectures.push({id: newId, ...data});
+    savedLecture = {id: newId, ...data};
+    DB.lectures.push(savedLecture);
   }
   saveToStorage();
   closeModal('lecture-modal');
   renderLectures();
   if(document.querySelector('#calendar').classList.contains('active')) renderCalendar();
+
+  // Auto-open Outlook invitation for new scheduled lectures
+  if(isNew && savedLecture && savedLecture.date && savedLecture.status !== 'בוטל'){
+    setTimeout(() => {
+      if(confirm('ההרצאה נוספה.\n\nלפתוח כעת ב-Outlook לשליחת הזמנה ליומן?')){
+        openLectureInOutlook(savedLecture);
+      }
+    }, 200);
+  }
+}
+
+// Selection + toolbar helpers for the lectures page
+window._selectedLectureId = null;
+
+function selectLecture(id){
+  window._selectedLectureId = (window._selectedLectureId === id) ? null : id;
+  renderLectures();
+}
+
+function toggleLectureDetails(id){
+  const el = document.getElementById('lec-details-'+id);
+  if(!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateLectureToolbar(){
+  const id = window._selectedLectureId;
+  const l = id ? DB.lectures.find(x => x.id === id) : null;
+  const label = document.getElementById('lecture-toolbar-label');
+  const btns = ['lec-tb-edit','lec-tb-outlook','lec-tb-email','lec-tb-ics','lec-tb-delete'];
+  btns.forEach(b => { const el = document.getElementById(b); if(el) el.disabled = !l; });
+  const emailBtn = document.getElementById('lec-tb-email');
+  if(emailBtn) emailBtn.disabled = !l || !l.email;
+  if(label){
+    if(l) label.innerHTML = '🎯 נבחר: <strong style="color:var(--text)">'+escHtml(l.course||'')+(l.topic?' · '+escHtml(l.topic):'')+(l.date?' · '+l.date:'')+'</strong>';
+    else label.textContent = 'בחר הרצאה לפעולה ◀';
+  }
+}
+
+function editSelectedLecture(){
+  if(window._selectedLectureId) editLecture(window._selectedLectureId);
+}
+function outlookSelectedLecture(){
+  if(window._selectedLectureId) openLectureInOutlook(window._selectedLectureId);
+}
+function emailSelectedLecture(){
+  if(window._selectedLectureId) emailLecturer(window._selectedLectureId);
+}
+function icsSelectedLecture(){
+  if(window._selectedLectureId) exportLectureICS(window._selectedLectureId);
+}
+function deleteSelectedLecture(){
+  if(window._selectedLectureId){
+    deleteLecture(window._selectedLectureId);
+    window._selectedLectureId = null;
+  }
 }
 
 // Inline edit for table cells - updates a single field without full re-render
