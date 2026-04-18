@@ -404,19 +404,21 @@ input[type=file]{display:none}
     <div id="lecture-toolbar" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
       <span id="lecture-toolbar-label" style="font-size:13px;color:var(--muted);font-weight:600">בחר הרצאה לפעולה ◀</span>
       <button class="btn btn-sm btn-primary" id="lec-tb-edit" onclick="editSelectedLecture()" disabled>✏️ ערוך</button>
-      <button class="btn btn-sm btn-info" id="lec-tb-outlook" onclick="outlookSelectedLecture()" disabled>📅 Outlook</button>
-      <button class="btn btn-sm" id="lec-tb-email" onclick="emailSelectedLecture()" disabled>✉️ מייל למרצה</button>
-      <button class="btn btn-sm" id="lec-tb-ics" onclick="icsSelectedLecture()" disabled>💾 ICS</button>
+      <button class="btn btn-sm btn-info" id="lec-tb-outlook" onclick="outlookSelectedLecture()" disabled title="הוסף אירוע ליומן Outlook">📅 הוסף ליומן</button>
+      <button class="btn btn-sm" id="lec-tb-email" onclick="emailSelectedLecture()" disabled title="פתח Outlook לכתיבת מייל למרצה">✉️ מייל למרצה</button>
       <button class="btn btn-sm btn-danger" id="lec-tb-delete" onclick="deleteSelectedLecture()" disabled style="margin-right:auto">🗑️ מחק</button>
     </div>
 
     <div id="lecture-list" style="overflow-x:auto"></div>
   </div>
 
-  <!-- Lecturers DB -->
+  <!-- Lecturers DB - collapsed by default -->
   <div class="card">
-    <div class="card-header"><h2>👥 מאגר מרצים <span class="chip" id="lecturer-db-count">0</span></h2></div>
-    <div id="lecturer-db-list" style="overflow-x:auto"></div>
+    <div class="card-header">
+      <h2>👥 מאגר מרצים <span class="chip" id="lecturer-db-count">0</span></h2>
+      <button class="btn btn-sm btn-outline" onclick="toggleLecturerDB()" id="lecturer-db-toggle">הצג מאגר ▼</button>
+    </div>
+    <div id="lecturer-db-list" style="overflow-x:auto;display:none"></div>
   </div>
 </div>
 
@@ -1336,30 +1338,19 @@ function saveToStorage(){
   debouncedAutoBackup();
 }
 
-// ============ AUTO-BACKUP ON SAVE (debounced 30s) ============
+// ============ AUTO-BACKUP (disabled - localStorage + cloud sync handle persistence) ============
 function debouncedAutoBackup(){
-  const now = Date.now();
-  if(now - lastBackupDownloadTime >= 30000){
-    doAutoBackupDownload();
-  }
-}
-
-function doAutoBackupDownload(){
-  const data = {...DB, date: new Date().toLocaleString('he-IL'), backupType:'auto', version:'5.0'};
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'גיבוי_אוטומטי_פרקטיקום.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(a.href);
-  lastBackupDownloadTime = Date.now();
+  // Auto-downloads are disabled. Data is saved to localStorage in saveToStorage()
+  // and synced to Supabase via cloud sync. Use the "גיבוי" tab for manual JSON download.
   lastAutoBackup = new Date().toLocaleString('he-IL');
   localStorage.setItem('practicum_lastBackup_v5', lastAutoBackup);
   dataChanged = false;
   updateBackupIndicator();
+}
+
+function doAutoBackupDownload(){
+  // Kept for backwards-compat; no longer called automatically
+  doManualBackup();
 }
 
 function doManualBackup(){
@@ -1876,7 +1867,7 @@ function renderLectures(){
 
       const rowBg = isSelected ? 'rgba(47,109,246,.08)' : 'transparent';
       const opacity = (isCancelled || isPast) ? '.6' : '1';
-      const sepBorder = i < list.length - 1 ? 'border-bottom:1.5px solid var(--border)' : '';
+      const sepBorder = i < list.length - 1 ? 'border-bottom:2px solid #d1d5db' : '';
 
       const dateDisplay = l.date ? (l.date + (l.day ? ' · '+l.day : '')) : '—';
       const timeDisplay = (l.startTime || l.endTime) ? ((l.startTime||'')+'–'+(l.endTime||'')) : '—';
@@ -2148,6 +2139,15 @@ function deleteSelectedLecture(){
   }
 }
 
+function toggleLecturerDB(){
+  const list = document.getElementById('lecturer-db-list');
+  const btn = document.getElementById('lecturer-db-toggle');
+  if(!list || !btn) return;
+  const shown = list.style.display !== 'none';
+  list.style.display = shown ? 'none' : 'block';
+  btn.textContent = shown ? 'הצג מאגר ▼' : 'הסתר מאגר ▲';
+}
+
 // Inline edit for table cells - updates a single field without full re-render
 function inlineEditLecture(id, field, value, rerender){
   const l = DB.lectures.find(x => x.id === id);
@@ -2178,9 +2178,16 @@ function deleteLecture(id){
 function emailLecturer(id){
   const l = DB.lectures.find(x=>x.id===id);
   if(!l || !l.email) return;
-  const subject = encodeURIComponent('בנוגע ל'+l.type+': '+l.course+' - '+l.date);
-  const body = encodeURIComponent('שלום '+l.lecturer+',\n\nאני פונה אליך בנוגע ל'+l.type+' בקורס "'+l.course+'" בתאריך '+l.date+'.\n\nבברכה,\n'+(DB.currentUser?.name || DB.settings.senderName));
-  window.location.href = 'mailto:'+l.email+'?subject='+subject+'&body='+body;
+  const subject = 'בנוגע ל'+l.type+': '+l.course+' - '+l.date;
+  const body = 'שלום '+l.lecturer+',\n\nאני פונה אליך בנוגע ל'+l.type+' בקורס "'+l.course+'" בתאריך '+l.date+(l.startTime?' בשעה '+l.startTime:'')+'.\n\nבברכה,\n'+(DB.currentUser?.name || DB.settings.senderName);
+  // Open in Outlook web compose (same tab login as calendar)
+  const params = new URLSearchParams({
+    path: '/mail/action/compose',
+    to: l.email,
+    subject: subject,
+    body: body
+  });
+  window.open('https://outlook.office.com/mail/deeplink/compose?'+params.toString(), '_blank', 'noopener');
 }
 
 // Open the user's Outlook calendar in a new tab
