@@ -1842,84 +1842,102 @@ function renderLectures(){
     <div class="stat"><div class="stat-value">₪${totalCost.toLocaleString()}</div><div class="stat-label">עלות</div></div>
   `;
 
-  // Clean editable table (matching original lectures system)
+  // List view — one row per lecture with clear separators and proper text flow
   if(list.length === 0){
-    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:30px;color:var(--muted)">אין הרצאות להצגה</p>';
+    document.getElementById('lecture-list').innerHTML = '<p style="text-align:center;padding:40px;color:var(--muted)">אין הרצאות להצגה</p>';
   } else {
     const today = new Date(); today.setHours(0,0,0,0);
-    const tStyle = 'style="border-collapse:collapse;width:100%;font-size:13px;background:var(--panel);border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04)"';
-    const thStyle = 'style="background:linear-gradient(90deg,var(--primary),var(--primary-2));color:#fff;padding:10px 8px;text-align:right;font-weight:600;font-size:12px;white-space:nowrap"';
-    let html = '<table '+tStyle+'><thead><tr>'+
-      '<th '+thStyle+'>תזכורת</th>'+
-      '<th '+thStyle+'>סמ\'</th>'+
-      '<th '+thStyle+'>סוג</th>'+
-      '<th '+thStyle+'>קורס</th>'+
-      '<th '+thStyle+'>מוסד</th>'+
-      '<th '+thStyle+'>העברה</th>'+
-      '<th '+thStyle+'>מיקום</th>'+
-      '<th '+thStyle+'>יום</th>'+
-      '<th '+thStyle+'>תאריך</th>'+
-      '<th '+thStyle+'>שעה</th>'+
-      '<th '+thStyle+'>מרצה</th>'+
-      '<th '+thStyle+'>נושא</th>'+
-      '<th '+thStyle+'>אימייל</th>'+
-      '<th '+thStyle+'>טלפון</th>'+
-      '<th '+thStyle+'>עלות</th>'+
-      '<th '+thStyle+'>סטטוס</th>'+
-      '<th '+thStyle+'>הערות</th>'+
-      '<th '+thStyle+' style="text-align:center">פעולות</th>'+
-      '</tr></thead><tbody>';
-
-    const tdStyle = 'style="padding:6px 8px;border-bottom:1px solid var(--border)"';
-    const inpStyle = 'style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:transparent;font-family:inherit"';
+    let html = '<div style="display:flex;flex-direction:column;gap:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden">';
 
     list.forEach((l, i) => {
-      const rowBg = i % 2 === 0 ? 'rgba(0,0,0,.015)' : 'transparent';
       const daysUntil = l.date ? Math.floor((new Date(l.date)-today)/(1000*60*60*24)) : null;
-      let urgencyHtml = '';
-      if(daysUntil !== null){
-        let urgBg='var(--chip)', urgFg='var(--muted)', urgText='';
-        if(daysUntil < 0){ urgText='עבר'; urgBg='#f3f4f6'; urgFg='#6b7280'; }
-        else if(daysUntil === 0){ urgText='היום!'; urgBg='#fef3c7'; urgFg='#92400e'; }
-        else if(daysUntil <= 3){ urgText='עוד '+daysUntil+' י׳'; urgBg='#fde68a'; urgFg='#92400e'; }
-        else if(daysUntil <= 14){ urgText='עוד '+daysUntil+' י׳'; urgBg='#dbeafe'; urgFg='#1e40af'; }
-        else { urgText='עוד '+daysUntil+' י׳'; urgBg='var(--chip)'; urgFg='var(--muted)'; }
-        urgencyHtml = '<span style="font-size:10px;padding:3px 8px;border-radius:999px;background:'+urgBg+';color:'+urgFg+';font-weight:600;white-space:nowrap">'+urgText+'</span>';
-      }
-      const statusColor = getLectureStatusColor(l.status);
-      const statusBg = l.status === 'מאושר' ? '#d1fae5' : (l.status === 'ממתין' ? '#fef3c7' : (l.status === 'בוטל' ? '#e5e7eb' : 'var(--chip)'));
-      const statusFg = l.status === 'מאושר' ? '#065f46' : (l.status === 'ממתין' ? '#92400e' : (l.status === 'בוטל' ? '#6b7280' : 'var(--text)'));
+      const isPast = daysUntil !== null && daysUntil < 0;
       const isCancelled = l.status === 'בוטל';
-      const rowStyle = 'style="background:'+rowBg+';transition:background .15s'+(isCancelled?';opacity:.6':'')+'" onmouseover="this.style.background=\'rgba(47,109,246,.05)\'" onmouseout="this.style.background=\''+rowBg+'\'"';
 
-      html += '<tr '+rowStyle+'>';
-      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center">'+urgencyHtml+'</td>';
-      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;font-weight:600">'+escHtml(l.semester||'')+'</td>';
-      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'type\',this.value)" '+inpStyle+'><option'+(l.type==='הרצאה'?' selected':'')+'>הרצאה</option><option'+(l.type==='סדנה'?' selected':'')+'>סדנה</option></select></td>';
-      html += '<td '+tdStyle+'><input value="'+escHtml(l.course||'')+'" onchange="inlineEditLecture('+l.id+',\'course\',this.value)" '+inpStyle+'></td>';
-      html += '<td '+tdStyle+'><input value="'+escHtml(l.institution||'')+'" onchange="inlineEditLecture('+l.id+',\'institution\',this.value)" list="existing-institutions-list" '+inpStyle+'></td>';
-      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'deliveryMethod\',this.value)" '+inpStyle+'><option'+(l.deliveryMethod==='פרונטלי'?' selected':'')+'>פרונטלי</option><option'+(l.deliveryMethod==='זום'?' selected':'')+'>זום</option><option'+(l.deliveryMethod==='היברידי'?' selected':'')+'>היברידי</option></select></td>';
-      html += '<td '+tdStyle+'>'+(l.deliveryMethod==='זום'?'<span style="color:var(--muted);font-size:11px;font-style:italic">זום</span>':'<input value="'+escHtml(l.physicalLocation||'')+'" onchange="inlineEditLecture('+l.id+',\'physicalLocation\',this.value)" '+inpStyle+'>')+'</td>';
-      html += '<td '+tdStyle+'>'+escHtml(l.day||'')+'</td>';
-      html += '<td '+tdStyle+'><input type="date" value="'+escHtml(l.date||'')+'" onchange="inlineEditLecture('+l.id+',\'date\',this.value,true)" '+inpStyle+'></td>';
-      html += '<td '+tdStyle+'><div style="display:flex;gap:2px;align-items:center"><input type="time" value="'+escHtml(l.startTime||'')+'" onchange="inlineEditLecture('+l.id+',\'startTime\',this.value)" style="width:62px;padding:3px;border:1px solid var(--border);border-radius:5px;font-size:11px"><span style="color:var(--muted)">-</span><input type="time" value="'+escHtml(l.endTime||'')+'" onchange="inlineEditLecture('+l.id+',\'endTime\',this.value)" style="width:62px;padding:3px;border:1px solid var(--border);border-radius:5px;font-size:11px"></div></td>';
-      html += '<td '+tdStyle+'><input value="'+escHtml(l.lecturer||'')+'" onchange="inlineEditLecture('+l.id+',\'lecturer\',this.value)" list="lec-lecturer-list" '+inpStyle+' style="width:100%;padding:4px 6px;border:2px solid '+(l.lecturer?'#86efac':'#fca5a5')+';border-radius:6px;font-size:12px;background:transparent"></td>';
-      html += '<td '+tdStyle+'><input value="'+escHtml(l.topic||'')+'" onchange="inlineEditLecture('+l.id+',\'topic\',this.value)" '+inpStyle+'></td>';
-      html += '<td '+tdStyle+'><input type="email" value="'+escHtml(l.email||'')+'" onchange="inlineEditLecture('+l.id+',\'email\',this.value)" '+inpStyle+' dir="ltr"></td>';
-      html += '<td '+tdStyle+'><input type="tel" value="'+escHtml(l.phone||'')+'" onchange="inlineEditLecture('+l.id+',\'phone\',this.value)" '+inpStyle+' dir="ltr"></td>';
-      html += '<td '+tdStyle+'><input type="number" step="100" value="'+escHtml(l.cost||'')+'" onchange="inlineEditLecture('+l.id+',\'cost\',this.value)" '+inpStyle+' dir="ltr"></td>';
-      html += '<td '+tdStyle+'><select onchange="inlineEditLecture('+l.id+',\'status\',this.value)" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:'+statusBg+';color:'+statusFg+';font-weight:600"><option'+(l.status==='ממתין'?' selected':'')+'>ממתין</option><option'+(l.status==='מאושר'?' selected':'')+'>מאושר</option><option'+(l.status==='בוטל'?' selected':'')+'>בוטל</option></select></td>';
-      html += '<td '+tdStyle+'><textarea onchange="inlineEditLecture('+l.id+',\'notes\',this.value)" '+inpStyle+' rows="1" style="width:100%;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:transparent;font-family:inherit;resize:vertical">'+escHtml(l.notes||'')+'</textarea></td>';
-      html += '<td '+tdStyle+' style="padding:6px 8px;border-bottom:1px solid var(--border);text-align:center;white-space:nowrap">';
-      html += '<button onclick="openLectureInOutlook('+l.id+')" title="Outlook" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">📅</button>';
-      if(l.email) html += '<button onclick="emailLecturer('+l.id+')" title="מייל" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">✉️</button>';
-      html += '<button onclick="exportLectureICS('+l.id+')" title="ICS" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">💾</button>';
-      html += '<button onclick="deleteLecture('+l.id+')" title="מחק" style="background:transparent;border:none;cursor:pointer;padding:4px;font-size:15px">🗑️</button>';
-      html += '</td>';
-      html += '</tr>';
+      // Left accent bar color by status
+      let accent = '#6b7280';
+      if(l.status === 'מאושר') accent = '#10b981';
+      else if(l.status === 'ממתין') accent = '#f59e0b';
+      else if(l.status === 'בוטל') accent = '#9ca3af';
+
+      // Urgency chip
+      let urgHtml = '';
+      if(daysUntil !== null && !isCancelled){
+        if(daysUntil < 0) urgHtml = '<span style="background:#f3f4f6;color:#6b7280;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600">עבר</span>';
+        else if(daysUntil === 0) urgHtml = '<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700">⚡ היום!</span>';
+        else if(daysUntil <= 3) urgHtml = '<span style="background:#fde68a;color:#92400e;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700">עוד '+daysUntil+' ימים</span>';
+        else if(daysUntil <= 14) urgHtml = '<span style="background:#dbeafe;color:#1e40af;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600">עוד '+daysUntil+' ימים</span>';
+        else urgHtml = '<span style="background:var(--chip);color:var(--muted);padding:3px 10px;border-radius:999px;font-size:11px">עוד '+daysUntil+' ימים</span>';
+      }
+
+      const statusBg = l.status === 'מאושר' ? '#d1fae5' : (l.status === 'ממתין' ? '#fef3c7' : '#e5e7eb');
+      const statusFg = l.status === 'מאושר' ? '#065f46' : (l.status === 'ממתין' ? '#92400e' : '#6b7280');
+
+      const sep = i > 0 ? 'border-top:1px solid var(--border)' : '';
+      const opacity = (isCancelled || isPast) ? '.65' : '1';
+
+      html += '<div style="'+sep+';padding:16px 18px;border-right:5px solid '+accent+';background:'+(i%2===0?'transparent':'rgba(0,0,0,.015)')+';opacity:'+opacity+';transition:background .15s" onmouseover="this.style.background=\'rgba(47,109,246,.04)\'" onmouseout="this.style.background=\''+(i%2===0?'transparent':'rgba(0,0,0,.015)')+'\'">';
+
+      // Row 1: Title line - Type + Topic + Status + Urgency
+      html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">';
+      html += '<span style="background:'+(l.type==='סדנה'?'#ede9fe':'#dbeafe')+';color:'+(l.type==='סדנה'?'#6d28d9':'#1e40af')+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">'+escHtml(l.type||'הרצאה')+'</span>';
+      html += '<span style="background:var(--chip);padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">סמ׳ '+escHtml(l.semester||'')+'</span>';
+      if(l.topic) html += '<span style="font-weight:700;font-size:15px;color:var(--text)">'+escHtml(l.topic)+'</span>';
+      html += '<span style="margin-right:auto;display:flex;gap:6px;align-items:center">';
+      html += urgHtml;
+      html += '<span style="background:'+statusBg+';color:'+statusFg+';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">'+escHtml(l.status||'')+'</span>';
+      html += '</span>';
+      html += '</div>';
+
+      // Row 2: Course + Institution + Date/Time
+      html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--text);margin-bottom:8px;line-height:1.5">';
+      if(l.course) html += '<span>📚 <strong>'+escHtml(l.course)+'</strong></span>';
+      if(l.institution) html += '<span>🏛️ '+escHtml(l.institution)+'</span>';
+      if(l.date){
+        const dateStr = l.date + (l.day ? ' · '+l.day : '');
+        html += '<span>📅 <strong>'+escHtml(dateStr)+'</strong></span>';
+      }
+      if(l.startTime || l.endTime) html += '<span>🕐 <strong>'+escHtml((l.startTime||'')+' – '+(l.endTime||''))+'</strong></span>';
+      html += '</div>';
+
+      // Row 3: Delivery + Location + Video link
+      const deliveryIcon = l.deliveryMethod === 'זום' ? '💻' : (l.deliveryMethod === 'היברידי' ? '🔄' : '🏛️');
+      html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--muted);margin-bottom:8px;line-height:1.5">';
+      html += '<span>'+deliveryIcon+' '+escHtml(l.deliveryMethod||'פרונטלי');
+      if(l.physicalLocation && l.deliveryMethod !== 'זום') html += ' · <strong style="color:var(--text)">'+escHtml(l.physicalLocation)+'</strong>';
+      html += '</span>';
+      if(l.videoLink) html += '<a href="'+escHtml(l.videoLink)+'" target="_blank" rel="noopener" style="color:var(--primary);text-decoration:none;font-weight:600">🔗 קישור לפגישה</a>';
+      html += '</div>';
+
+      // Row 4: Lecturer + contact
+      if(l.lecturer || l.email || l.phone){
+        html += '<div style="display:flex;flex-wrap:wrap;gap:18px;font-size:13px;margin-bottom:8px;line-height:1.5">';
+        if(l.lecturer) html += '<span style="color:var(--text)">👤 <strong>'+escHtml(l.lecturer)+'</strong></span>';
+        if(l.email) html += '<a href="mailto:'+escHtml(l.email)+'" style="color:var(--primary);text-decoration:none" dir="ltr">✉️ '+escHtml(l.email)+'</a>';
+        if(l.phone) html += '<a href="tel:'+escHtml(l.phone)+'" style="color:var(--text);text-decoration:none" dir="ltr">📞 '+escHtml(l.phone)+'</a>';
+        if(l.cost) html += '<span style="color:var(--text)">💰 <strong>₪'+parseFloat(l.cost).toLocaleString()+'</strong></span>';
+        html += '</div>';
+      }
+
+      // Row 5: Notes (if any)
+      if(l.notes){
+        html += '<div style="background:var(--surface);border-right:2px solid var(--border);padding:8px 12px;border-radius:0 6px 6px 0;font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:10px;white-space:pre-wrap">💬 '+escHtml(l.notes)+'</div>';
+      }
+
+      // Row 6: Action buttons
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">';
+      html += '<button class="btn btn-sm" onclick="editLecture('+l.id+')">✏️ ערוך</button>';
+      html += '<button class="btn btn-sm btn-info" onclick="openLectureInOutlook('+l.id+')">📅 Outlook</button>';
+      html += '<button class="btn btn-sm" onclick="exportLectureICS('+l.id+')">💾 ICS</button>';
+      if(l.email) html += '<button class="btn btn-sm" onclick="emailLecturer('+l.id+')">✉️ מייל</button>';
+      html += '<button class="btn btn-sm btn-danger" onclick="deleteLecture('+l.id+')" style="margin-right:auto">🗑️ מחק</button>';
+      html += '</div>';
+
+      html += '</div>';
     });
-    html += '</tbody></table>';
-    html += '<div style="padding:10px;text-align:center;font-size:12px;color:var(--muted)">מציג '+list.length+' מתוך '+DB.lectures.length+' הרצאות</div>';
+
+    html += '</div>';
+    html += '<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">מציג '+list.length+' מתוך '+DB.lectures.length+' הרצאות</div>';
     document.getElementById('lecture-list').innerHTML = html;
   }
 
