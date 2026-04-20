@@ -226,9 +226,12 @@ input[type=file]{display:none}
   <button class="btn btn-sm btn-outline" onclick="showAddYear()">+ שנה</button>
 </div>
 <div class="container">
-<div style="margin:14px 0" class="global-search">
-  <input type="text" id="global-search-input" placeholder="חיפוש גלובלי בכל הנתונים..." oninput="globalSearch(this.value)" onfocus="if(this.value)globalSearch(this.value)">
-  <div id="global-search-results" class="global-search-results"></div>
+<div style="margin:14px 0;display:flex;gap:8px;align-items:flex-start" class="global-search">
+  <div style="flex:1;position:relative">
+    <input type="text" id="global-search-input" placeholder="חיפוש גלובלי בכל הנתונים..." oninput="globalSearch(this.value)" onfocus="if(this.value)globalSearch(this.value)">
+    <div id="global-search-results" class="global-search-results"></div>
+  </div>
+  <button class="btn btn-outline" onclick="openPhoneSearch()" style="white-space:nowrap;flex-shrink:0" title="חיפוש טלפון ואנשי קשר">📞 חיפוש טלפון</button>
 </div>
 <div class="nav">
   <button onclick="showPage('dashboard')" class="active" id="btn-dashboard">דשבורד</button>
@@ -622,7 +625,35 @@ input[type=file]{display:none}
     <div id="cloud-sync-section">
       <p style="font-size:13px;color:var(--muted);margin-bottom:10px">מאפשר שיתוף וסנכרון נתונים בזמן אמת בין מכשירים ומשתמשים.</p>
       <div id="cloud-sync-status" style="padding:10px;border-radius:8px;margin-bottom:10px"></div>
-      <div id="cloud-sync-buttons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div id="cloud-sync-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
+    </div>
+    <div style="background:#fff;border:1px solid #c7d7fe;border-radius:10px;padding:14px;margin-top:8px">
+      <div style="font-weight:700;font-size:14px;color:#1e40af;margin-bottom:10px">📋 הנחיות שיתוף עם רחל — שלב אחר שלב</div>
+      <div style="font-size:13px;line-height:1.9">
+        <div style="background:#eff6ff;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <strong>אצלך (יריב) — פעולה חד פעמית:</strong>
+          <ol style="margin:6px 0 0;padding-right:18px">
+            <li>ודא שאתה מחובר לסנכרון ענן (כפתור "התחבר לענן" למעלה)</li>
+            <li>שלח לרחל את הקישור הבא:<br>
+              <code style="background:#dbeafe;padding:3px 8px;border-radius:4px;font-size:12px;display:inline-block;margin-top:4px;direction:ltr">https://yarivitzkovich.github.io/practicum/</code><br>
+              <button onclick="navigator.clipboard.writeText('https://yarivitzkovich.github.io/practicum/').then(()=>{this.textContent='✅ הועתק!';setTimeout(()=>this.textContent='📋 העתק קישור',2000)})" style="margin-top:6px;padding:4px 10px;border:1px solid #2563eb;background:#eff6ff;color:#1e40af;border-radius:6px;cursor:pointer;font-size:12px">📋 העתק קישור</button>
+            </li>
+          </ol>
+        </div>
+        <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px">
+          <strong>אצל רחל — כניסה ראשונה:</strong>
+          <ol style="margin:6px 0 0;padding-right:18px">
+            <li>רחל פותחת את הקישור בדפדפן (Edge / Chrome)</li>
+            <li>לחץ <strong>הגדרות</strong> → <strong>☁️ סנכרון ענן</strong> → <strong>"התחבר לענן"</strong></li>
+            <li>הזן כתובת מייל של רחל (למשל: <code>rachel@ariel.ac.il</code>) ולחץ "שלח קוד"</li>
+            <li>רחל מקבלת מייל עם קוד אימות — מזינה אותו ולוחצת "כניסה"</li>
+            <li>✅ הנתונים מסתנכרנים אוטומטית — כל שינוי שלך רחל רואה תוך שניות ולהפך</li>
+          </ol>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--muted);background:rgba(246,177,0,.08);border:1px solid #fde68a;border-radius:8px;padding:8px 12px">
+          ⚠️ <strong>חשוב:</strong> שניכם עובדים על אותם נתונים בזמן אמת. אם שניכם עורכים באותו רגע — השינוי האחרון ינצח. מומלץ לתאם: "אני עובד עכשיו" / "אני מסיים".
+        </div>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -1068,6 +1099,28 @@ input[type=file]{display:none}
     <div class="action-buttons" style="margin-top:16px">
       <button class="btn btn-primary" onclick="closeModal('summary-modal')">סגור</button>
     </div>
+  </div>
+</div>
+
+<!-- SEARCH RESULT INFO MODAL -->
+<div id="search-result-modal" class="modal">
+  <div class="modal-content">
+    <div id="search-result-content"></div>
+  </div>
+</div>
+
+<!-- PHONE SEARCH MODAL -->
+<div id="phone-search-modal" class="modal">
+  <div class="modal-content" style="max-width:700px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0">📞 חיפוש טלפון ואנשי קשר</h2>
+      <button onclick="closeModal('phone-search-modal')" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <input type="text" id="phone-search-input" placeholder="הקלד שם סטודנט, שם ארגון, או שם איש קשר בארגון..." oninput="runPhoneSearch(this.value)" style="font-size:15px">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">מחפש בין סטודנטים, מעסיקים ואנשי קשר</div>
+    </div>
+    <div id="phone-search-results"></div>
   </div>
 </div>
 
@@ -3193,6 +3246,13 @@ function generateEvaluationForm(blank){
       '<tr><td>5. יכולת עבודה עצמאית ואחריות</td><td>'+ratingBoxes()+'</td></tr>'+
     '</table>'+
 
+    '<div style="background:#f0f4ff;border:1px solid #c7d7fe;border-radius:8px;padding:12px;margin:10px 0">'+
+      '<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#3730a3">💬 הסבר מילולי — תרומה ליחידה</div>'+
+      '<div style="font-size:11px;color:#555;margin-bottom:8px">בפירוט, מה היו תרומות הסטודנט/ית לעשייה הארגונית?<br>'+
+        '<em>דוגמאות: "הוביל/ה עצמאית תהליך גיוס לתפקיד X", "בנה/תה בסיס נתונים לעובדים", "ייעל/ה תהליך הדרכה וחסך לנו 10 שעות חודשיות", "עמד/ה בכל המועדים ללא תזכורת"</em></div>'+
+      '<div style="height:80px;border:1px dotted #999;border-radius:6px;background:#fff;padding:4px"></div>'+
+    '</div>'+
+
     '<div class="section-title">ב. הערכת תהליך ההשתלבות והתנהלות (20% מהציון הסופי)</div>'+
     '<table class="eval">'+
       '<tr><td>6. היכולת להשתלב בפעילות היחידה</td><td>'+ratingBoxes()+'</td></tr>'+
@@ -3202,6 +3262,13 @@ function generateEvaluationForm(blank){
       '<tr><td>10. תקשורת, הצגת רעיונות ומוכנות לקבלת משוב</td><td>'+ratingBoxes()+'</td></tr>'+
     '</table>'+
 
+    '<div style="background:#f5f0ff;border:1px solid #d8b4fe;border-radius:8px;padding:12px;margin:10px 0">'+
+      '<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#6d28d9">💬 הסבר מילולי — השתלבות והתנהלות</div>'+
+      '<div style="font-size:11px;color:#555;margin-bottom:8px">כיצד ביטא/ה הסטודנט/ית את יחסיו/יחסיה עם הצוות ועם הסביבה המקצועית?<br>'+
+        '<em>דוגמאות: "משתלב/ת מצוין עם הצוות, אך לפעמים מתקשה לקבל ביקורת", "מגיע/ה בזמן ומוכן/ה תמיד", "לוקח/ת יוזמה אך מתקשה להציג רעיונות בפגישות", "מראה מוטיבציה גבוהה, ביצע/ה מעבר לנדרש"</em></div>'+
+      '<div style="height:80px;border:1px dotted #999;border-radius:6px;background:#fff;padding:4px"></div>'+
+    '</div>'+
+
     '<div class="section-title">ג. שאלות נוספות</div>'+
     '<table class="eval">'+
       '<tr><td>חוזקות בולטות של הסטודנט/ית:</td><td style="height:60px"></td></tr>'+
@@ -3210,7 +3277,26 @@ function generateEvaluationForm(blank){
       '<tr><td>הערות כלליות:</td><td style="height:80px"></td></tr>'+
     '</table>'+
 
-    '<div class="section-title" style="background:#17a34a">ד. ציון סופי מסכם</div>'+
+    '<div class="section-title" style="background:#0891b2">ד. שביעות רצון כללית מהסטודנט/ית</div>'+
+    '<table class="eval">'+
+      '<tr><td style="background:rgba(8,145,178,.06)">'+
+        '<strong>רמת שביעות הרצון הכללית מהסטודנט/ית (0-100)</strong><br>'+
+        '<small>עד כמה הייתם מרוצים מהסטודנט/ית בסך הכל?</small>'+
+      '</td>'+
+      '<td>'+ratingBoxes()+'</td></tr>'+
+      '<tr><td style="background:rgba(8,145,178,.06)">האם תהיו מעוניינים לקלוט סטודנט/ית נוסף/ת שנה הבאה?</td>'+
+        '<td><div style="display:flex;gap:16px;padding:6px"><span>⬜ כן, בהחלט</span><span>⬜ כן, אולי</span><span>⬜ לא בטוח</span><span>⬜ לא</span></div></td></tr>'+
+      '<tr><td style="background:rgba(8,145,178,.06)">האם תמליצו על סטודנט/ית זו/זה לאחרים?</td>'+
+        '<td><div style="display:flex;gap:16px;padding:6px"><span>⬜ כן בהחלט</span><span>⬜ כן</span><span>⬜ לא בטוח</span><span>⬜ לא</span></div></td></tr>'+
+    '</table>'+
+    '<div style="background:#e0f7fa;border:1px solid #80deea;border-radius:8px;padding:12px;margin:10px 0">'+
+      '<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#0e7490">💬 מה הייתם רוצים שנדע? (שדה פתוח)</div>'+
+      '<div style="font-size:11px;color:#555;margin-bottom:8px">כל מידע נוסף שיעזור לנו להעריך טוב יותר את הסטודנט/ית ולשפר את תכנית הפרקטיקום.<br>'+
+        '<em>דוגמאות: "ראיתי בו/בה פוטנציאל מנהיגותי מיוחד שלא בא לידי ביטוי בטופס", "הסטודנט/ית עברה אתגרים אישיים השנה שהשפיעו על ביצועיה אך הפגינה עמידות מרשימה", "אנחנו שוקלים להציע לה/לו עבודה", "מומלץ לפרקטיקום בתחום גיוס ספציפית"</em></div>'+
+      '<div style="height:100px;border:1px dotted #999;border-radius:6px;background:#fff;padding:4px"></div>'+
+    '</div>'+
+
+    '<div class="section-title" style="background:#17a34a">ה. ציון סופי מסכם</div>'+
     '<table class="eval">'+
       '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון תרומה ליחידה (0-100)</strong><br><small>ממוצע סעיפים 1-5 × 10</small></td><td style="height:40px"></td></tr>'+
       '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון השתלבות (0-100)</strong><br><small>ממוצע סעיפים 6-10 × 10</small></td><td style="height:40px"></td></tr>'+
@@ -5851,40 +5937,180 @@ function globalSearch(query){
     const txt = (c.name+' '+c.phone+' '+c.email+' '+c.notes).toLowerCase();
     if(txt.includes(q)){
       const course = DB.courses.find(x=>x.id===c.courseId)?.name || '';
-      items.push({type:'מועמד', name:c.name, detail:course+' | '+c.year, action:'editCandidate('+c.id+')'});
+      items.push({type:'מועמד', name:c.name, detail:course+' | '+c.year, dtype:'candidate', dId:c.id});
     }
   });
   DB.students.forEach(s => {
     const txt = (s.name+' '+s.phone+' '+s.email+' '+s.notes+' '+(s.submitted||[]).join(' ')).toLowerCase();
     if(txt.includes(q)){
       const course = DB.courses.find(c=>c.id===s.courseId)?.name || '';
-      items.push({type:'סטודנט', name:s.name, detail:course+' | '+s.year, action:'editStudent('+s.id+')'});
+      items.push({type:'סטודנט', name:s.name, detail:course+' | '+s.year, dtype:'student', dId:s.id});
     }
   });
   DB.employers.forEach(e => {
     const txt = (e.name+' '+e.contact+' '+e.description+' '+e.location).toLowerCase();
     if(txt.includes(q)){
       const course = DB.courses.find(c=>c.id===e.courseId)?.name || '';
-      items.push({type:'מעסיק', name:e.name, detail:(e.location||'')+' | '+course, action:'editEmployer('+e.id+')'});
+      items.push({type:'מעסיק', name:e.name, detail:(e.location||'')+' | '+course, dtype:'employer', dId:e.id});
     }
   });
-  DB.communications.forEach((c,i) => {
+  DB.communications.forEach(c => {
     const txt = (c.contactName+' '+c.subject+' '+c.content).toLowerCase();
     if(txt.includes(q)){
-      items.push({type:'תקשורת', name:c.contactName+' - '+(c.subject||''), detail:c.date, action:"showPage('communications')"});
+      items.push({type:'תקשורת', name:c.contactName+' - '+(c.subject||''), detail:c.date, dtype:'comm', dId:c.id});
     }
   });
 
   if(!items.length){results.classList.remove('active');return;}
   let html = '';
-  items.slice(0,10).forEach(it => {
-    html += '<div class="search-result-item" onclick="'+it.action+';document.getElementById(\'global-search-results\').classList.remove(\'active\')">';
+  items.slice(0,10).forEach((it,idx) => {
+    html += '<div class="search-result-item" onclick="showSearchResultInfo(\''+it.dtype+'\','+it.dId+');document.getElementById(\'global-search-results\').classList.remove(\'active\');document.getElementById(\'global-search-input\').blur()">';
     html += '<span class="sr-type">'+it.type+'</span> <strong>'+escHtml(it.name)+'</strong>';
     html += '<span style="float:left;font-size:11px;color:var(--muted)">'+escHtml(it.detail)+'</span>';
     html += '</div>';
   });
   results.innerHTML = html;
   results.classList.add('active');
+}
+
+function showSearchResultInfo(dtype, id){
+  let html = '';
+  const row = (label, val) => val ? '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px;white-space:nowrap">'+label+'</td><td style="padding:4px 8px;font-size:13px"><strong>'+escHtml(String(val))+'</strong></td></tr>' : '';
+  const phoneLink = (p) => p ? '<a href="tel:'+p.replace(/\s/g,'')+'">'+escHtml(p)+'</a>' : '-';
+  const emailLink = (e) => e ? '<a href="mailto:'+e+'">'+escHtml(e)+'</a>' : '-';
+  if(dtype === 'student'){
+    const s = DB.students.find(x=>x.id==id); if(!s) return;
+    const course = DB.courses.find(c=>c.id===s.courseId)?.name || '';
+    html = '<h2 style="margin:0 0 14px">👤 '+escHtml(s.name)+'</h2>'+
+      '<table style="width:100%;border-collapse:collapse">'+
+      row('קורס', course)+row('שנה', s.year)+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">טלפון</td><td style="padding:4px 8px;font-size:13px">'+phoneLink(s.phone)+'</td></tr>'+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">מייל</td><td style="padding:4px 8px;font-size:13px">'+emailLink(s.email)+'</td></tr>'+
+      row('ארגון', s.acceptedOrg)+row('סטטוס', s.status)+row('שעות מאושרות', s.hoursApproved)+
+      row('הגשות', (s.submitted||[]).join(', '))+row('הערות', s.notes)+
+      '</table>'+
+      '<div style="margin-top:12px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" onclick="closeModal(\'search-result-modal\');editStudent('+s.id+')">ערוך</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="closeModal(\'search-result-modal\')">סגור</button></div>';
+  } else if(dtype === 'candidate'){
+    const c = DB.candidates.find(x=>x.id==id); if(!c) return;
+    const course = DB.courses.find(x=>x.id===c.courseId)?.name || '';
+    const statusMap = {pending:'ממתין',docs_ready:'מסמכים הוגשו',interview_scheduled:'ראיון נקבע',interviewed:'רואיין',accepted:'התקבל',rejected:'נדחה'};
+    html = '<h2 style="margin:0 0 14px">🎓 '+escHtml(c.name)+'</h2>'+
+      '<table style="width:100%;border-collapse:collapse">'+
+      row('קורס', course)+row('שנה', c.year)+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">טלפון</td><td style="padding:4px 8px;font-size:13px">'+phoneLink(c.phone)+'</td></tr>'+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">מייל</td><td style="padding:4px 8px;font-size:13px">'+emailLink(c.email)+'</td></tr>'+
+      row('סטטוס', statusMap[c.status]||c.status)+row('תאריך הגשה', c.applicationDate)+
+      row('תאריך ראיון', c.interviewDate)+row('תוצאת ראיון', c.interviewResult==='passed'?'עבר ✅':c.interviewResult==='failed'?'לא עבר ❌':'')+
+      row('הערות', c.notes)+
+      '</table>'+
+      '<div style="margin-top:12px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" onclick="closeModal(\'search-result-modal\');editCandidate('+c.id+')">ערוך</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="closeModal(\'search-result-modal\')">סגור</button></div>';
+  } else if(dtype === 'employer'){
+    const e = DB.employers.find(x=>x.id==id); if(!e) return;
+    const course = DB.courses.find(c=>c.id===e.courseId)?.name || '';
+    html = '<h2 style="margin:0 0 14px">🏢 '+escHtml(e.name)+'</h2>'+
+      '<table style="width:100%;border-collapse:collapse">'+
+      row('קורס', course)+row('שנה', e.year)+row('מיקום', e.location)+
+      row('איש קשר', e.contact)+row('תפקיד', e.role)+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">טלפון</td><td style="padding:4px 8px;font-size:13px">'+phoneLink(e.phone)+'</td></tr>'+
+      '<tr><td style="color:var(--muted);padding:4px 8px;font-size:12px">מייל</td><td style="padding:4px 8px;font-size:13px">'+emailLink(e.email ? e.email.replace('mailto:','') : '')+'</td></tr>'+
+      row('תיאור', e.description)+row('הערות', e.notes)+
+      '</table>'+
+      '<div style="margin-top:12px;display:flex;gap:8px">'+
+      '<button class="btn btn-primary btn-sm" onclick="closeModal(\'search-result-modal\');editEmployer('+e.id+')">ערוך</button>'+
+      '<button class="btn btn-outline btn-sm" onclick="closeModal(\'search-result-modal\')">סגור</button></div>';
+  } else if(dtype === 'comm'){
+    const c = DB.communications.find(x=>x.id==id); if(!c) return;
+    html = '<h2 style="margin:0 0 14px">💬 '+escHtml(c.subject||'תקשורת')+'</h2>'+
+      '<table style="width:100%;border-collapse:collapse">'+
+      row('שם איש קשר', c.contactName)+row('תאריך', c.date)+row('נושא', c.subject)+
+      '</table>'+
+      '<div style="margin:10px 0;background:var(--surface);border-radius:8px;padding:10px;font-size:13px">'+escHtml(c.content||'')+'</div>'+
+      '<div style="margin-top:12px;display:flex;gap:8px">'+
+      '<button class="btn btn-outline btn-sm" onclick="closeModal(\'search-result-modal\')">סגור</button></div>';
+  }
+  if(!html) return;
+  document.getElementById('search-result-content').innerHTML = html;
+  openModal('search-result-modal');
+}
+
+function openPhoneSearch(){
+  document.getElementById('phone-search-input').value = '';
+  document.getElementById('phone-search-results').innerHTML = '';
+  openModal('phone-search-modal');
+  setTimeout(() => document.getElementById('phone-search-input').focus(), 100);
+}
+
+function runPhoneSearch(query){
+  const cont = document.getElementById('phone-search-results');
+  if(!query || query.length < 2){ cont.innerHTML = ''; return; }
+  const q = query.toLowerCase();
+  let cards = [];
+
+  DB.students.forEach(s => {
+    if((s.name||'').toLowerCase().includes(q) || (s.phone||'').includes(q) || (s.email||'').toLowerCase().includes(q)){
+      const course = DB.courses.find(c=>c.id===s.courseId)?.name || '';
+      cards.push({
+        icon:'👤', type:'סטודנט',
+        name: s.name, sub: course+(s.year?' | '+s.year:''),
+        phone: s.phone, email: s.email,
+        extra: s.acceptedOrg ? '🏢 '+s.acceptedOrg : ''
+      });
+    }
+  });
+
+  DB.employers.forEach(e => {
+    const nameMatch = (e.name||'').toLowerCase().includes(q);
+    const contactMatch = (e.contact||'').toLowerCase().includes(q);
+    const phoneMatch = (e.phone||'').includes(q);
+    if(nameMatch || contactMatch || phoneMatch){
+      const course = DB.courses.find(c=>c.id===e.courseId)?.name || '';
+      cards.push({
+        icon:'🏢', type:'מעסיק',
+        name: e.name, sub: (e.location||'')+(course?' | '+course:''),
+        phone: e.phone, email: e.email ? e.email.replace('mailto:','') : '',
+        extra: e.contact ? 'איש קשר: '+e.contact+(e.role?' ('+e.role+')':'') : ''
+      });
+    }
+    // Also match by contact person name even if org doesn't match
+    if(!nameMatch && !phoneMatch && contactMatch){
+      // Already added above
+    }
+  });
+
+  if(!cards.length){
+    cont.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">לא נמצאו תוצאות</div>';
+    return;
+  }
+
+  let html = cards.map(c => {
+    const phoneHtml = c.phone
+      ? '<a href="tel:'+c.phone.replace(/\s/g,'')+'" style="font-size:16px;font-weight:700;color:var(--primary);text-decoration:none">📞 '+escHtml(c.phone)+'</a>'
+      : '<span style="color:var(--muted);font-size:13px">אין טלפון</span>';
+    const emailHtml = c.email
+      ? '<a href="mailto:'+c.email+'" style="font-size:12px;color:var(--muted)">✉️ '+escHtml(c.email)+'</a>'
+      : '';
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:var(--surface);display:flex;gap:12px;align-items:center">'+
+      '<div style="font-size:28px;line-height:1">'+c.icon+'</div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+          '<span style="font-size:10px;background:var(--primary);color:#fff;padding:1px 6px;border-radius:99px">'+c.type+'</span>'+
+          '<strong style="font-size:14px">'+escHtml(c.name)+'</strong>'+
+        '</div>'+
+        (c.sub ? '<div style="font-size:11px;color:var(--muted)">'+escHtml(c.sub)+'</div>' : '')+
+        (c.extra ? '<div style="font-size:12px;color:var(--text);margin-top:2px">'+escHtml(c.extra)+'</div>' : '')+
+      '</div>'+
+      '<div style="text-align:left;display:flex;flex-direction:column;align-items:flex-end;gap:4px">'+
+        phoneHtml+
+        emailHtml+
+      '</div>'+
+    '</div>';
+  }).join('');
+
+  cont.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">נמצאו '+cards.length+' תוצאות</div>'+html;
 }
 
 // ============ IMPORT (CSV + Excel) ============
