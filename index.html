@@ -593,27 +593,33 @@ input[type=file]{display:none}
     <div class="section" style="border-color:var(--primary)">
       <h3 style="color:var(--primary)">✉️ מכתב המלצה</h3>
       <p style="font-size:12px;color:var(--muted)">מכתב המלצה עבור סטודנט שסיים את הפרקטיקום</p>
-      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <select id="doc-recommendation-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
         <button class="btn btn-primary" onclick="generateRecommendationLetter()">צור מכתב המלצה</button>
+        <span style="color:var(--muted);font-size:12px">או</span>
+        <button class="btn btn-outline" style="border-color:var(--primary);color:var(--primary)" onclick="generateRecommendationLetter(true)">📄 טופס ריק</button>
       </div>
     </div>
 
     <div class="section" style="border-color:var(--success)">
       <h3 style="color:var(--success)">🎯 אישור השמה</h3>
       <p style="font-size:12px;color:var(--muted)">אישור רשמי שסטודנט התקבל לפרקטיקום בארגון</p>
-      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <select id="doc-placement-student" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
         <button class="btn btn-success" onclick="generatePlacementLetter()">צור אישור השמה</button>
+        <span style="color:var(--muted);font-size:12px">או</span>
+        <button class="btn btn-outline" style="border-color:var(--success);color:var(--success)" onclick="generatePlacementLetter(true)">📄 טופס ריק</button>
       </div>
     </div>
 
     <div class="section" style="border-color:var(--warn)">
       <h3 style="color:#856404">🤝 פנייה למעסיק</h3>
       <p style="font-size:12px;color:var(--muted)">מכתב פנייה רשמי למעסיק להצטרפות לתכנית</p>
-      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
         <select id="doc-employer-intro" style="padding:8px;border-radius:8px;border:1px solid var(--border);min-width:200px"></select>
         <button class="btn btn-warning" onclick="generateEmployerLetter()">צור מכתב פנייה</button>
+        <span style="color:var(--muted);font-size:12px">או</span>
+        <button class="btn btn-outline" style="border-color:var(--warn);color:#856404" onclick="generateEmployerLetter(true)">📄 טופס ריק</button>
       </div>
     </div>
   </div>
@@ -3233,8 +3239,11 @@ function generateEvaluationForm(blank){
     '</table>'+
 
     '<p style="background:#fff3cd;border:1px solid #f6b100;padding:10px;border-radius:8px;font-size:12px;margin:20px 0">'+
-      '<strong>הנחיות למילוי:</strong> דרגו כל קריטריון בסולם 1-10 (1=חלש, 10=מצוין). בחרו על ידי הקפת המספר המתאים. '+
-      'חלק זה מהווה <strong>50% מהציון הסופי</strong> של הסטודנט (30% תרומה + 20% השתלבות).'+
+      '<strong>הנחיות למילוי:</strong> דרגו כל קריטריון בסולם 0-100. '+
+      'הטופס מבוסס על <strong>מרכיבי הסילבוס</strong> של קורס הפרקטיקום ומהווה <strong>50% מהציון הסופי</strong> של הסטודנט בקורס.<br>'+
+      '• <strong>סעיף א׳ — תרומה ליחידה:</strong> 30% מהציון הסופי &nbsp;|&nbsp; '+
+      '• <strong>סעיף ב׳ — השתלבות והתנהלות:</strong> 20% מהציון הסופי<br>'+
+      '<span style="color:#856404">⚠️ הציון מועבר לאוניברסיטה כציון רשמי — נא למלא בכובד ראש ובמלוא הדיוק.</span>'+
     '</p>'+
 
     '<div class="section-title">א. הערכת התרומה ליחידה (30% מהציון הסופי)</div>'+
@@ -3277,11 +3286,15 @@ function generateEvaluationForm(blank){
       '<tr><td>הערות כלליות:</td><td style="height:80px"></td></tr>'+
     '</table>'+
 
-    '<div class="section-title" style="background:#0891b2">ד. שביעות רצון כללית מהסטודנט/ית</div>'+
+    '<div class="section-title" style="background:#0891b2">ד. שביעות רצון כללית מהסטודנט/ית — ציון מסכם מטעם הארגון</div>'+
+    '<div style="background:rgba(8,145,178,.07);border:1px solid #a5f3fc;border-radius:0 0 8px 8px;padding:10px 14px;margin-bottom:10px;font-size:12px">'+
+      '<strong>⭐ ציון זה מבוסס על מרכיבי הסילבוס ומהווה את ציון הארגון הכולל (50% מהציון הסופי בקורס).</strong><br>'+
+      'הכוונה היא לאמוד את שביעות רצונכם הכוללת מהסטודנט/ית, בהתחשב בכל הממדים שהוערכו בסעיפים א׳ ו-ב׳ לעיל.'+
+    '</div>'+
     '<table class="eval">'+
-      '<tr><td style="background:rgba(8,145,178,.06)">'+
-        '<strong>רמת שביעות הרצון הכללית מהסטודנט/ית (0-100)</strong><br>'+
-        '<small>עד כמה הייתם מרוצים מהסטודנט/ית בסך הכל?</small>'+
+      '<tr><td style="background:rgba(8,145,178,.06);width:55%">'+
+        '<strong>ציון שביעות רצון כללית (0-100)</strong><br>'+
+        '<small style="color:#555">ציון זה = ציון הארגון הרשמי (50% מהציון הסופי בקורס)<br>0=לא מספק כלל | 60=מספק | 80=טוב | 90=טוב מאוד | 100=מצוין</small>'+
       '</td>'+
       '<td>'+ratingBoxes()+'</td></tr>'+
       '<tr><td style="background:rgba(8,145,178,.06)">האם תהיו מעוניינים לקלוט סטודנט/ית נוסף/ת שנה הבאה?</td>'+
@@ -3289,19 +3302,24 @@ function generateEvaluationForm(blank){
       '<tr><td style="background:rgba(8,145,178,.06)">האם תמליצו על סטודנט/ית זו/זה לאחרים?</td>'+
         '<td><div style="display:flex;gap:16px;padding:6px"><span>⬜ כן בהחלט</span><span>⬜ כן</span><span>⬜ לא בטוח</span><span>⬜ לא</span></div></td></tr>'+
     '</table>'+
-    '<div style="background:#e0f7fa;border:1px solid #80deea;border-radius:8px;padding:12px;margin:10px 0">'+
-      '<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#0e7490">💬 מה הייתם רוצים שנדע? (שדה פתוח)</div>'+
-      '<div style="font-size:11px;color:#555;margin-bottom:8px">כל מידע נוסף שיעזור לנו להעריך טוב יותר את הסטודנט/ית ולשפר את תכנית הפרקטיקום.<br>'+
-        '<em>דוגמאות: "ראיתי בו/בה פוטנציאל מנהיגותי מיוחד שלא בא לידי ביטוי בטופס", "הסטודנט/ית עברה אתגרים אישיים השנה שהשפיעו על ביצועיה אך הפגינה עמידות מרשימה", "אנחנו שוקלים להציע לה/לו עבודה", "מומלץ לפרקטיקום בתחום גיוס ספציפית"</em></div>'+
-      '<div style="height:100px;border:1px dotted #999;border-radius:6px;background:#fff;padding:4px"></div>'+
+    '<div style="background:#e0f7fa;border:1px solid #67e8f9;border-radius:8px;padding:12px;margin:10px 0">'+
+      '<div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#0e7490">📝 הסבר ופירוט לציון (שדה חובה לפירוט)</div>'+
+      '<div style="font-size:11px;color:#444;margin-bottom:8px">'+
+        'פרטו את השיקולים שהובילו לציון. הסבר זה חשוב להערכת הסטודנט/ית על ידי צוות הקורס ולמשוב המסייע לה/לו.<br>'+
+        '<em>דוגמאות: "הציון משקף ביצוע עצמאי ומעמיק של כל המטלות, כולל פרויקט שיפור תהליכי גיוס שהחסיר לנו שעות עבודה משמעותיות" | '+
+        '"הסטודנט/ית הייתה חלק מהצוות מהיום הראשון, לקחה יוזמה ועמדה בכל המועדים — ציון זה מעיד על מחויבות גבוהה" | '+
+        '"ביצועים טובים בחלק הביצועי, אך מתקשה/ת בהצגה ובניסוח בכתב — הציון ממוצע ומשקף שני הממדים"</em>'+
+      '</div>'+
+      '<div style="height:110px;border:1px solid #67e8f9;border-radius:6px;background:#fff;padding:6px"></div>'+
     '</div>'+
 
-    '<div class="section-title" style="background:#17a34a">ה. ציון סופי מסכם</div>'+
+    '<div class="section-title" style="background:#17a34a">ה. סיכום ציונים (לצוות הקורס בלבד — אל תמלאו)</div>'+
     '<table class="eval">'+
-      '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון תרומה ליחידה (0-100)</strong><br><small>ממוצע סעיפים 1-5 × 10</small></td><td style="height:40px"></td></tr>'+
-      '<tr><td style="background:rgba(23,163,74,.1)"><strong>ציון השתלבות (0-100)</strong><br><small>ממוצע סעיפים 6-10 × 10</small></td><td style="height:40px"></td></tr>'+
-      '<tr><td style="background:rgba(23,163,74,.2)"><strong>ציון סופי של החונך (0-100)</strong></td><td style="height:40px;background:#e8f5e9"></td></tr>'+
+      '<tr><td style="background:rgba(23,163,74,.08)"><strong>ציון תרומה ליחידה — סעיף א׳ (30%)</strong><br><small style="color:#555">ממוצע סעיפים 1–5, משקל 30% מהציון הסופי</small></td><td style="height:36px"></td></tr>'+
+      '<tr><td style="background:rgba(23,163,74,.08)"><strong>ציון השתלבות והתנהלות — סעיף ב׳ (20%)</strong><br><small style="color:#555">ממוצע סעיפים 6–10, משקל 20% מהציון הסופי</small></td><td style="height:36px"></td></tr>'+
+      '<tr style="border-top:2px solid #17a34a"><td style="background:rgba(23,163,74,.18)"><strong>ציון שביעות רצון כללית — סעיף ד׳</strong><br><small style="color:#555">ציון הארגון המסכם (50% מהציון הסופי בקורס)</small></td><td style="height:42px;background:#dcfce7;font-size:18px;font-weight:800;text-align:center"></td></tr>'+
     '</table>'+
+    '<p style="font-size:11px;color:#64728a;margin:8px 0 0;text-align:center">ציון הארגון הרשמי הוא ציון שביעות הרצון הכללית מסעיף ד׳ — המהווה 50% מהציון הסופי בקורס על פי הסילבוס</p>'+
 
     '<div class="signature" style="margin-top:40px">'+
       '<div style="display:flex;gap:30px;flex-wrap:wrap">'+
@@ -3339,14 +3357,24 @@ function generateEvaluationForm(blank){
   openDocWindow('טופס הערכה - ' + (s ? s.name : 'כללי'), body);
 }
 
-function generateRecommendationLetter(){
-  const id = document.getElementById('doc-recommendation-student').value;
-  if(!id){ alert('נא לבחור סטודנט'); return; }
-  const s = DB.students.find(x => x.id == id);
-  if(!s) return;
+function generateRecommendationLetter(blank){
+  let s = null;
+  if(!blank){
+    const id = document.getElementById('doc-recommendation-student').value;
+    if(!id){ alert('נא לבחור סטודנט, או לחץ על "טופס ריק" לפורמט כללי'); return; }
+    s = DB.students.find(x => x.id == id);
+    if(!s) return;
+  }
   const date = new Date().toLocaleDateString('he-IL');
   const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
   const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  const E = (v, fallback) => escHtml(v || fallback || '');
+  const blank_ = (w) => '<span style="display:inline-block;border-bottom:1px dotted #999;min-width:'+(w||80)+'px;min-height:18px">&nbsp;</span>';
+
+  const sName   = s ? escHtml(s.name) : blank_(120);
+  const sOrg    = s ? escHtml(s.acceptedOrg||'') : blank_(160);
+  const sHours  = s ? (s.hoursApproved||s.hoursReported||'') : blank_(40);
+  const sFeedback = s ? s.orgFeedback : '';
 
   const body =
     '<div class="letterhead">'+
@@ -3354,12 +3382,12 @@ function generateRecommendationLetter(){
       '<div class="date">'+date+'</div>'+
     '</div>'+
     '<div class="recipient">לכבוד מי שמעוניין,</div>'+
-    '<h2>מכתב המלצה עבור '+escHtml(s.name)+'</h2>'+
-    '<p>הנני ממליץ בחום על '+escHtml(s.name)+' אשר השתתפ/ה בתכנית הפרקטיקום במשאבי אנוש באוניברסיטת אריאל.</p>'+
-    (s.acceptedOrg ? '<p>במהלך הפרקטיקום, ביצע/ה '+escHtml(s.name)+' את ההתנסות המעשית בארגון <strong>'+escHtml(s.acceptedOrg)+'</strong>'+(s.hoursApproved ? ' וצבר/ה <strong>'+s.hoursApproved+' שעות</strong> של עבודה מעשית' : '')+'.</p>' : '')+
-    (s.orgFeedback ? '<p>על פי חוות הדעת שהתקבלה מהארגון:<br><em style="display:block;padding:10px;background:#f7f8fa;border-right:3px solid #2f6df6;margin:10px 0">"'+escHtml(s.orgFeedback)+'"</em></p>' : '')+
-    '<p>במהלך הפרקטיקום גילה/גילתה '+escHtml(s.name)+' מחויבות, מקצועיות ויכולת להשתלב בסביבת עבודה מאתגרת.</p>'+
-    (s.hired ? '<p><strong>בסיום הפרקטיקום נקלט/ה לעבודה בארגון</strong> - עדות ליכולות ולתרומה.</p>' : '')+
+    '<h2>מכתב המלצה עבור '+sName+'</h2>'+
+    '<p>הנני ממליץ בחום על '+sName+' אשר השתתפ/ה בתכנית הפרקטיקום במשאבי אנוש באוניברסיטת אריאל.</p>'+
+    '<p>במהלך הפרקטיקום, ביצע/ה '+sName+' את ההתנסות המעשית בארגון <strong>'+(sOrg||blank_(160))+'</strong>'+(sHours ? ' וצבר/ה <strong>'+sHours+' שעות</strong> של עבודה מעשית' : (' וצבר/ה <strong>'+blank_(40)+' שעות</strong> של עבודה מעשית'))+'.</p>'+
+    (sFeedback ? '<p>על פי חוות הדעת שהתקבלה מהארגון:<br><em style="display:block;padding:10px;background:#f7f8fa;border-right:3px solid #2f6df6;margin:10px 0">"'+escHtml(sFeedback)+'"</em></p>' : '')+
+    '<p>במהלך הפרקטיקום גילה/גילתה '+sName+' מחויבות, מקצועיות ויכולת להשתלב בסביבת עבודה מאתגרת.</p>'+
+    (s && s.hired ? '<p><strong>בסיום הפרקטיקום נקלט/ה לעבודה בארגון</strong> - עדות ליכולות ולתרומה.</p>' : '')+
     '<p>אני בטוח/ה שיוסיף/תוסיף ערך רב לכל ארגון שיעסיק אותו/ה.</p>'+
     '<div class="signature">'+
       '<div class="name">'+escHtml(sender)+'</div>'+
@@ -3367,18 +3395,25 @@ function generateRecommendationLetter(){
       '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
     '</div>'+
     '<div class="footer">הופק אוטומטית מתוך מערכת ניהול הפרקטיקום | '+date+'</div>';
-  openDocWindow('מכתב המלצה - '+s.name, body);
+  openDocWindow('מכתב המלצה - '+(s ? s.name : 'כללי'), body);
 }
 
-function generatePlacementLetter(){
-  const id = document.getElementById('doc-placement-student').value;
-  if(!id){ alert('נא לבחור סטודנט'); return; }
-  const s = DB.students.find(x => x.id == id);
-  if(!s || !s.acceptedOrg){ alert('הסטודנט לא מוצב בארגון'); return; }
+function generatePlacementLetter(blank){
+  let s = null, emp = null;
+  if(!blank){
+    const id = document.getElementById('doc-placement-student').value;
+    if(!id){ alert('נא לבחור סטודנט, או לחץ על "טופס ריק" לפורמט כללי'); return; }
+    s = DB.students.find(x => x.id == id);
+    if(!s || !s.acceptedOrg){ alert('הסטודנט לא מוצב בארגון'); return; }
+    emp = DB.employers.find(e => e.name === s.acceptedOrg);
+  }
   const date = new Date().toLocaleDateString('he-IL');
-  const emp = DB.employers.find(e => e.name === s.acceptedOrg);
   const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
   const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  const blank_ = (w) => '<span style="display:inline-block;border-bottom:1px dotted #999;min-width:'+(w||80)+'px;min-height:18px">&nbsp;</span>';
+
+  const sName = s ? escHtml(s.name) : blank_(140);
+  const sOrg  = s ? escHtml(s.acceptedOrg) : blank_(160);
 
   const body =
     '<div class="letterhead">'+
@@ -3386,14 +3421,15 @@ function generatePlacementLetter(){
       '<div class="date">'+date+'</div>'+
     '</div>'+
     '<h2>אישור הצבה</h2>'+
-    '<p>הנני מאשר/ת בזאת כי הסטודנט/ית <strong>'+escHtml(s.name)+'</strong> התקבל/ה ויבצע/תבצע את הפרקטיקום המעשי בארגון:</p>'+
+    '<p>הנני מאשר/ת בזאת כי הסטודנט/ית <strong>'+sName+'</strong> התקבל/ה ויבצע/תבצע את הפרקטיקום המעשי בארגון:</p>'+
     '<table class="info">'+
-      '<tr><td>ארגון:</td><td><strong>'+escHtml(s.acceptedOrg)+'</strong></td></tr>'+
-      (emp ? '<tr><td>איש קשר:</td><td>'+escHtml(emp.contact||'-')+'</td></tr>'+
-             '<tr><td>תפקיד:</td><td>'+escHtml(emp.role||'-')+'</td></tr>'+
-             '<tr><td>טלפון:</td><td>'+escHtml(emp.phone||'-')+'</td></tr>'+
-             '<tr><td>מייל:</td><td>'+escHtml((emp.email||'').replace('mailto:',''))+'</td></tr>'+
-             '<tr><td>מיקום:</td><td>'+escHtml(emp.location||'-')+'</td></tr>' : '')+
+      '<tr><td>שם הסטודנט/ית:</td><td><strong>'+sName+'</strong></td></tr>'+
+      '<tr><td>ארגון:</td><td><strong>'+sOrg+'</strong></td></tr>'+
+      '<tr><td>איש קשר:</td><td>'+(emp ? escHtml(emp.contact||'-') : blank_(140))+'</td></tr>'+
+      '<tr><td>תפקיד:</td><td>'+(emp ? escHtml(emp.role||'-') : blank_(120))+'</td></tr>'+
+      '<tr><td>טלפון:</td><td>'+(emp ? escHtml(emp.phone||'-') : blank_(100))+'</td></tr>'+
+      '<tr><td>מייל:</td><td>'+(emp ? escHtml((emp.email||'').replace('mailto:','')) : blank_(160))+'</td></tr>'+
+      '<tr><td>מיקום:</td><td>'+(emp ? escHtml(emp.location||'-') : blank_(140))+'</td></tr>'+
     '</table>'+
     '<p>הפרקטיקום מהווה חלק בלתי נפרד מתכנית הלימודים (6 נ"ז) ובסיומו יוענקו נקודות זכות אקדמיות.</p>'+
     '<p>היקף ההתנסות: <strong>120 שעות לפחות</strong>, יום בשבוע לאורך השנה האקדמית.</p>'+
@@ -3403,27 +3439,32 @@ function generatePlacementLetter(){
       '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
     '</div>'+
     '<div class="footer">הופק '+date+'</div>';
-  openDocWindow('אישור השמה - '+s.name, body);
+  openDocWindow('אישור השמה - '+(s ? s.name : 'כללי'), body);
 }
 
-function generateEmployerLetter(){
-  const id = document.getElementById('doc-employer-intro').value;
-  if(!id){ alert('נא לבחור מעסיק'); return; }
-  const e = DB.employers.find(x => x.id == id);
-  if(!e) return;
+function generateEmployerLetter(blank){
+  let e = null;
+  if(!blank){
+    const id = document.getElementById('doc-employer-intro').value;
+    if(!id){ alert('נא לבחור מעסיק, או לחץ על "טופס ריק" לפורמט כללי'); return; }
+    e = DB.employers.find(x => x.id == id);
+    if(!e) return;
+  }
   const date = new Date().toLocaleDateString('he-IL');
   const sender = DB.settings.senderName || 'ד"ר יריב איצקוביץ';
   const senderEmail = DB.settings.senderEmail || 'yarivi@ariel.ac.il';
+  const blank_ = (w) => '<span style="display:inline-block;border-bottom:1px dotted #999;min-width:'+(w||80)+'px;min-height:18px">&nbsp;</span>';
+
+  const recipient = e
+    ? (e.contact ? 'לכבוד '+escHtml(e.contact) : 'לכבוד')+(e.role ? ',<br>'+escHtml(e.role) : '')+'<br>'+escHtml(e.name)
+    : 'לכבוד '+blank_(120)+'<br>'+blank_(80)+'<br>'+blank_(160);
 
   const body =
     '<div class="letterhead">'+
       '<div><h1>אוניברסיטת אריאל בשומרון</h1><div class="sub">תכנית הפרקטיקום במשאבי אנוש</div></div>'+
       '<div class="date">'+date+'</div>'+
     '</div>'+
-    '<div class="recipient">'+
-      (e.contact ? 'לכבוד '+escHtml(e.contact) : 'לכבוד')+(e.role ? ',<br>'+escHtml(e.role) : '')+'<br>'+
-      escHtml(e.name)+
-    '</div>'+
+    '<div class="recipient">'+recipient+'</div>'+
     '<h2>פנייה בנושא שיתוף פעולה בתכנית הפרקטיקום</h2>'+
     '<p>שלום רב,</p>'+
     '<p>אני פונה אליכם מטעם אוניברסיטת אריאל בשומרון בהצעה לשיתוף פעולה במסגרת תכנית הפרקטיקום למשאבי אנוש.</p>'+
@@ -3441,7 +3482,7 @@ function generateEmployerLetter(){
       '<div>אוניברסיטת אריאל בשומרון</div>'+
       '<div>אימייל: '+escHtml(senderEmail)+'</div>'+
     '</div>';
-  openDocWindow('פנייה למעסיק - '+e.name, body);
+  openDocWindow('פנייה למעסיק - '+(e ? e.name : 'כללי'), body);
 }
 
 function renderCloudSyncSection(){
