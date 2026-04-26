@@ -1230,13 +1230,39 @@ let DB = {
   students: [],
   employers: [],
   communications: [],
-  lectures: [],
+  lectures: [
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-11-13","startTime":"10:30","endTime":"12:00","lecturer":"סימונה עמיר","topic":"משאבי אנוש - הסבר על רוחב היריעה","email":"simonaami@telhai.ac.il","phone":"050-7214426","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":1,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-11-27","startTime":"09:00","endTime":"10:30","lecturer":"למא אבו אחמד (אינבידיה)","topic":"מקורות גיוס","email":"labuahmad@nvidia.com","phone":"052-889-1960","status":"מאושר","type":"הרצאה","cost":"","notes":"הרצאה בזום - נשלחה הודעה 30.9","id":2,"deliveryMethod":"זום","physicalLocation":"","academicYear":"2025-2026"},
+    {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2025-11-30","startTime":"18:00","endTime":"19:30","lecturer":"חיה וגנר מישורי וסטודנטית שלה","topic":"מסלול קרירה והתקדמות סטודנטית","email":"hayawagner@gmail.com","phone":"054-7004049","status":"מאושר","type":"הרצאה","cost":"","notes":"לבדוק עם למלם.","id":3,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2025-10-26","startTime":"18:30","endTime":"19:30","lecturer":"אופיר קרקו","topic":"גיוס טכנולוגי","email":"ofirk@nishapro.co.il","phone":"050-4014350","status":"מאושר","type":"הרצאה","cost":"","notes":"צריך לאשר כניסה","id":4,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-01-11","startTime":"18:00","endTime":"20:00","lecturer":"איילה ראובן ללונג","topic":"מיומנויות קריטיות","email":"Ayalla@eq-el.co.il","phone":"054-4805614","status":"מאושר","type":"סדנה","cost":"5000","notes":"קיבלה תאריך","id":5,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-03-22","startTime":"17:00","endTime":"20:00","lecturer":"ענבל בנימין אלרן","topic":"התמודדות משאבי אנוש עם מצבי קיצון - תכלול","email":"","phone":"054-7889607","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את ענבל","id":6,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"פרקטיקום משאבי אנוש","institution":"אוניברסיטת אריאל","day":"ראשון","date":"2026-05-10","startTime":"17:00","endTime":"20:00","lecturer":"אורית","topic":"LinkedIn","email":"","phone":"","status":"ממתין","type":"סדנה","cost":"","notes":"פגישה עם אורית 16.4","id":7,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-04-27","startTime":"19:00","endTime":"21:00","lecturer":"חיה וגנר מישורי","topic":"בניית תכנית התערבות","email":"hayawagner@gmail.com","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":8,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-04","startTime":"19:00","endTime":"21:00","lecturer":"שלה דיין","topic":"הנחיית קבוצות","email":"shelladh@gmail.com","phone":"054-811-1247","status":"ממתין","type":"הרצאה","cost":"1000","notes":"לבדוק בסילבוס","id":9,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות יעוץ א","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-01","startTime":"19:00","endTime":"21:00","lecturer":"איילה ראובן ללונג","topic":"מיומנויות קריטיות","email":"Ayalla@eq-el.co.il","phone":"054-480-5614","status":"מאושר","type":"סדנה","cost":"3000","notes":"לעדכן את איילה עוד שבוע","id":10,"deliveryMethod":"פרונטלי","physicalLocation":"אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-11","startTime":"09:30","endTime":"12:00","lecturer":"מרכז סימולציות","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":11,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-18","startTime":"09:30","endTime":"12:00","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":12,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2025-12-25","startTime":"09:30","endTime":"12:00","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":13,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2026-01-01","startTime":"09:30","endTime":"12:00","lecturer":"נועה שמיר","topic":"סימולציות גיוס","email":"noashron@gmail.com","phone":"050-990-1858","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":14,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מבוא לניהול משאבי אנוש","institution":"מכללת תל חי","day":"חמישי","date":"2026-01-15","startTime":"09:30","endTime":"12:00","lecturer":"נועה שמיר","topic":"סימולציית התעמרות","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":15,"deliveryMethod":"פרונטלי","physicalLocation":"תל חי","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות יעוץ א","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-08","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"סימולציית כניסה לארגון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":16,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות יעוץ א","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-15","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"סימולציית כניסה לארגון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":17,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות יעוץ א","institution":"אוניברסיטת אריאל","day":"שני","date":"2025-12-29","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"סימולציית ראיון","email":"","phone":"","status":"בוטל","type":"הרצאה","cost":"","notes":"לעדכן את גלית וספיר","id":18,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות יעוץ א","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-01-05","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"ראיון אבחוני","email":"","phone":"","status":"בוטל","type":"הרצאה","cost":"","notes":"לעדכן את גלית וספיר","id":19,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-03-23","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"התנגדויות","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את עולא וספיר","id":20,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-03-30","startTime":"15:00","endTime":"16:30","lecturer":"מרכז סימולציות","topic":"התנגדויות","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"לעדכן את עולא וספיר ומרכז סימולציות","id":21,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"א","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-11","startTime":"19:00","endTime":"20:30","lecturer":"למלם","topic":"תמיכה בהפעלת סדנאות","email":"","phone":"","status":"ממתין","type":"סדנה","cost":"","notes":"","id":22,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"},
+    {"semester":"ב","course":"מיומנויות ייעוץ ב","institution":"אוניברסיטת אריאל","day":"שני","date":"2026-05-18","startTime":"19:00","endTime":"20:30","lecturer":"פא״י","topic":"האקטון","email":"","phone":"","status":"מאושר","type":"הרצאה","cost":"","notes":"","id":23,"deliveryMethod":"פרונטלי","physicalLocation":"אוניברסיטת אריאל","academicYear":"2025-2026"}
+  ],
   lecturerDB: {},
   institutions: ['אוניברסיטת אריאל','מכללת תל חי'],
   settings: {basePath:'', cvFolderLink:'', formFolderLink:'', senderEmail:'yarivi@ariel.ac.il', senderName:'ד"ר יריב איצקוביץ', yearDates:{}, holidayCache:{}},
   currentUser: {name:'', email:''},
   version: '5.1'
 };
+// Keep a reference to seed lectures so loadFromStorage can restore them
+window.__SEED_LECTURES__ = DB.lectures.slice();
 let undoStack = [];
 let dataChanged = false;
 let lastAutoBackup = null;
@@ -1357,9 +1383,11 @@ function loadFromStorage(){
       Object.assign(DB, d);
       if(!DB.candidates) DB.candidates = [];
       if(!DB.currentUser) DB.currentUser = {name:'', email:''};
-      if(!DB.lectures) DB.lectures = [];
+      // Keep seed lectures if localStorage has none (first-time or cleared storage)
+      const seedLectures = DB.lectures && DB.lectures.length > 0 ? DB.lectures : null;
+      if(!DB.lectures || DB.lectures.length === 0) DB.lectures = window.__SEED_LECTURES__ || [];
       if(!DB.lecturerDB) DB.lecturerDB = {};
-      if(!DB.institutions) DB.institutions = ['אוניברסיטת אריאל','מכללת תל חי'];
+      if(!DB.institutions || DB.institutions.length === 0) DB.institutions = ['אוניברסיטת אריאל','מכללת תל חי'];
       if(!DB.settings.yearDates) DB.settings.yearDates = {};
       if(!DB.settings.holidayCache) DB.settings.holidayCache = {};
       // Seed default academic year dates (Israel Oct-Jul) if missing
@@ -6778,13 +6806,17 @@ async function supabaseSaveData(force){
   if(suppressSave){ return false; } // Don't save during realtime update application
   if(syncInProgress && !force){ pendingSync = true; return false; }
 
-  // Build snapshot
+  // Build snapshot — includes ALL data collections
   const snapshot = {
     courses: DB.courses, academicYears: DB.academicYears,
     currentCourse: DB.currentCourse, currentYear: DB.currentYear,
     candidates: DB.candidates, students: DB.students, employers: DB.employers,
     communications: DB.communications, settings: DB.settings,
-    version: '5.0'
+    lectures: DB.lectures || [],
+    lecturerDB: DB.lecturerDB || [],
+    institutions: DB.institutions || [],
+    calendarEvents: DB.calendarEvents || [],
+    version: '5.1'
   };
   const currentHash = hashData(snapshot);
   // Skip if nothing changed
@@ -6905,9 +6937,11 @@ function applySupabaseData(data){
   if(data.students) DB.students = data.students;
   if(data.employers) DB.employers = data.employers;
   if(data.communications) DB.communications = data.communications;
-  if(data.lectures) DB.lectures = data.lectures;
+  // Restore lectures — use cloud data if available, otherwise keep seed
+  if(data.lectures && data.lectures.length > 0) DB.lectures = data.lectures;
+  else if(!DB.lectures || DB.lectures.length === 0) DB.lectures = window.__SEED_LECTURES__ || [];
   if(data.lecturerDB) DB.lecturerDB = data.lecturerDB;
-  if(data.institutions) DB.institutions = data.institutions;
+  if(data.institutions && data.institutions.length > 0) DB.institutions = data.institutions;
   if(data.calendarEvents) DB.calendarEvents = data.calendarEvents;
   if(data.settings) DB.settings = {...DB.settings, ...data.settings};
   if(data.currentCourse) DB.currentCourse = data.currentCourse;
