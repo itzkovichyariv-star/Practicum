@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="הרצאות ופרקטיקום">
@@ -207,6 +210,7 @@ input[type=file]{display:none}
 @supports (padding:env(safe-area-inset-bottom)){
   body{padding-bottom:env(safe-area-inset-bottom)}
 }
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -217,14 +221,19 @@ input[type=file]{display:none}
 </div>
 <div class="context-bar">
   <div class="backup-indicator"><span class="dot" id="backup-dot"></span> <span id="backup-status">לא גובה</span></div>
-  <div class="backup-indicator" style="margin-right:8px"><span id="sync-indicator" style="font-size:11px">⚠️ סנכרון כבוי</span></div>
+  <div class="backup-indicator" style="margin-right:8px;cursor:pointer" onclick="cloudSyncRefresh()" title="לחץ לרענון מהענן">
+    <span id="sync-indicator" style="font-size:11px">⚠️ סנכרון כבוי</span>
+  </div>
   <label>קורס:</label>
   <select id="ctx-course" onchange="switchContext()"></select>
   <button class="btn btn-sm btn-outline" onclick="showAddCourse()">+ קורס</button>
   <label>שנה:</label>
   <select id="ctx-year" onchange="switchContext()"></select>
   <button class="btn btn-sm btn-outline" onclick="showAddYear()">+ שנה</button>
+  <span style="margin-right:auto;font-size:10px;color:var(--muted);opacity:.6" title="גרסת המערכת">v2026.04.22</span>
 </div>
+<!-- TOAST NOTIFICATION -->
+<div id="toast-container" style="position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:8px;pointer-events:none;min-width:320px;max-width:90vw"></div>
 <div class="container">
 <div style="margin:14px 0;display:flex;gap:8px;align-items:flex-start" class="global-search">
   <div style="flex:1;position:relative">
@@ -6812,6 +6821,20 @@ async function supabaseSaveData(force){
   }
 }
 
+function showToast(msg, type, duration){
+  // type: 'success' | 'error' | 'info' | 'warn'
+  duration = duration || 4000;
+  const colors = {success:'#17a34a', error:'#dc2626', info:'#2563eb', warn:'#d97706'};
+  const icons  = {success:'✅', error:'❌', info:'ℹ️', warn:'⚠️'};
+  const c = document.getElementById('toast-container');
+  if(!c) return;
+  const t = document.createElement('div');
+  t.style.cssText = 'background:#fff;border:2px solid '+(colors[type]||colors.info)+';border-radius:12px;padding:12px 18px;font-size:14px;font-weight:600;color:#111;box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;align-items:center;gap:10px;pointer-events:all;direction:rtl;text-align:right;animation:fadeInDown .25s ease';
+  t.innerHTML = '<span style="font-size:20px">'+(icons[type]||'ℹ️')+'</span><span>'+msg+'</span>';
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(), 400); }, duration);
+}
+
 function updateSyncIndicator(status){
   const el = document.getElementById('sync-indicator');
   if(!el) return;
@@ -6822,10 +6845,10 @@ function updateSyncIndicator(status){
     el.innerHTML = '🔄 מסנכרן...';
     el.style.color = 'var(--primary)';
   } else if(status === 'offline'){
-    el.innerHTML = '⚠️ סנכרון כבוי';
-    el.style.color = 'var(--muted)';
+    el.innerHTML = '⚠️ סנכרון כבוי — לחץ להתחברות';
+    el.style.color = 'var(--warn,#d97706)';
   } else if(status === 'error'){
-    el.innerHTML = '❌ שגיאת סנכרון';
+    el.innerHTML = '❌ שגיאת סנכרון — לחץ לניסיון חוזר';
     el.style.color = 'var(--danger)';
   }
 }
@@ -6943,39 +6966,59 @@ saveToStorage = function(){
 
 // Manual refresh - pull latest from cloud
 async function cloudSyncRefresh(silent){
-  if(!supabaseClient || !supabaseUser){ if(!silent) alert('לא מחובר לסנכרון'); return; }
-  if(!silent) updateSyncIndicator('syncing');
-
-  // Check the remote version without downloading full data
-  const {data:meta, error} = await supabaseClient.from('practicum_data')
-    .select('id,version,last_editor_name,last_editor_email')
-    .eq('org_id','default').order('updated_at',{ascending:false}).limit(1).single();
-  if(error){ if(!silent) alert('שגיאה: ' + error.message); return; }
-
-  // If our version matches the remote, nothing changed
-  if(meta.version === supabaseVersion && silent) {
-    updateSyncIndicator('synced');
+  if(!supabaseClient || !supabaseUser){
+    if(!silent){
+      showToast('לא מחובר לסנכרון ענן — עבור להגדרות והתחבר', 'warn', 5000);
+      if(confirm('לא מחובר לסנכרון ענן.\nלעבור להגדרות ולהתחבר עכשיו?')) showPage('settings');
+    }
     return;
   }
+  updateSyncIndicator('syncing');
+  if(!silent) showToast('🔄 מתחבר לענן ומרענן נתונים...', 'info', 3000);
 
-  const cloudData = await supabaseLoadData();
-  if(cloudData && Object.keys(cloudData).length > 0){
-    suppressSave = true;
-    try {
-      applySupabaseData(cloudData);
-      lastSaveHash = hashData(cloudData);
-      renderAll();
-      setTimeout(() => { suppressSave = false; }, 500);
-      if(!silent) alert('רוענן מהענן: ' + (cloudData.students?.length||0) + ' סטודנטים, ' + (cloudData.employers?.length||0) + ' מעסיקים');
-      else if(meta.last_editor_email !== DB.currentUser.email){
-        showConflictNotice(meta.last_editor_name || 'משתמש אחר');
+  try {
+    // Check the remote version without downloading full data
+    const {data:meta, error} = await supabaseClient.from('practicum_data')
+      .select('id,version,last_editor_name,last_editor_email')
+      .eq('org_id','default').order('updated_at',{ascending:false}).limit(1).single();
+    if(error){
+      showToast('שגיאת ענן: ' + error.message, 'error', 6000);
+      updateSyncIndicator('error');
+      return;
+    }
+
+    // If our version matches the remote, nothing changed
+    if(meta.version === supabaseVersion && silent) {
+      updateSyncIndicator('synced');
+      return;
+    }
+
+    const cloudData = await supabaseLoadData();
+    if(cloudData && Object.keys(cloudData).length > 0){
+      suppressSave = true;
+      try {
+        applySupabaseData(cloudData);
+        lastSaveHash = hashData(cloudData);
+        renderAll();
+        setTimeout(() => { suppressSave = false; }, 500);
+        const st = cloudData.students?.length||0;
+        const em = cloudData.employers?.length||0;
+        const lec = cloudData.lectures?.length||0;
+        const cand = cloudData.candidates?.length||0;
+        showToast('✅ רוענן מהענן: '+st+' סטודנטים | '+em+' מעסיקים | '+lec+' הרצאות | '+cand+' מועמדים', 'success', 5000);
+        if(silent && meta.last_editor_email !== DB.currentUser?.email){
+          showConflictNotice(meta.last_editor_name || 'משתמש אחר');
+        }
+      } finally {
+        updateSyncIndicator('synced');
       }
-    } finally {
+    } else {
+      showToast('הענן ריק — לא נמצאו נתונים', 'warn', 4000);
       updateSyncIndicator('synced');
     }
-  } else {
-    if(!silent) alert('אין נתונים בענן');
-    updateSyncIndicator('synced');
+  } catch(err){
+    showToast('שגיאה בחיבור לענן: ' + err.message, 'error', 6000);
+    updateSyncIndicator('error');
   }
 }
 
@@ -7005,7 +7048,7 @@ async function cloudSyncLogin(){
     await supabaseSignIn(email, password);
     localStorage.setItem('supabase_enabled', '1');
     supabaseEnabled = true;
-    alert('התחברת בהצלחה! מסנכרן נתונים...');
+    showToast('✅ התחברת בהצלחה! מסנכרן נתונים מהענן...', 'success', 4000);
     await cloudSyncMerge();
     await supabaseSubscribe();
     startCloudPolling();
@@ -7074,8 +7117,13 @@ async function autoConnectCloud(){
     await supabaseSubscribe();
     startCloudPolling();
     updateSyncIndicator('synced');
+    showToast('☁️ מחובר לענן ונתונים עודכנו', 'success', 4000);
   } else {
     updateSyncIndicator('offline');
+    // Session expired — show a prominent reconnect banner
+    setTimeout(() => {
+      showToast('⚠️ הסנכרון לא פעיל — עבור להגדרות → "התחבר לענן" כדי לראות את כל הנתונים', 'warn', 8000);
+    }, 1500);
   }
 }
 
