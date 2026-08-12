@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node test/run-tests.js",
     "test:e2e": "node test/smoke.js",
-    "test:all": "node test/run-tests.js && node test/smoke.js"
+    "test:baseline": "node test/baseline-check.js",
+    "test:all": "node test/run-tests.js && node test/smoke.js && node test/baseline-check.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"
