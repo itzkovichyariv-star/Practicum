@@ -992,7 +992,6 @@ input[type=file]{display:none}
       <div class="form-group"><label>אימייל</label><input id="student-email" type="email"></div>
       <div class="form-group"><label>עיר מגורים</label><input id="student-city" placeholder="למשל: אריאל, תל אביב"></div>
     </div>
-    <div id="student-candidacy-section"></div>
     <div class="prep-status">
       <div class="checkbox-group">
         <input type="checkbox" id="student-prep">
@@ -4094,7 +4093,7 @@ function runIntegrityCheck(){
     '  הומרו לסטודנטים: ' + getArchivedCandidatesFrom(DB.candidates).length,
     '  טרם סונכרנו: ' + unmigrated,
     'סטודנטים: ' + DB.students.length,
-    '  עם תיק מועמדות: ' + DB.students.filter(s => s.candidacy).length,
+    '  מקושרים לרשומת מועמדות: ' + DB.students.filter(s => s.candidateId).length,
     '',
     issues.length ? 'נמצאו ' + issues.length + ' נקודות לבדיקה:' : 'לא נמצאו בעיות תקינות.'
   ].concat(issues.map(i => '• ' + i));
@@ -5481,7 +5480,7 @@ function emailCandidateSummary(){
 
    THE ONE INVARIANT THIS FEATURE PROMISES:
      On a student record that already exists, this code writes ONLY
-     `candidacy` and `candidateId`. Never a status, never a file, never a link.
+     `candidateId`. Never a status, never a file, never a link.
    ============================================================================ */
 
 // Every student field the conversion is forbidden to touch on an existing record.
@@ -5495,7 +5494,10 @@ const PROTECTED_STUDENT_FIELDS = [
   'notes','manualSummary','fromCandidate'
 ];
 // The complete set this feature is allowed to add to an existing student.
-const WRITABLE_ON_EXISTING_STUDENT = ['candidacy','candidateId'];
+// Just the link. The candidacy file itself stays on the archived candidate
+// record, which is its single source of truth: once someone is a student their
+// candidacy history is no longer part of the working screen.
+const WRITABLE_ON_EXISTING_STUDENT = ['candidateId'];
 
 function candNormName(n){
   return String(n || '').replace(/[֑-ׇ]/g,'').replace(/["'`׳״]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -5506,32 +5508,6 @@ function candPhoneKey(p){
 }
 function candEmailKey(e){
   return String(e || '').trim().toLowerCase();
-}
-
-// The candidacy file that travels with the person onto the student card.
-function buildCandidacy(c, meta){
-  meta = meta || {};
-  return {
-    candidateId:      c.id,
-    applicationDate:  c.applicationDate || '',
-    interviewDate:    c.interviewDate || '',
-    interviewResult:  c.interviewResult || '',
-    interviewSummary: c.interviewSummary || '',
-    preferredArea:    c.preferredArea || '',
-    acceptedDate:     c.acceptedDate || '',
-    evalScore:        (c.evalScore === 0 || c.evalScore) ? c.evalScore : null,
-    evals: {
-      commitment:    c.evalCommitment || '',
-      motivation:    c.evalMotivation || '',
-      communication: c.evalCommunication || '',
-      english:       c.evalEnglish || '',
-      acquaintance:  c.evalAcquaintance || ''
-    },
-    manualSummary:    c.manualSummary || '',
-    candidateNotes:   c.notes || '',
-    convertedDate:    meta.date || '',
-    convertedBy:      meta.by || ''
-  };
 }
 
 // Find an existing student that is the same person. Email, then phone, then name.
@@ -5581,19 +5557,17 @@ function buildStudentFromCandidate(c, nextId, meta){
     courseId: c.courseId,
     year: c.year,
     fromCandidate: true,
-    candidateId: c.id,
-    candidacy: buildCandidacy(c, meta)
+    candidateId: c.id
   };
   if(c.file_cv) s.file_cv = c.file_cv;
   if(c.file_application) s.file_form = c.file_application;
   return s;
 }
 
-// Attach a candidacy to a student that already exists.
-// Touches `candidacy` and `candidateId` and nothing else, ever.
+// Link a student that already exists back to their candidacy record.
+// Touches `candidateId` and nothing else, ever.
 function attachCandidacyToStudent(student, c, meta){
-  if(student.candidacy && student.candidacy.candidateId) return {changed: false, reason: 'already-linked'};
-  student.candidacy = buildCandidacy(c, meta);
+  if(student.candidateId) return {changed: false, reason: 'already-linked'};
   student.candidateId = c.id;
   return {changed: true, reason: 'attached'};
 }
@@ -5604,7 +5578,7 @@ function nextStudentId(students){
 
 /* Convert one candidate. Mutates the arrays passed in and returns a report.
    mode 'new'    -> a student record was created
-   mode 'merged' -> an existing student was found; only candidacy/candidateId added */
+   mode 'merged' -> an existing student was found; only candidateId added */
 function convertCandidateInPlace(candidate, candidates, students, meta){
   const match = matchStudentForCandidate(candidate, students);
   let student, mode;
@@ -5626,7 +5600,7 @@ function convertCandidateInPlace(candidate, candidates, students, meta){
 
 /* One-time backfill for data that predates the feature.
    Deliberately conservative: it links and it archives, it never creates a
-   student and never edits one beyond candidacy/candidateId. A candidate that
+   student and never edits one beyond the candidateId link. A candidate that
    passed the interview but has no student record stays an ACTIVE candidate and
    is surfaced in the "waiting to transfer" banner for a human to action. */
 function migrateCandidateStudentLinks(db, meta){
@@ -5803,7 +5777,7 @@ function convertAllPendingCandidates(){
 }
 
 // One-time backfill. Links candidates to students that already exist; never
-// creates or edits a student beyond attaching the candidacy.
+// creates or edits a student beyond attaching the candidateId link.
 function runCandidateMigration(silent){
   const unmigrated = DB.candidates.filter(c => c.converted === undefined);
   if(!unmigrated.length){
@@ -5940,9 +5914,7 @@ function renderStudents(){
 
   let filtered = students.filter(s => {
     if(search){
-      const cy = s.candidacy || {};
-      const txt = [s.name, s.phone, s.email, s.notes, (s.submitted||[]).join(' '), s.acceptedOrg,
-                   cy.interviewSummary, cy.preferredArea].map(x => x||'').join(' ').toLowerCase();
+      const txt = (s.name+' '+s.phone+' '+s.email+' '+s.notes+' '+(s.submitted||[]).join(' ')+' '+s.acceptedOrg).toLowerCase();
       if(!txt.includes(search)) return false;
     }
     if(filterPrep==='prep-done' && !s.prepDone) return false;
@@ -6011,17 +5983,6 @@ function renderStudents(){
     else if(s.acceptedOrg) html += '<span class="badge badge-warning" style="font-size:10px">חוו"ד חסרה</span>';
     if(s.acceptedOrg) html += ' <span class="badge badge-success">התקבל ל-'+escHtml(s.acceptedOrg)+'</span>';
     if(s.hoursReported) html += ' <span class="badge" style="background:rgba(139,92,246,.1);color:#7c3aed">'+s.hoursReported+' שעות'+(s.hoursConfirmed?' ✓':'')+'</span>';
-    // Candidacy file carried over from the candidates page
-    if(s.candidacy){
-      const cy = s.candidacy;
-      const label = '🎓 מועמדות' + (cy.interviewResult === 'passed' ? ' ✓' : '') +
-                    (cy.interviewDate ? ' ' + fmtShortDate(cy.interviewDate) : '');
-      html += ' <span class="badge" style="background:rgba(139,92,246,.13);color:#7c3aed;cursor:pointer" onclick="editStudent('+s.id+')" title="פתח את תיק המועמדות בכרטיס">'+label+'</span>';
-      if(cy.evalScore || cy.evalScore === 0){
-        const col = cy.evalScore >= 85 ? 'var(--success)' : cy.evalScore >= 70 ? 'var(--warn)' : 'var(--muted)';
-        html += ' <span class="badge" style="color:'+col+';border:1px solid '+col+'55;background:transparent;font-variant-numeric:tabular-nums">ציון '+cy.evalScore+'</span>';
-      }
-    }
     html += '</div>';
 
     if((s.preferences||[]).filter(p=>p).length) html += '<div style="margin-top:6px"><strong style="font-size:12px">העדפות:</strong> '+(s.preferences||[]).filter(p=>p).map((p,i)=>'<span class="badge badge-primary">'+(i+1)+'. '+escHtml(p)+'</span>').join('')+'</div>';
@@ -6048,7 +6009,6 @@ function updatePrepGate(){
 function showAddStudent(){
   document.getElementById('student-modal-title').textContent = 'הוסף סטודנט';
   document.getElementById('student-edit-id').value = '';
-  renderCandidacyPanel(null);
   ['student-name','student-phone','student-email','student-city','student-notes','student-submitted','student-cv-url','student-form-url','student-summary-url'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('student-prep').checked = false;
   document.getElementById('student-prep-date').value = '';
@@ -6085,52 +6045,11 @@ function populateEmployerSelects(){
   document.getElementById('student-accepted-org').innerHTML = accOpts;
 }
 
-// Read-only candidacy file inside the student card. Rendered, never edited:
-// the candidate record stays the source of truth for its own history.
-function renderCandidacyPanel(s){
-  const el = document.getElementById('student-candidacy-section');
-  if(!el) return;
-  const cy = s && s.candidacy;
-  if(!cy){ el.innerHTML = ''; return; }
-  const V = v => (v === undefined || v === null || v === '') ? '<span style="color:var(--muted)">—</span>' : escHtml(String(v));
-  const evalsTxt = [
-    ['מחויבות', cy.evals?.commitment], ['מוטיבציה', cy.evals?.motivation],
-    ['תקשורת', cy.evals?.communication], ['אנגלית', cy.evals?.english], ['היכרות', cy.evals?.acquaintance]
-  ].filter(x => x[1]).map(x => x[0] + ' ' + escHtml(x[1])).join(' · ');
-  const result = cy.interviewResult === 'passed' ? '<strong style="color:var(--success)">✓ עבר/ה</strong>'
-               : cy.interviewResult === 'failed' ? '<strong style="color:var(--danger)">✗ לא עבר/ה</strong>' : '—';
-
-  let h = '<details class="section" style="background:rgba(139,92,246,.05);border-color:rgba(139,92,246,.3)">';
-  h += '<summary style="cursor:pointer;color:#7c3aed;font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center">🎓 תיק מועמדות' +
-       '<span class="badge" style="color:var(--muted);font-weight:500;margin-right:auto">קריאה בלבד</span></summary>';
-  h += '<div style="margin-top:10px">';
-  h += '<div class="summary-row"><span>תאריך הגשה</span><span>'+V(cy.applicationDate)+'</span></div>';
-  h += '<div class="summary-row"><span>תאריך ראיון</span><span>'+V(cy.interviewDate)+'</span></div>';
-  h += '<div class="summary-row"><span>תוצאה</span><span>'+result+'</span></div>';
-  h += '<div class="summary-row"><span>תחום מבוקש</span><span>'+V(cy.preferredArea)+'</span></div>';
-  h += '<div class="summary-row"><span>ציון ממוצע</span><span>'+((cy.evalScore||cy.evalScore===0)?'<strong>'+cy.evalScore+'</strong>':'<span style="color:var(--muted)">—</span>')+'</span></div>';
-  if(evalsTxt) h += '<div style="margin-top:8px;font-size:12px"><strong>הערכת ראיון:</strong> '+evalsTxt+'</div>';
-  if(cy.interviewSummary){
-    h += '<div style="margin-top:10px"><strong style="font-size:12px">סיכום ראיון</strong>' +
-         '<div style="margin-top:4px;font-size:13px;line-height:1.6;background:var(--panel);padding:8px 10px;border-radius:6px;border-right:3px solid #7c3aed">' +
-         escHtml(cy.interviewSummary) + '</div></div>';
-  }
-  h += '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">';
-  if(s.file_cv && !s.file_cv.na) h += '<a href="'+getFileChipHref(s.file_cv,'cv')+'" target="_blank" class="file-link">📄 קורות חיים</a>';
-  if(s.file_form && !s.file_form.na) h += '<a href="'+getFileChipHref(s.file_form,'form')+'" target="_blank" class="file-link">📝 טופס מועמדות</a>';
-  if(s.candidateId) h += '<button type="button" class="btn btn-sm btn-info" onclick="showCandidateSummaryById('+s.candidateId+')">סיכום תיק מועמדות</button>';
-  h += '</div>';
-  if(cy.convertedDate) h += '<div style="margin-top:8px;font-size:11px;color:var(--muted)">הומר ב-'+escHtml(cy.convertedDate)+(cy.convertedBy?' על ידי '+escHtml(cy.convertedBy):'')+'</div>';
-  h += '</div></details>';
-  el.innerHTML = h;
-}
-
 function editStudent(id){
   const s = DB.students.find(x=>x.id===id);
   if(!s)return;
   document.getElementById('student-modal-title').textContent = 'ערוך סטודנט';
   document.getElementById('student-edit-id').value = s.id;
-  renderCandidacyPanel(s);
   document.getElementById('student-name').value = s.name;
   document.getElementById('student-phone').value = s.phone || '';
   document.getElementById('student-email').value = s.email || '';
@@ -6319,26 +6238,6 @@ function renderStudentSummary(s){
   html += '<div class="summary-row"><span>מקור</span><span>'+(s.fromCandidate?'הועבר ממועמדים':EMPTY_PLACEHOLDER)+'</span></div>';
   html += '</div>';
 
-  // Candidacy file, carried over from the candidates page
-  if(s.candidacy){
-    const cy = s.candidacy;
-    const evalsTxt = [
-      ['מחויבות', cy.evals?.commitment], ['מוטיבציה', cy.evals?.motivation],
-      ['תקשורת', cy.evals?.communication], ['אנגלית', cy.evals?.english], ['היכרות', cy.evals?.acquaintance]
-    ].filter(x => x[1]).map(x => x[0] + ' ' + escHtml(x[1])).join(' · ');
-    html += '<div style="margin:12px 0;padding:10px;background:rgba(139,92,246,.05);border-radius:8px"><strong style="color:#7c3aed;display:block;margin-bottom:6px">▸ תיק מועמדות</strong>';
-    html += '<div class="summary-row"><span>תאריך הגשה</span><span>'+V(cy.applicationDate)+'</span></div>';
-    html += '<div class="summary-row"><span>תאריך ראיון</span><span>'+V(cy.interviewDate)+'</span></div>';
-    html += '<div class="summary-row"><span>תוצאת ראיון</span><span>'+(cy.interviewResult==='passed'?'<strong style="color:var(--success)">✓ עבר/ה</strong>':cy.interviewResult==='failed'?'<strong style="color:var(--danger)">✗ לא עבר/ה</strong>':EMPTY_PLACEHOLDER)+'</span></div>';
-    html += '<div class="summary-row"><span>ציון ממוצע</span><span>'+((cy.evalScore||cy.evalScore===0)?'<strong>'+cy.evalScore+'</strong>':EMPTY_PLACEHOLDER)+'</span></div>';
-    if(evalsTxt) html += '<div style="margin-top:6px;font-size:12px"><strong>הערכת ראיון:</strong> '+evalsTxt+'</div>';
-    if(cy.interviewSummary){
-      html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:#7c3aed;font-weight:600">סיכום ראיון</summary>';
-      html += '<div style="margin-top:6px;font-size:13px;line-height:1.6">'+escHtml(cy.interviewSummary)+'</div></details>';
-    }
-    html += '</div>';
-  }
-
   // Preparation
   html += '<div style="margin:12px 0;padding:10px;background:rgba(246,177,0,.06);border-radius:8px"><strong style="color:#856404;display:block;margin-bottom:6px">▸ הכנה לפרקטיקום</strong>';
   html += '<div class="summary-row"><span>סטטוס</span><span>'+(s.prepDone?'<strong style="color:var(--success)">✓ עברה הכנה</strong>':'<strong style="color:var(--warn)">טרם עברה</strong>')+'</span></div>';
@@ -6437,20 +6336,6 @@ function buildStudentSummaryText(s){
   if(s.city) txt += '  עיר: ' + s.city + '\n';
   txt += '  קורס: ' + courseName + '\n';
   txt += '  שנה: ' + (s.year || '-') + '\n\n';
-  if(s.candidacy){
-    const cy = s.candidacy;
-    txt += '▸ תיק מועמדות\n';
-    if(cy.applicationDate) txt += '  תאריך הגשה: ' + cy.applicationDate + '\n';
-    if(cy.interviewDate) txt += '  תאריך ראיון: ' + cy.interviewDate + '\n';
-    txt += '  תוצאת ראיון: ' + (cy.interviewResult === 'passed' ? 'עבר/ה' : cy.interviewResult === 'failed' ? 'לא עבר/ה' : '-') + '\n';
-    if(cy.preferredArea) txt += '  תחום מבוקש: ' + cy.preferredArea + '\n';
-    if(cy.evalScore || cy.evalScore === 0) txt += '  ציון ממוצע: ' + cy.evalScore + '\n';
-    const ev = [['מחויבות',cy.evals?.commitment],['מוטיבציה',cy.evals?.motivation],['תקשורת',cy.evals?.communication],
-                ['אנגלית',cy.evals?.english],['היכרות',cy.evals?.acquaintance]].filter(x=>x[1]);
-    if(ev.length) txt += '  הערכה: ' + ev.map(x=>x[0]+' '+x[1]).join(' | ') + '\n';
-    if(cy.interviewSummary) txt += '  סיכום ראיון: ' + cy.interviewSummary + '\n';
-    txt += '\n';
-  }
   txt += '▸ הכנה\n';
   txt += '  ' + (s.prepDone ? '✓ עברה הכנה' + (s.prepDate ? ' (' + s.prepDate + ')' : '') : '✗ טרם עברה') + '\n\n';
   txt += '▸ השמה\n';

@@ -46,9 +46,16 @@ behaviour is unchanged and is covered by tests. See `test/README.md`.
 ## The invariant this codebase enforces
 
 On a student record that already exists, the candidate→student feature writes
-**only** `candidacy` and `candidateId`. Never a status, never a file, never a
-link. `runGuarded()` verifies after every mutation and rolls back automatically
-on violation. The protected list is `PROTECTED_STUDENT_FIELDS`.
+**only** `candidateId`. Never a status, never a file, never a link.
+`runGuarded()` verifies after every mutation and rolls back automatically on
+violation. The protected list is `PROTECTED_STUDENT_FIELDS`.
+
+## The student page is off limits
+
+Once someone is a student their candidacy history is not shown on the student
+page — not on the row, not in the card, not in the printed summary. It lives on
+the archived candidate record, reachable from the candidates page archive. Do
+not add it back to the student screens without an explicit instruction.
 
 ## Frozen — do not implement without an explicit instruction
 

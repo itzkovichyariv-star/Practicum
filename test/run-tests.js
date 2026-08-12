@@ -21,7 +21,7 @@ const sandbox = {};
 vm.createContext(sandbox);
 vm.runInContext(core + '\nthis.__api = {' + [
   'PROTECTED_STUDENT_FIELDS','WRITABLE_ON_EXISTING_STUDENT','candNormName','candPhoneKey','candEmailKey',
-  'buildCandidacy','matchStudentForCandidate','buildStudentFromCandidate','attachCandidacyToStudent',
+  'matchStudentForCandidate','buildStudentFromCandidate','attachCandidacyToStudent',
   'convertCandidateInPlace','migrateCandidateStudentLinks','getActiveCandidatesFrom','getArchivedCandidatesFrom',
   'verifyNoStudentStatusChange','stableStringify'
 ].join(',') + '};', sandbox);
@@ -131,7 +131,7 @@ test('does not match a candidate with no counterpart', () => {
 /* ---- the invariant ------------------------------------------------------- */
 section('The invariant: existing students are never restatused');
 
-test('merging into an existing student changes only candidacy + candidateId', () => {
+test('merging into an existing student changes only candidateId', () => {
   const f = fixture();
   const before = clone(f);
   A.convertCandidateInPlace(f.candidates[0], f.candidates, f.students, META);
@@ -178,29 +178,34 @@ test('migration never creates a student record', () => {
 /* ---- conversion behaviour ------------------------------------------------ */
 section('Conversion behaviour');
 
-test('a candidate with no student record creates one, carrying the candidacy file', () => {
+test('a candidate with no student record creates one, carrying their CV', () => {
   const f = fixture();
   const r = A.convertCandidateInPlace(f.candidates[1], f.candidates, f.students, META);
   eq(r.mode, 'new');
   const s = f.students.find(x => x.id === r.studentId);
   ok(s, 'new student exists');
-  eq(s.candidacy.interviewSummary, 'מתאים.');
-  eq(s.candidacy.evalScore, 79);
-  eq(s.candidacy.interviewDate, '2026-02-10');
+  eq(s.candidateId, 2, 'linked back to the candidacy record');
   eq(s.file_cv, f.candidates[1].file_cv, 'CV object carried across unchanged');
   eq(s.prepDone, false, 'new student starts before preparation');
   eq(s.acceptedOrg, '', 'new student has no placement');
 });
 
-test('the interview summary and all five criteria survive the conversion', () => {
+test('the student record carries no copy of the candidacy file', () => {
   const f = fixture();
   A.convertCandidateInPlace(f.candidates[0], f.candidates, f.students, META);
-  const cy = f.students[0].candidacy;
-  eq(cy.interviewSummary, 'מוטיבציה גבוהה, ניסיון קודם בגיוס.');
-  eq(cy.evalScore, 88);
-  eq(cy.evals, { commitment: 'גבוה', motivation: 'גבוה', communication: 'בינוני', english: 'גבוה', acquaintance: 'נמוך' });
-  eq(cy.applicationDate, '2026-01-14');
-  eq(cy.preferredArea, 'גיוס ומיון');
+  A.convertCandidateInPlace(f.candidates[1], f.candidates, f.students, META);
+  f.students.forEach(s => ok(!('candidacy' in s), 'student ' + s.id + ' must not carry a candidacy copy'));
+});
+
+test('the interview record survives, on the archived candidate', () => {
+  const f = fixture();
+  A.convertCandidateInPlace(f.candidates[0], f.candidates, f.students, META);
+  const c = f.candidates[0];
+  eq(c.interviewSummary, 'מוטיבציה גבוהה, ניסיון קודם בגיוס.');
+  eq(c.evalScore, 88);
+  eq(c.evalCommitment, 'גבוה');
+  eq(c.converted, true, 'archived rather than deleted');
+  eq(f.students[0].candidateId, 1, 'and reachable from the student by id');
 });
 
 test('the candidate record is archived, never deleted', () => {
@@ -212,7 +217,7 @@ test('the candidate record is archived, never deleted', () => {
   eq(f.candidates[0].studentId, 10);
 });
 
-test('converting twice does not double-write the candidacy', () => {
+test('converting twice does not double-write the link', () => {
   const f = fixture();
   A.convertCandidateInPlace(f.candidates[0], f.candidates, f.students, META);
   const snap = clone(f.students[0]);

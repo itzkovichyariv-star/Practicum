@@ -129,12 +129,18 @@ function check(name, cond, extra) {
     'submitted', 'hoursReported', 'hoursApproved', 'hoursConfirmed', 'orgFeedback', 'file_cv', 'cvUrl', 'notes'];
   const moved = protectedFields.filter(f => JSON.stringify(before[f]) !== JSON.stringify(after[f]));
   check('no protected field on the existing student changed', moved.length === 0, 'moved: ' + moved.join(', '));
-  check('only candidacy + candidateId were added',
-    JSON.stringify(Object.keys(after).filter(k => !(k in before)).sort()) === JSON.stringify(['candidacy', 'candidateId']),
+  check('only candidateId was added to the existing student',
+    JSON.stringify(Object.keys(after).filter(k => !(k in before)).sort()) === JSON.stringify(['candidateId']),
     JSON.stringify(Object.keys(after).filter(k => !(k in before))));
-  check('the interview summary landed on the student card',
-    after.candidacy && after.candidacy.interviewSummary === 'מוטיבציה גבוהה, ניסיון קודם בגיוס.');
-  check('the evaluation score came across', after.candidacy && after.candidacy.evalScore === 88);
+  check('the student record carries no candidacy copy', !('candidacy' in after));
+  check('the interview record survives on the archived candidate',
+    await page.evaluate(() => {
+      const c = DB.candidates.find(x => x.id === 1);
+      return !!c && c.converted === true && c.evalScore === 88 &&
+             c.interviewSummary === 'מוטיבציה גבוהה, ניסיון קודם בגיוס.';
+    }));
+  check('the student page shows nothing about the candidacy',
+    !(await page.evaluate(() => { showPage('students'); return document.getElementById('student-list').innerText; })).includes('מועמדות'));
   check('no duplicate student was created', await page.evaluate(() => DB.students.length) === 1);
   check('the candidate record was archived, not deleted', await page.evaluate(() => DB.candidates.length) === 3);
   check('the converted candidate left the active list', await page.evaluate(() => getActiveCandidates().length) === 2);
