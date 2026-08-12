@@ -245,6 +245,35 @@ function check(name, cond, extra) {
   console.log('    \x1b[32mfile (viewer)  :\x1b[0m ' + decodeURIComponent(sampleUrls.viewer));
   console.log('    \x1b[32mfile (direct)  :\x1b[0m ' + decodeURIComponent(sampleUrls.direct));
 
+  /* ---- deep links -------------------------------------------------------- */
+  console.log('\n\x1b[1mDeep links\x1b[0m');
+  const deepPage = await browser.newPage();
+  await deepPage.addInitScript(() => { window.confirm = () => true; window.alert = () => {}; });
+  await deepPage.goto(FILE_URL + '&seed=1#settings/link-audit-section');
+  await deepPage.waitForTimeout(1400);
+  check('?seed=1 populates the test environment on arrival',
+    await deepPage.evaluate(() => DB.candidates.length) === 5);
+  check('the hash opens the right page',
+    await deepPage.evaluate(() => document.getElementById('settings').classList.contains('active')));
+  check('the target section is rendered and reachable',
+    await deepPage.evaluate(() => {
+      const el = document.getElementById('link-audit-section');
+      return !!el && el.querySelectorAll('table tbody tr').length > 0;
+    }));
+  check('deepLinkTo builds a hash that round-trips',
+    (await deepPage.evaluate(() => deepLinkTo('candidates'))).endsWith('#candidates'));
+
+  await deepPage.evaluate(() => { location.hash = '#candidates'; });
+  await deepPage.waitForTimeout(250);
+  check('changing the hash navigates without a reload',
+    await deepPage.evaluate(() => document.getElementById('candidates').classList.contains('active')));
+
+  await deepPage.evaluate(() => { location.hash = '#not-a-page'; });
+  await deepPage.waitForTimeout(200);
+  check('an unknown hash is ignored rather than blanking the app',
+    await deepPage.evaluate(() => document.getElementById('candidates').classList.contains('active')));
+  await deepPage.close();
+
   /* ---- production mode must be completely unaffected --------------------- */
   console.log('\n\x1b[1mProduction mode is unchanged\x1b[0m');
   const prodPage = await browser.newPage();

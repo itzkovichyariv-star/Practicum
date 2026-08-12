@@ -1431,12 +1431,20 @@ window.onload = function(){
   });
   renderTestBanner();
   renderContextBar();
+  // ?seed=1 makes a single link land on populated sample data, test mode only.
+  try {
+    if(TEST_MODE && new URLSearchParams(location.search).get('seed') === '1'
+       && !DB.candidates.length && !DB.students.length){
+      seedTestData();
+    }
+  } catch(e){ console.warn('seed skipped:', e); }
   renderAll();
   renderEmailPage();
   updateBackupIndicator();
   updateHeaderUser();
   // Auto-connect cloud sync if enabled
   setTimeout(() => { autoConnectCloud().catch(err => console.warn('Cloud sync auto-connect failed:', err)); }, 500);
+  applyDeepLink();
   document.addEventListener('click', function(e){
     if(!e.target.closest('.global-search')) document.getElementById('global-search-results').classList.remove('active');
     if(!e.target.closest('.item.clickable') && !e.target.closest('.tooltip-box')) hideTooltip();
@@ -3047,6 +3055,45 @@ function openFile(type){
 }
 
 // ============ NAVIGATION ============
+/* ---- deep links -----------------------------------------------------------
+   #<page>            -> open that page
+   #<page>/<elementId> -> open it and scroll the section into view, highlighted
+   ?seed=1             -> test mode only: load sample data first
+   Section ids are just the container element ids, so adding a new target needs
+   no registration.
+   ------------------------------------------------------------------------- */
+function highlightSection(el){
+  if(!el) return;
+  el.scrollIntoView({behavior: 'smooth', block: 'start'});
+  const prev = el.style.boxShadow;
+  el.style.transition = 'box-shadow .4s';
+  el.style.boxShadow = '0 0 0 3px var(--primary)';
+  setTimeout(() => { el.style.boxShadow = prev || ''; }, 2200);
+}
+
+function applyDeepLink(){
+  const raw = (location.hash || '').replace(/^#/, '');
+  if(!raw || raw === 'test') return;
+  const [page, section] = raw.split('/');
+  if(!page) return;
+  if(!document.getElementById(page)) return;   // not a page id, ignore
+  showPage(page);
+  if(section){
+    // Settings panels render lazily; give the page a tick to paint.
+    setTimeout(() => highlightSection(document.getElementById(section)), 120);
+  }
+}
+
+// Build a link that lands exactly here. Used for the "copy link" affordances.
+function deepLinkTo(page, section){
+  const base = location.origin === 'null' || location.protocol === 'file:'
+    ? location.href.split('#')[0]
+    : location.origin + location.pathname + location.search;
+  return base + '#' + page + (section ? '/' + section : '');
+}
+
+window.addEventListener('hashchange', applyDeepLink);
+
 function showPage(page){
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   const pageEl = document.getElementById(page);
@@ -3802,7 +3849,9 @@ function renderDataSafetySection(){
   const pending = getPendingTransferCandidates().length;
 
   let h = '<div class="section" style="background:rgba(47,109,246,.04);border-color:rgba(47,109,246,.3)">';
-  h += '<h3 style="color:var(--primary);font-size:14px">בטיחות נתונים — מועמדים וסטודנטים</h3>';
+  h += '<h3 style="color:var(--primary);font-size:14px;display:flex;align-items:center;gap:8px">בטיחות נתונים — מועמדים וסטודנטים' +
+       '<button class="btn btn-sm btn-outline" style="font-size:10px;padding:2px 8px;margin-right:auto" title="העתק קישור ישיר למסך הזה" ' +
+       'onclick="copyToClipboard(deepLinkTo(\'settings\',\'data-safety-section\'), this)">📋 קישור למסך</button></h3>';
 
   if(TEST_MODE){
     h += '<div class="alert alert-warning" style="margin-bottom:10px">🔒 <strong>סביבת בדיקות.</strong> הנתונים מבודדים מנתוני האמת, סנכרון הענן מנוטרל, ושליחת הודעות חסומה' +
@@ -3879,7 +3928,9 @@ function renderLinkAuditSection(){
   const style = (DB.settings && DB.settings.fileLinkStyle) || 'viewer';
 
   let h = '<div class="section" style="background:rgba(249,115,22,.05);border-color:rgba(249,115,22,.35)">';
-  h += '<h3 style="color:var(--orange);font-size:14px">🔗 קישורי קבצים — לבדיקה ואישור</h3>';
+  h += '<h3 style="color:var(--orange);font-size:14px;display:flex;align-items:center;gap:8px">🔗 קישורי קבצים — לבדיקה ואישור' +
+       '<button class="btn btn-sm btn-outline" style="font-size:10px;padding:2px 8px;margin-right:auto" title="העתק קישור ישיר למסך הזה" ' +
+       'onclick="copyToClipboard(deepLinkTo(\'settings\',\'link-audit-section\'), this)">📋 קישור למסך</button></h3>';
 
   h += '<div class="alert alert-warning" style="margin-bottom:10px;font-size:13px">' +
        '<strong>המצב היום:</strong> כל קישור קובץ במערכת מצביע על <u>התיקייה</u>, ולכן קישור שנשלח לארגון פותח את קורות החיים של כל הסטודנטים בקורס. ' +
