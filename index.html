@@ -665,6 +665,10 @@ input[type=file]{display:none}
     <h2>🛡️ בטיחות נתונים ושחזור</h2>
     <div id="data-safety-section"></div>
   </div>
+  <div class="card">
+    <h2>🔗 קישורי קבצים</h2>
+    <div id="link-audit-section"></div>
+  </div>
   <div class="card" style="border:2px solid var(--primary);background:rgba(47,109,246,.03)">
     <h2 style="color:var(--primary)">☁️ סנכרון ענן (שיתוף עם רחל)</h2>
     <div id="cloud-sync-section">
@@ -2976,6 +2980,53 @@ function getDataFileFolderUrl(folderPath){
   return buildSharePointUrl(subPath);
 }
 
+/* ---- file-level links -----------------------------------------------------
+   A folder link opens the whole course folder, i.e. every student's CV. These
+   build a link to one file instead.
+
+   Renaming files is a separate, still-frozen change. Nothing here touches a
+   filename, so no share link already sent to an organisation is affected.
+
+   Two URL forms, because the right one depends on the tenant and only a real
+   click can settle it. Both are listed side by side in Settings for approval.
+   ------------------------------------------------------------------------- */
+const DATA_ROOT = 'מערכת לניהול פרקטיקום/data/';
+
+// Only a record that carries a real filename can be linked to. The checkbox
+// path stores a generic marker instead, and that can only reach the folder.
+function fileHasRealName(f){
+  return !!(f && f.name && !f.na && f.name !== 'הועלה לתיקייה');
+}
+
+// OneDrive web viewer: ?id=<file>&parent=<folder>
+function getDataFileUrl(f){
+  if(!fileHasRealName(f) || !f.folder) return null;
+  const folderAbs = SP_USER_ROOT + '/' + DATA_ROOT + f.folder;
+  const fileAbs = folderAbs + '/' + f.name;
+  return SP_HOST + '/personal/yarivi_ariel_ac_il/_layouts/15/onedrive.aspx?id=' +
+         encodeURIComponent(fileAbs) + '&parent=' + encodeURIComponent(folderAbs);
+}
+
+// Plain path form, which some tenants prefer for direct open/download.
+function getDataFileDirectUrl(f){
+  if(!fileHasRealName(f) || !f.folder) return null;
+  const segs = (DATA_ROOT + f.folder + '/' + f.name).split('/').map(encodeURIComponent).join('/');
+  return SP_HOST + SP_USER_ROOT.split('/').map(encodeURIComponent).join('/') + '/' + segs;
+}
+
+// What a chip should point at, honouring the opt-in setting.
+// Off (default) = exactly today's behaviour, so merging changes no link.
+function fileLevelLinksEnabled(){
+  return DB.settings && DB.settings.fileLevelLinks === true;
+}
+function getFileChipHref(f, typeKey){
+  if(fileLevelLinksEnabled()){
+    const direct = DB.settings.fileLinkStyle === 'direct' ? getDataFileDirectUrl(f) : getDataFileUrl(f);
+    if(direct) return direct;
+  }
+  return f && f.folder ? getDataFileFolderUrl(f.folder) : getDataFolderUrl(typeKey);
+}
+
 function getFileUrl(student, type){
   // If student has a valid URL (http), use it directly
   const urlField = type==='cv' ? (student.cvUrl||student.cvPath||'') : type==='form' ? (student.formUrl||student.formPath||'') : (student.summaryUrl||'');
@@ -3764,6 +3815,7 @@ function renderDataSafetySection(){
        'כל פעולה נבדקת אוטומטית מיד אחרי הביצוע, ואם התגלה שינוי אסור היא מבוטלת מעצמה.</div>';
 
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+  if(TEST_MODE) h += '<button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="seedTestData()">טען נתוני דוגמה</button>';
   h += '<button class="btn btn-sm btn-primary" onclick="runCandidateMigration()">סנכרון מועמדים ↔ סטודנטים' + (unmigrated ? ' (' + unmigrated + ')' : '') + '</button>';
   h += '<button class="btn btn-sm btn-outline" onclick="createManualRestorePoint()">צור נקודת שחזור עכשיו</button>';
   h += '<button class="btn btn-sm btn-info" onclick="runIntegrityCheck()">בדיקת תקינות</button>';
@@ -3788,6 +3840,172 @@ function renderDataSafetySection(){
   }
   h += '</div>';
   el.innerHTML = h;
+}
+
+/* ---- link inspection ------------------------------------------------------
+   Lists every file the system knows about with the URL each linking style
+   produces, so the links can be clicked and approved before being switched on.
+   ------------------------------------------------------------------------- */
+const FILE_TYPE_LABELS = {cv:'קורות חיים', form:'טופס הגשה', application:'טופס מועמדות', summary:'סיכום', feedback:'חוות דעת'};
+
+function collectAllFileRecords(){
+  const out = [];
+  getFilteredCandidates().forEach(c => {
+    [['cv', c.file_cv], ['application', c.file_application]].forEach(([t, f]) => {
+      if(f) out.push({who: c.name, kind: c.converted ? 'מועמד (הומר)' : 'מועמד', type: t, file: f});
+    });
+  });
+  getFilteredStudents().forEach(s => {
+    [['cv', s.file_cv], ['form', s.file_form], ['summary', s.file_summary], ['feedback', s.file_feedback]].forEach(([t, f]) => {
+      if(f) out.push({who: s.name, kind: 'סטודנט', type: t, file: f});
+    });
+  });
+  return out;
+}
+
+function copyToClipboard(text, btn){
+  navigator.clipboard.writeText(text).then(() => {
+    if(btn){ const o = btn.textContent; btn.textContent = '✓'; setTimeout(() => btn.textContent = o, 1200); }
+  });
+}
+
+function renderLinkAuditSection(){
+  const el = document.getElementById('link-audit-section');
+  if(!el) return;
+  const recs = collectAllFileRecords();
+  const linkable = recs.filter(r => fileHasRealName(r.file) && r.file.folder);
+  const notLinkable = recs.filter(r => !(fileHasRealName(r.file) && r.file.folder));
+  const on = fileLevelLinksEnabled();
+  const style = (DB.settings && DB.settings.fileLinkStyle) || 'viewer';
+
+  let h = '<div class="section" style="background:rgba(249,115,22,.05);border-color:rgba(249,115,22,.35)">';
+  h += '<h3 style="color:var(--orange);font-size:14px">🔗 קישורי קבצים — לבדיקה ואישור</h3>';
+
+  h += '<div class="alert alert-warning" style="margin-bottom:10px;font-size:13px">' +
+       '<strong>המצב היום:</strong> כל קישור קובץ במערכת מצביע על <u>התיקייה</u>, ולכן קישור שנשלח לארגון פותח את קורות החיים של כל הסטודנטים בקורס. ' +
+       'למטה אפשר להשוות מול קישור שמצביע על הקובץ עצמו, ללחוץ ולבדוק שהוא נפתח כמו שצריך.</div>';
+
+  h += '<div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">';
+  h += '<label class="checkbox-group" style="cursor:pointer;margin-bottom:8px">' +
+       '<input type="checkbox" id="toggle-file-links" '+(on?'checked':'')+' onchange="setFileLevelLinks(this.checked)">' +
+       '<strong>הפעל קישור ברמת הקובץ</strong></label>';
+  h += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">כבוי = בדיוק ההתנהגות הקיימת. ההגדרה לא נוגעת בשום קובץ ולא משנה שמות, ולכן קישורי שיתוף שכבר נשלחו ממשיכים לעבוד בכל מצב.</div>';
+  h += '<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px">';
+  h += '<label class="checkbox-group" style="cursor:pointer"><input type="radio" name="linkstyle" '+(style==='viewer'?'checked':'')+' onchange="setFileLinkStyle(\'viewer\')"> מציג OneDrive (id + parent)</label>';
+  h += '<label class="checkbox-group" style="cursor:pointer"><input type="radio" name="linkstyle" '+(style==='direct'?'checked':'')+' onchange="setFileLinkStyle(\'direct\')"> נתיב ישיר לקובץ</label>';
+  h += '</div></div>';
+
+  h += '<div style="font-size:12.5px;margin-bottom:8px">נמצאו <strong>'+recs.length+'</strong> קבצים · <strong>'+linkable.length+'</strong> ניתנים לקישור ישיר' +
+       (notLinkable.length ? ' · <strong style="color:var(--warn)">'+notLinkable.length+'</strong> ללא שם קובץ שמור, יגיעו לתיקייה בלבד' : '') + '</div>';
+
+  if(!recs.length){
+    h += '<p style="font-size:12px;color:var(--muted)">אין קבצים מקושרים בקורס ובשנה הנוכחיים.</p>';
+  } else {
+    h += '<div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px;max-height:420px;overflow-y:auto">';
+    h += '<table style="min-width:760px"><thead><tr><th>שם</th><th>סוג</th><th>קובץ</th><th style="text-align:center">תיקייה (היום)</th><th style="text-align:center">קובץ — מציג</th><th style="text-align:center">קובץ — נתיב ישיר</th></tr></thead><tbody>';
+    recs.forEach(r => {
+      const folderUrl = r.file.folder ? getDataFileFolderUrl(r.file.folder) : getDataFolderUrl(r.type);
+      const viewerUrl = getDataFileUrl(r.file);
+      const directUrl = getDataFileDirectUrl(r.file);
+      const cell = (url, label) => url
+        ? '<a href="'+url+'" target="_blank" class="file-link" style="font-size:10px">'+label+'</a>' +
+          '<button class="btn btn-sm" style="font-size:10px;padding:2px 6px" title="העתק קישור" onclick="copyToClipboard('+JSON.stringify(url).replace(/"/g,'&quot;')+', this)">📋</button>'
+        : '<span style="color:var(--muted);font-size:10px">—</span>';
+      h += '<tr><td>'+escHtml(r.who)+'</td><td>'+(FILE_TYPE_LABELS[r.type]||r.type)+'</td>' +
+           '<td style="font-size:11px;direction:ltr;text-align:right">'+escHtml(r.file.name||'—')+'</td>' +
+           '<td style="text-align:center">'+cell(folderUrl,'תיקייה')+'</td>' +
+           '<td style="text-align:center">'+cell(viewerUrl,'פתח')+'</td>' +
+           '<td style="text-align:center">'+cell(directUrl,'פתח')+'</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
+  h += '<div style="margin-top:10px;font-size:12px;color:var(--muted)">' +
+       '<strong>מה לבדוק:</strong> לחץ «פתח» באחת משתי עמודות הקובץ. אם הקובץ הנכון נפתח — סמן את התיבה למעלה ובחר את הסגנון שעבד. ' +
+       'אם נפתחת שגיאה, נסה את הסגנון השני. הקישור נבנה משם הקובץ השמור ברשומה, ולכן אם הקובץ שונה ידנית ב-OneDrive הכתובת לא תמצא אותו.</div>';
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function setFileLevelLinks(on){
+  DB.settings.fileLevelLinks = !!on;
+  saveToStorage();
+  renderAll();
+  renderLinkAuditSection();
+  showToast(on ? 'קישור ברמת הקובץ הופעל' : 'חזרה לקישור ברמת התיקייה', 'info', 4000);
+}
+function setFileLinkStyle(style){
+  DB.settings.fileLinkStyle = style;
+  saveToStorage();
+  renderAll();
+  renderLinkAuditSection();
+}
+
+/* Sample data for the test environment, so the link table and the candidate
+   page have something real to click. Test mode only — refuses to run anywhere
+   that could be production. File paths mirror the real folder structure, so the
+   links generated here are representative of the ones real data produces. */
+function seedTestData(){
+  if(!TEST_MODE){ alert('טעינת נתוני דוגמה זמינה בסביבת בדיקות בלבד.'); return; }
+  if(DB.candidates.length || DB.students.length){
+    if(!confirm('כבר קיימים נתונים בסביבת הבדיקות.\nלהחליף אותם בנתוני דוגמה?')) return;
+  }
+  createRestorePoint('לפני טעינת נתוני דוגמה');
+  const yf = getYearFolder(), cf = getCourseFolder();
+  const F = (type, name) => ({name: name, originalName: name, size: 120000,
+                              uploadDate: new Date().toISOString(), folder: yf + '/' + cf + '/' + FILE_FOLDERS[type]});
+  const course = DB.currentCourse === '__all__' ? DB.courses[0].id : DB.currentCourse;
+  const year = DB.currentYear === '__all__' ? DB.academicYears[0] : DB.currentYear;
+
+  DB.candidates = [
+    {id:1, name:'דנה כהן', phone:'052-1234567', email:'dana@example.com', city:'פתח תקווה',
+     courseId:course, year:year, applicationDate:'2026-01-14', interviewDate:'2026-02-03',
+     interviewResult:'passed', interviewSummary:'מוטיבציה גבוהה, ניסיון קודם בגיוס במסגרת התנדבותית. תקשורת בינונית. ממליץ לקבל.',
+     evalCommitment:'גבוה', evalMotivation:'גבוה', evalCommunication:'בינוני', evalEnglish:'גבוה',
+     evalAcquaintance:'נמוך', evalScore:88, preferredArea:'גיוס ומיון', acceptedDate:'2026-02-03',
+     status:'accepted', converted:false, notes:'מעדיפה ימי שני ורביעי',
+     file_cv:F('cv','דנה_כהן_CV.pdf'), file_application:F('application','דנה_כהן_טופס_הגשה.pdf')},
+    {id:2, name:'יוסי לוי', phone:'053-7654321', email:'yossi@example.com', city:'אריאל',
+     courseId:course, year:year, applicationDate:'2026-01-20', interviewDate:'2026-02-10',
+     interviewResult:'passed', interviewSummary:'רקע רלוונטי, מוטיבציה טובה.', evalScore:79,
+     evalCommitment:'בינוני', evalMotivation:'גבוה', status:'accepted', converted:false, notes:'',
+     file_cv:F('cv','יוסי_לוי_CV.pdf'), file_application:F('application','יוסי_לוי_טופס_הגשה.pdf')},
+    {id:3, name:'מאיה בר', phone:'054-1112222', email:'maya@example.com', city:'כפר סבא',
+     courseId:course, year:year, applicationDate:'2026-02-01', status:'docs_ready', converted:false, notes:'',
+     file_cv:F('cv','מאיה_בר_CV.pdf'), file_application:F('application','מאיה_בר_טופס_הגשה.pdf')},
+    {id:4, name:'רון שגב', phone:'050-3334444', email:'ron@example.com',
+     courseId:course, year:year, applicationDate:'2026-01-05', interviewDate:'2026-01-28',
+     interviewResult:'failed', rejectionReason:'לא הציג התאמה לתחום', status:'rejected', converted:false, notes:'',
+     file_cv:F('cv','רון_שגב_CV.pdf')},
+    {id:5, name:'טל אבני', phone:'058-7778888', email:'tal@example.com',
+     courseId:course, year:year, applicationDate:'2026-01-02', status:'pending', converted:false,
+     notes:'טרם הועלו מסמכים'}
+  ];
+  DB.students = [
+    {id:10, name:'דנה כהן', phone:'0521234567', email:'DANA@example.com', city:'פתח תקווה',
+     courseId:course, year:year, prepDone:true, prepDate:'2026-03-01', acceptedOrg:'', interviews:2,
+     hired:false, preferences:['מעוף','נישה פרו',''], submitted:['מעוף','נישה פרו'],
+     hoursReported:60, hoursApproved:55, hoursConfirmed:true, orgFeedback:'', notes:'',
+     cvUrl:'', formUrl:'', summaryUrl:'',
+     file_cv:F('cv','דנה_כהן_CV.pdf'), file_form:F('form','דנה_כהן_טופס_הגשה.pdf')},
+    {id:11, name:'אורי דגן', phone:'058-5556666', email:'uri@example.com',
+     courseId:course, year:year, prepDone:false, acceptedOrg:'', interviews:0, hired:false,
+     preferences:['','',''], submitted:[], notes:'', cvUrl:'', formUrl:'', summaryUrl:'',
+     file_cv:{name:'הועלה לתיקייה', uploaded:true, folder: yf+'/'+cf+'/'+FILE_FOLDERS.cv}}
+  ];
+  if(!DB.employers.length){
+    DB.employers = [
+      {id:1, name:'מעוף', contact:'שרית', role:'מנהלת מש״א', phone:'03-1234567', email:'info@maof.example',
+       location:'תל אביב', slots:3, description:'', courseId:course, year:year},
+      {id:2, name:'נישה פרו', contact:'אופיר', role:'מנהל גיוס', phone:'03-7654321', email:'info@nisha.example',
+       location:'רמת גן', slots:2, description:'', courseId:course, year:year}
+    ];
+  }
+  saveToStorage();
+  renderContextBar();
+  renderAll();
+  renderSettingsPage();
+  showToast('נטענו נתוני דוגמה — 5 מועמדים, 2 סטודנטים, 11 קבצים', 'success', 6000);
 }
 
 function createManualRestorePoint(){
@@ -3832,6 +4050,7 @@ function runIntegrityCheck(){
 function renderSettingsPage(){
   renderCloudSyncSection();
   renderDataSafetySection();
+  renderLinkAuditSection();
   renderYearDatesSection();
   renderInstitutionsSection();
   document.getElementById('base-path').value = DB.settings.basePath || '';
@@ -4246,7 +4465,7 @@ function candFileChip(fileObj, typeKey, label, required){
   if(!required) return '<span class="badge" style="color:var(--muted)" title="לא נדרש בקורס זה">'+label+': לא נדרש</span>';
   if(fileObj && fileObj.na) return '<span class="badge" style="color:var(--muted)">'+label+': לא רלוונטי</span>';
   if(fileObj){
-    const href = fileObj.folder ? getDataFileFolderUrl(fileObj.folder) : getDataFolderUrl(typeKey);
+    const href = getFileChipHref(fileObj, typeKey);
     return '<a href="'+href+'" target="_blank" class="file-link" title="'+escHtml(fileObj.name||label)+'">📎 '+label+'</a>';
   }
   return '<span class="badge" style="color:var(--muted);border:1px dashed var(--border);background:transparent" title="הקובץ לא קושר לרשומה במערכת">'+label+': לא מקושר</span>';
@@ -5727,10 +5946,10 @@ function renderStudents(){
     if(s.fromCandidate && !s.prepDone) html += '<span class="badge badge-danger">חייב הכנה לפני שיבוץ</span>';
     // File links - green=linked, gray=N/A, red=missing
     if(s.file_cv && s.file_cv.na) html += '<span class="badge" style="color:var(--muted)">CV: לא רלוונטי</span>';
-    else if(s.file_cv) html += '<a href="'+(s.file_cv.folder?getDataFileFolderUrl(s.file_cv.folder):getDataFolderUrl('cv'))+'" target="_blank" class="file-link" title="'+escHtml(s.file_cv.name)+'">CV</a>';
+    else if(s.file_cv) html += '<a href="'+getFileChipHref(s.file_cv,'cv')+'" target="_blank" class="file-link" title="'+escHtml(s.file_cv.name)+'">CV</a>';
     else html += '<a href="'+getDataFolderUrl('cv')+'" target="_blank" class="file-link missing" title="אין CV מקושר - פתח תיקייה">CV</a>';
     if(s.file_form && s.file_form.na) html += '<span class="badge" style="color:var(--muted)">טופס: לא רלוונטי</span>';
-    else if(s.file_form) html += '<a href="'+(s.file_form.folder?getDataFileFolderUrl(s.file_form.folder):getDataFolderUrl('form'))+'" target="_blank" class="file-link" title="'+escHtml(s.file_form.name)+'">טופס</a>';
+    else if(s.file_form) html += '<a href="'+getFileChipHref(s.file_form,'form')+'" target="_blank" class="file-link" title="'+escHtml(s.file_form.name)+'">טופס</a>';
     else html += '<a href="'+getDataFolderUrl('form')+'" target="_blank" class="file-link missing" title="אין טופס מקושר - פתח תיקייה">טופס</a>';
     // Org feedback indicator
     if(s.file_feedback && s.file_feedback.na) html += '<span class="badge" style="color:var(--muted)">חוו"ד: לא רלוונטי</span>';
@@ -5843,8 +6062,8 @@ function renderCandidacyPanel(s){
          escHtml(cy.interviewSummary) + '</div></div>';
   }
   h += '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">';
-  if(s.file_cv && !s.file_cv.na) h += '<a href="'+(s.file_cv.folder?getDataFileFolderUrl(s.file_cv.folder):getDataFolderUrl('cv'))+'" target="_blank" class="file-link">📄 קורות חיים</a>';
-  if(s.file_form && !s.file_form.na) h += '<a href="'+(s.file_form.folder?getDataFileFolderUrl(s.file_form.folder):getDataFolderUrl('form'))+'" target="_blank" class="file-link">📝 טופס מועמדות</a>';
+  if(s.file_cv && !s.file_cv.na) h += '<a href="'+getFileChipHref(s.file_cv,'cv')+'" target="_blank" class="file-link">📄 קורות חיים</a>';
+  if(s.file_form && !s.file_form.na) h += '<a href="'+getFileChipHref(s.file_form,'form')+'" target="_blank" class="file-link">📝 טופס מועמדות</a>';
   if(s.candidateId) h += '<button type="button" class="btn btn-sm btn-info" onclick="showCandidateSummaryById('+s.candidateId+')">סיכום תיק מועמדות</button>';
   h += '</div>';
   if(cy.convertedDate) h += '<div style="margin-top:8px;font-size:11px;color:var(--muted)">הומר ב-'+escHtml(cy.convertedDate)+(cy.convertedBy?' על ידי '+escHtml(cy.convertedBy):'')+'</div>';
@@ -6113,21 +6332,21 @@ function renderStudentSummary(s){
   html += '<div style="margin:12px 0;padding:10px;background:rgba(32,201,151,.05);border-radius:8px"><strong style="color:var(--success);display:block;margin-bottom:6px">▸ מסמכים</strong>';
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
   if(s.file_cv && s.file_cv.na) html += '<span class="badge" style="color:var(--muted)">CV: לא רלוונטי</span>';
-  else if(s.file_cv) html += '<a href="'+(s.file_cv.folder?getDataFileFolderUrl(s.file_cv.folder):getDataFolderUrl('cv'))+'" target="_blank" class="file-link">✓ CV</a>';
+  else if(s.file_cv) html += '<a href="'+getFileChipHref(s.file_cv,'cv')+'" target="_blank" class="file-link">✓ CV</a>';
   else if(cvUrl) html += '<a href="'+cvUrl+'" target="_blank" class="file-link">CV (קישור)</a>';
   else html += '<span class="file-link missing">✗ CV חסר</span>';
 
   if(s.file_form && s.file_form.na) html += '<span class="badge" style="color:var(--muted)">טופס: לא רלוונטי</span>';
-  else if(s.file_form) html += '<a href="'+(s.file_form.folder?getDataFileFolderUrl(s.file_form.folder):getDataFolderUrl('form'))+'" target="_blank" class="file-link">✓ טופס הגשה</a>';
+  else if(s.file_form) html += '<a href="'+getFileChipHref(s.file_form,'form')+'" target="_blank" class="file-link">✓ טופס הגשה</a>';
   else if(formUrl) html += '<a href="'+formUrl+'" target="_blank" class="file-link">טופס (קישור)</a>';
   else html += '<span class="file-link missing">✗ טופס חסר</span>';
 
   if(s.file_summary && s.file_summary.na) html += '<span class="badge" style="color:var(--muted)">סיכום: לא רלוונטי</span>';
-  else if(s.file_summary) html += '<a href="'+(s.file_summary.folder?getDataFileFolderUrl(s.file_summary.folder):getDataFolderUrl('summary'))+'" target="_blank" class="file-link">✓ סיכום</a>';
+  else if(s.file_summary) html += '<a href="'+getFileChipHref(s.file_summary,'summary')+'" target="_blank" class="file-link">✓ סיכום</a>';
   else if(s.summaryUrl) html += '<a href="'+s.summaryUrl+'" target="_blank" class="file-link">סיכום (קישור)</a>';
 
   if(s.file_feedback && s.file_feedback.na) html += '<span class="badge" style="color:var(--muted)">חוו"ד: לא רלוונטי</span>';
-  else if(s.file_feedback) html += '<a href="'+(s.file_feedback.folder?getDataFileFolderUrl(s.file_feedback.folder):getDataFolderUrl('feedback'))+'" target="_blank" class="file-link">✓ חוות דעת</a>';
+  else if(s.file_feedback) html += '<a href="'+getFileChipHref(s.file_feedback,'feedback')+'" target="_blank" class="file-link">✓ חוות דעת</a>';
   html += '</div></div>';
 
   // Notes

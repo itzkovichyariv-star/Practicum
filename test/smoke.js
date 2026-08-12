@@ -167,6 +167,84 @@ function check(name, cond, extra) {
 
   check('still no script errors at the end', errors.length === 0, errors.slice(0, 3).join('\n      '));
 
+  /* ---- file-level links -------------------------------------------------- */
+  console.log('\n\x1b[1mFile-level links\x1b[0m');
+  const F = { name: 'דנה_כהן_CV.pdf', folder: 'תשפ״ו/hr/קורות_חיים' };
+
+  check('the setting is off by default, so nothing changes on merge',
+    await page.evaluate(() => fileLevelLinksEnabled()) === false);
+
+  const folderHref = await page.evaluate(f => getFileChipHref(f, 'cv'), F);
+  check('with the setting off, chips still point at the folder',
+    !decodeURIComponent(folderHref).includes('דנה_כהן_CV.pdf'), folderHref);
+
+  const viewer = await page.evaluate(f => getDataFileUrl(f), F);
+  const direct = await page.evaluate(f => getDataFileDirectUrl(f), F);
+  check('viewer URL names the file and the parent folder',
+    decodeURIComponent(viewer).includes('קורות_חיים/דנה_כהן_CV.pdf') && viewer.includes('&parent='), viewer);
+  check('direct URL names the file', decodeURIComponent(direct).endsWith('קורות_חיים/דנה_כהן_CV.pdf'), direct);
+  check('both stay inside the configured SharePoint host',
+    viewer.startsWith('https://arielacil-my.sharepoint.com') && direct.startsWith('https://arielacil-my.sharepoint.com'));
+
+  // The actual point of the change: a file link must not open the shared folder.
+  const folderOnly = await page.evaluate(f => getDataFileFolderUrl(f.folder), F);
+  check('the folder link does expose the shared folder (the problem being fixed)',
+    decodeURIComponent(folderOnly).endsWith('קורות_חיים') && !decodeURIComponent(folderOnly).includes('.pdf'), folderOnly);
+  check('the file link does NOT resolve to the bare shared folder',
+    decodeURIComponent(viewer.split('&parent=')[0]) !== decodeURIComponent(folderOnly));
+
+  await page.evaluate(() => setFileLevelLinks(true));
+  const onHref = await page.evaluate(f => getFileChipHref(f, 'cv'), F);
+  check('once enabled, chips point at the file',
+    decodeURIComponent(onHref).includes('דנה_כהן_CV.pdf'), onHref);
+  await page.evaluate(() => setFileLinkStyle('direct'));
+  const directHref = await page.evaluate(f => getFileChipHref(f, 'cv'), F);
+  check('the direct style is honoured', directHref === direct, directHref);
+
+  // Records saved via the "uploaded to folder" checkbox carry no real filename.
+  const marker = { name: 'הועלה לתיקייה', uploaded: true, folder: 'תשפ״ו/hr/קורות_חיים' };
+  check('a record without a real filename falls back to the folder',
+    await page.evaluate(m => getDataFileUrl(m), marker) === null);
+  check('and its chip still resolves to something usable',
+    !!(await page.evaluate(m => getFileChipHref(m, 'cv'), marker)));
+  check('a file marked not-relevant produces no file link',
+    await page.evaluate(() => getDataFileUrl({ name: 'x.pdf', na: true, folder: 'a/b/c' })) === null);
+
+  await page.evaluate(() => setFileLevelLinks(false));
+  check('turning it back off restores folder links',
+    !decodeURIComponent(await page.evaluate(f => getFileChipHref(f, 'cv'), F)).includes('.pdf'));
+
+  /* ---- seeded sample data drives the audit table ------------------------- */
+  console.log('\n\x1b[1mSample data for manual link approval\x1b[0m');
+  await page.evaluate(() => { window.confirm = () => true; seedTestData(); });
+  await page.waitForTimeout(300);
+  const seeded = await page.evaluate(() => ({
+    cands: DB.candidates.length, studs: DB.students.length,
+    files: collectAllFileRecords().length,
+    linkable: collectAllFileRecords().filter(r => fileHasRealName(r.file) && r.file.folder).length
+  }));
+  check('sample data loads', seeded.cands === 5 && seeded.studs === 2, JSON.stringify(seeded));
+  check('the audit table has files to click', seeded.files >= 10, JSON.stringify(seeded));
+  check('one record is deliberately unlinkable, to show the fallback',
+    seeded.files - seeded.linkable === 1, JSON.stringify(seeded));
+
+  await page.click('#btn-settings');
+  await page.waitForTimeout(300);
+  check('the link audit table renders in Settings',
+    (await page.locator('#link-audit-section table tbody tr').count()) === seeded.files);
+  check('every linkable row offers a file link',
+    (await page.locator('#link-audit-section a.file-link').count()) >= seeded.linkable * 2);
+
+  const sampleUrls = await page.evaluate(() => {
+    const r = collectAllFileRecords().find(x => fileHasRealName(x.file));
+    return { who: r.who, name: r.file.name, folder: getDataFileFolderUrl(r.file.folder),
+             viewer: getDataFileUrl(r.file), direct: getDataFileDirectUrl(r.file) };
+  });
+  console.log('\n  \x1b[2msample links for ' + sampleUrls.who + ' — ' + sampleUrls.name + ':\x1b[0m');
+  console.log('    \x1b[33mfolder (today) :\x1b[0m ' + decodeURIComponent(sampleUrls.folder));
+  console.log('    \x1b[32mfile (viewer)  :\x1b[0m ' + decodeURIComponent(sampleUrls.viewer));
+  console.log('    \x1b[32mfile (direct)  :\x1b[0m ' + decodeURIComponent(sampleUrls.direct));
+
   /* ---- production mode must be completely unaffected --------------------- */
   console.log('\n\x1b[1mProduction mode is unchanged\x1b[0m');
   const prodPage = await browser.newPage();
