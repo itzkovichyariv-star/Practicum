@@ -56,10 +56,10 @@ const FILE_URL = 'file://' + path.join(__dirname, '..', 'index.html') + '?test=1
   await page.waitForTimeout(400);
   await shot('4-students', '#students');
 
-  // student card with the candidacy panel open
-  await page.evaluate(() => { editStudent(10); const d = document.querySelector('#student-candidacy-section details'); if (d) d.open = true; });
+  // The student card, which this work deliberately leaves untouched.
+  await page.evaluate(() => editStudent(10));
   await page.waitForTimeout(400);
-  await shot('5-student-card-candidacy', '#student-modal .modal-content');
+  await shot('5-student-card', '#student-modal .modal-content');
   await page.evaluate(() => closeModal('student-modal'));
 
   await page.evaluate(() => { showPage('settings'); renderSettingsPage(); });
