@@ -4007,34 +4007,37 @@ function seedTestData(){
                               uploadDate: new Date().toISOString(), folder: yf + '/' + cf + '/' + FILE_FOLDERS[type]});
   const course = DB.currentCourse === '__all__' ? DB.courses[0].id : DB.currentCourse;
   const year = DB.currentYear === '__all__' ? DB.academicYears[0] : DB.currentYear;
+  // Dates relative to today, so the sample always reads sensibly rather than
+  // showing "submitted 200 days ago" whenever it is loaded.
+  const ago = n => new Date(Date.now() - n*86400000).toISOString().split('T')[0];
 
   DB.candidates = [
     {id:1, name:'דנה כהן', phone:'052-1234567', email:'dana@example.com', city:'פתח תקווה',
-     courseId:course, year:year, applicationDate:'2026-01-14', interviewDate:'2026-02-03',
+     courseId:course, year:year, applicationDate:ago(28), interviewDate:ago(6),
      interviewResult:'passed', interviewSummary:'מוטיבציה גבוהה, ניסיון קודם בגיוס במסגרת התנדבותית. תקשורת בינונית. ממליץ לקבל.',
      evalCommitment:'גבוה', evalMotivation:'גבוה', evalCommunication:'בינוני', evalEnglish:'גבוה',
-     evalAcquaintance:'נמוך', evalScore:88, preferredArea:'גיוס ומיון', acceptedDate:'2026-02-03',
+     evalAcquaintance:'נמוך', evalScore:88, preferredArea:'גיוס ומיון', acceptedDate:ago(6),
      status:'accepted', converted:false, notes:'מעדיפה ימי שני ורביעי',
      file_cv:F('cv','דנה_כהן_CV.pdf'), file_application:F('application','דנה_כהן_טופס_הגשה.pdf')},
     {id:2, name:'יוסי לוי', phone:'053-7654321', email:'yossi@example.com', city:'אריאל',
-     courseId:course, year:year, applicationDate:'2026-01-20', interviewDate:'2026-02-10',
+     courseId:course, year:year, applicationDate:ago(24), interviewDate:ago(2),
      interviewResult:'passed', interviewSummary:'רקע רלוונטי, מוטיבציה טובה.', evalScore:79,
      evalCommitment:'בינוני', evalMotivation:'גבוה', status:'accepted', converted:false, notes:'',
      file_cv:F('cv','יוסי_לוי_CV.pdf'), file_application:F('application','יוסי_לוי_טופס_הגשה.pdf')},
     {id:3, name:'מאיה בר', phone:'054-1112222', email:'maya@example.com', city:'כפר סבא',
-     courseId:course, year:year, applicationDate:'2026-02-01', status:'docs_ready', converted:false, notes:'',
+     courseId:course, year:year, applicationDate:ago(9), status:'docs_ready', converted:false, notes:'',
      file_cv:F('cv','מאיה_בר_CV.pdf'), file_application:F('application','מאיה_בר_טופס_הגשה.pdf')},
     {id:4, name:'רון שגב', phone:'050-3334444', email:'ron@example.com',
-     courseId:course, year:year, applicationDate:'2026-01-05', interviewDate:'2026-01-28',
+     courseId:course, year:year, applicationDate:ago(40), interviewDate:ago(17),
      interviewResult:'failed', rejectionReason:'לא הציג התאמה לתחום', status:'rejected', converted:false, notes:'',
      file_cv:F('cv','רון_שגב_CV.pdf')},
     {id:5, name:'טל אבני', phone:'058-7778888', email:'tal@example.com',
-     courseId:course, year:year, applicationDate:'2026-01-02', status:'pending', converted:false,
+     courseId:course, year:year, applicationDate:ago(16), status:'pending', converted:false,
      notes:'טרם הועלו מסמכים'}
   ];
   DB.students = [
     {id:10, name:'דנה כהן', phone:'0521234567', email:'DANA@example.com', city:'פתח תקווה',
-     courseId:course, year:year, prepDone:true, prepDate:'2026-03-01', acceptedOrg:'', interviews:2,
+     courseId:course, year:year, prepDone:true, prepDate:ago(3), acceptedOrg:'', interviews:2,
      hired:false, preferences:['מעוף','נישה פרו',''], submitted:['מעוף','נישה פרו'],
      hoursReported:60, hoursApproved:55, hoursConfirmed:true, orgFeedback:'', notes:'',
      cvUrl:'', formUrl:'', summaryUrl:'',
