@@ -282,9 +282,10 @@ input[type=file]{display:none}
         <label class="btn btn-outline" style="cursor:pointer">ייבוא JSON<input type="file" accept=".json" onchange="importJSON(event,'candidates')"></label>
       </div>
     </div>
+    <div id="candidates-transfer-banner"></div>
     <div id="candidates-pipeline-vis"></div>
     <div class="filter-bar">
-      <input type="text" id="candidate-search" placeholder="חיפוש מועמד..." oninput="renderCandidates()">
+      <input type="text" id="candidate-search" placeholder="חיפוש בשם, טלפון, מייל, הערות וסיכום ראיון..." oninput="renderCandidates()">
       <select id="candidate-filter-status" onchange="renderCandidates()">
         <option value="all">כל הסטטוסים</option>
         <option value="pending">ממתין</option>
@@ -294,6 +295,31 @@ input[type=file]{display:none}
         <option value="accepted">התקבל</option>
         <option value="rejected">נדחה</option>
       </select>
+      <select id="candidate-filter-docs" onchange="renderCandidates()" title="האם הקבצים מקושרים לרשומה במערכת">
+        <option value="all">כל המסמכים</option>
+        <option value="unlinked">לא מקושר במערכת</option>
+        <option value="linked">מקושר במלואו</option>
+      </select>
+      <select id="candidate-filter-interview" onchange="renderCandidates()">
+        <option value="all">כל הראיונות</option>
+        <option value="none">ללא ראיון</option>
+        <option value="scheduled">ראיון נקבע</option>
+        <option value="week">ראיון השבוע</option>
+        <option value="overdue">עבר התאריך ללא תוצאה</option>
+        <option value="passed">עבר ראיון</option>
+        <option value="failed">לא עבר</option>
+      </select>
+      <select id="candidate-sort" onchange="renderCandidates()">
+        <option value="applicationDate">מיון: תאריך הגשה</option>
+        <option value="name">מיון: שם</option>
+        <option value="interviewDate">מיון: תאריך ראיון</option>
+        <option value="score">מיון: ציון</option>
+        <option value="waiting">מיון: ותק המתנה</option>
+      </select>
+      <label class="checkbox-group" style="cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="candidate-show-archive" onchange="renderCandidates()">
+        <span>הצג מומרים לסטודנטים</span>
+      </label>
     </div>
     <div id="candidate-list"></div>
   </div>
@@ -635,6 +661,10 @@ input[type=file]{display:none}
 </div>
 
 <div id="settings" class="page">
+  <div class="card">
+    <h2>🛡️ בטיחות נתונים ושחזור</h2>
+    <div id="data-safety-section"></div>
+  </div>
   <div class="card" style="border:2px solid var(--primary);background:rgba(47,109,246,.03)">
     <h2 style="color:var(--primary)">☁️ סנכרון ענן (שיתוף עם רחל)</h2>
     <div id="cloud-sync-section">
@@ -958,6 +988,7 @@ input[type=file]{display:none}
       <div class="form-group"><label>אימייל</label><input id="student-email" type="email"></div>
       <div class="form-group"><label>עיר מגורים</label><input id="student-city" placeholder="למשל: אריאל, תל אביב"></div>
     </div>
+    <div id="student-candidacy-section"></div>
     <div class="prep-status">
       <div class="checkbox-group">
         <input type="checkbox" id="student-prep">
@@ -1220,6 +1251,75 @@ input[type=file]{display:none}
 </div>
 
 <script>
+/* ============================================================================
+   TEST-ENVIRONMENT ISOLATION GUARD
+   ----------------------------------------------------------------------------
+   Must stay the FIRST executable block in this file. It decides, before any
+   other code runs, whether this page is allowed to touch production data.
+
+   Test mode turns on when the page is NOT served from the production host,
+   or when ?test=1 is present. In test mode:
+     * every localStorage key is namespaced, so production data is untouched
+     * cloud sync is hard-disabled and cannot be switched on
+     * every outbound message path (mailto / Outlook compose) is blocked
+     * a banner marks the page
+
+   Production (the real Pages URL, no ?test flag) behaves exactly as before.
+   ========================================================================== */
+const PROD_HOSTS = ['yarivitzkovich.github.io'];
+const TEST_MODE = (function(){
+  try {
+    const p = new URLSearchParams(location.search);
+    if(p.get('test') === '1' || location.hash === '#test') return true;
+    if(p.get('test') === '0') return false;
+    return PROD_HOSTS.indexOf(location.hostname) === -1;
+  } catch(e){ return true; }   // unknown context -> assume test, never production
+})();
+
+// Namespaced storage. In production STORE_PREFIX is '' so every existing key
+// keeps its exact name and existing data loads unchanged.
+const STORE_PREFIX = TEST_MODE ? 'TEST__' : '';
+// All app code goes through STORE; nothing below touches window.localStorage
+// directly, so the prefix cannot be bypassed by accident.
+const STORE = {
+  getItem(k){ return window.localStorage.getItem(STORE_PREFIX + k); },
+  setItem(k, v){ return window.localStorage.setItem(STORE_PREFIX + k, v); },
+  removeItem(k){ return window.localStorage.removeItem(STORE_PREFIX + k); },
+  keys(){
+    const out = [];
+    for(let i = 0; i < window.localStorage.length; i++){
+      const k = window.localStorage.key(i);
+      if(STORE_PREFIX ? k.indexOf(STORE_PREFIX) === 0 : k.indexOf('TEST__') !== 0) out.push(k);
+    }
+    return out;
+  }
+};
+
+// Blocked-send registry, so the test page can prove nothing went out.
+const BLOCKED_SENDS = [];
+if(TEST_MODE){
+  const nativeOpen = window.open.bind(window);
+  window.open = function(url){
+    const u = String(url || '');
+    if(/^mailto:/i.test(u) || /outlook\.office\.com/i.test(u)){
+      BLOCKED_SENDS.push({url: u.slice(0, 200), at: new Date().toISOString()});
+      console.warn('[TEST MODE] outbound message blocked:', u.slice(0, 120));
+      if(typeof showToast === 'function') showToast('🔒 מצב בדיקות — שליחת ההודעה נחסמה', 'warn', 4000);
+      else alert('מצב בדיקות: שליחת ההודעה נחסמה. לא נשלחה שום הודעה.');
+      return null;
+    }
+    return nativeOpen.apply(null, arguments);
+  };
+}
+function renderTestBanner(){
+  if(!TEST_MODE) return;
+  const b = document.createElement('div');
+  b.id = 'test-mode-banner';
+  b.style.cssText = 'position:sticky;top:0;z-index:99998;background:repeating-linear-gradient(45deg,#7c2d12,#7c2d12 12px,#9a3412 12px,#9a3412 24px);color:#fff;padding:8px 14px;font-size:13px;font-weight:700;text-align:center;direction:rtl;letter-spacing:.02em';
+  b.innerHTML = '🔒 סביבת בדיקות — הנתונים מבודדים, סנכרון הענן מנוטרל, ושליחת הודעות חסומה. שום דבר כאן אינו נוגע בנתוני האמת.';
+  document.body.insertBefore(b, document.body.firstChild);
+}
+
 // ============ DATA ============
 let DB = {
   courses: [{id:'hr-practicum', name:'פרקטיקום משאבי אנוש', institution:'אוניברסיטת אריאל', requireCV:true, requireApplication:true, requireInterview:true, requirePrep:true}],
@@ -1325,6 +1425,7 @@ window.onload = function(){
   document.getElementById('candidate-interviewResult').addEventListener('change', function(){
     document.getElementById('candidate-rejection-group').style.display = this.value==='failed' ? 'block' : 'none';
   });
+  renderTestBanner();
   renderContextBar();
   renderAll();
   renderEmailPage();
@@ -1340,7 +1441,7 @@ window.onload = function(){
 
 // ============ USER IDENTITY ============
 function checkUserIdentity(){
-  const saved = localStorage.getItem('practicum_user_identity');
+  const saved = STORE.getItem('practicum_user_identity');
   if(saved){
     const u = JSON.parse(saved);
     DB.currentUser = u;
@@ -1353,7 +1454,7 @@ function confirmUserIdentity(){
   const email = document.getElementById('identity-email').value.trim();
   if(!name || !email){alert('נא למלא שם ומייל');return;}
   DB.currentUser = {name, email};
-  localStorage.setItem('practicum_user_identity', JSON.stringify(DB.currentUser));
+  STORE.setItem('practicum_user_identity', JSON.stringify(DB.currentUser));
   closeModal('user-identity-modal');
   updateHeaderUser();
   saveToStorage();
@@ -1363,7 +1464,7 @@ function saveUserIdentity(){
   const email = document.getElementById('user-identity-email').value.trim();
   if(!name || !email){alert('נא למלא שם ומייל');return;}
   DB.currentUser = {name, email};
-  localStorage.setItem('practicum_user_identity', JSON.stringify(DB.currentUser));
+  STORE.setItem('practicum_user_identity', JSON.stringify(DB.currentUser));
   updateHeaderUser();
   saveToStorage();
   alert('זהות עודכנה');
@@ -1377,7 +1478,7 @@ function updateHeaderUser(){
 // ============ STORAGE ============
 function loadFromStorage(){
   try {
-    const raw = localStorage.getItem('practicum_db_v5');
+    const raw = STORE.getItem('practicum_db_v5');
     if(raw){
       const d = JSON.parse(raw);
       Object.assign(DB, d);
@@ -1428,7 +1529,7 @@ function loadFromStorage(){
       saveToStorage();
     } else {
       // Try migrate from v4
-      const rawV4 = localStorage.getItem('practicum_db_v4');
+      const rawV4 = STORE.getItem('practicum_db_v4');
       if(rawV4){
         const d = JSON.parse(rawV4);
         Object.assign(DB, d);
@@ -1444,9 +1545,9 @@ function loadFromStorage(){
         migrateFromOldFormat();
       }
     }
-    const u = localStorage.getItem('practicum_undo_v5');
+    const u = STORE.getItem('practicum_undo_v5');
     if(u) undoStack = JSON.parse(u);
-    const lb = localStorage.getItem('practicum_lastBackup_v5');
+    const lb = STORE.getItem('practicum_lastBackup_v5');
     if(lb) lastAutoBackup = lb;
   } catch(err){ console.error('Load error:', err); }
 }
@@ -1455,10 +1556,10 @@ function migrateFromOldFormat(){
   try {
     const defaultYear = normalizeYear('תשפ"ו');
     const defCourse = 'hr-practicum';
-    const oldS = localStorage.getItem('practicum_students');
-    const oldE = localStorage.getItem('practicum_employers');
-    const oldC = localStorage.getItem('practicum_communications');
-    const oldSt = localStorage.getItem('practicum_settings');
+    const oldS = STORE.getItem('practicum_students');
+    const oldE = STORE.getItem('practicum_employers');
+    const oldC = STORE.getItem('practicum_communications');
+    const oldSt = STORE.getItem('practicum_settings');
     if(oldS){
       const students = JSON.parse(oldS);
       students.forEach(s => {
@@ -1483,7 +1584,7 @@ function migrateFromOldFormat(){
 
 function saveToStorage(){
   DB.lastEditor = {name: DB.currentUser.name, email: DB.currentUser.email, timestamp: new Date().toISOString()};
-  localStorage.setItem('practicum_db_v5', JSON.stringify(DB));
+  STORE.setItem('practicum_db_v5', JSON.stringify(DB));
   dataChanged = true;
   debouncedAutoBackup();
 }
@@ -1493,7 +1594,7 @@ function debouncedAutoBackup(){
   // Auto-downloads are disabled. Data is saved to localStorage in saveToStorage()
   // and synced to Supabase via cloud sync. Use the "גיבוי" tab for manual JSON download.
   lastAutoBackup = new Date().toLocaleString('he-IL');
-  localStorage.setItem('practicum_lastBackup_v5', lastAutoBackup);
+  STORE.setItem('practicum_lastBackup_v5', lastAutoBackup);
   dataChanged = false;
   updateBackupIndicator();
 }
@@ -1516,7 +1617,7 @@ function doManualBackup(){
   URL.revokeObjectURL(a.href);
   dataChanged = false;
   lastAutoBackup = new Date().toLocaleString('he-IL');
-  localStorage.setItem('practicum_lastBackup_v5', lastAutoBackup);
+  STORE.setItem('practicum_lastBackup_v5', lastAutoBackup);
   updateBackupIndicator();
 }
 
@@ -1530,7 +1631,7 @@ function saveBeforeAction(){
   };
   undoStack.push(snapshot);
   if(undoStack.length > 15) undoStack.shift();
-  localStorage.setItem('practicum_undo_v5', JSON.stringify(undoStack));
+  STORE.setItem('practicum_undo_v5', JSON.stringify(undoStack));
 }
 
 function undoLastAction(){
@@ -1541,7 +1642,7 @@ function undoLastAction(){
   DB.students = last.students;
   DB.employers = last.employers;
   DB.communications = last.communications;
-  localStorage.setItem('practicum_undo_v5', JSON.stringify(undoStack));
+  STORE.setItem('practicum_undo_v5', JSON.stringify(undoStack));
   renderAll(); alert('הפעולה בוטלה');
 }
 
@@ -1567,7 +1668,7 @@ function doManualBackup(){
   document.body.removeChild(a);
   URL.revokeObjectURL(a.href);
   lastAutoBackup = new Date().toLocaleString('he-IL');
-  localStorage.setItem('practicum_lastBackup_v5', lastAutoBackup);
+  STORE.setItem('practicum_lastBackup_v5', lastAutoBackup);
   dataChanged = false;
   updateBackupIndicator();
 }
@@ -1732,6 +1833,13 @@ function matchYear(itemYear){
 
 function getFilteredCandidates(){
   return DB.candidates.filter(c => matchCourse(c.courseId) && matchYear(c.year));
+}
+// Active = still a candidate. Archived = already a student, kept for history.
+function getActiveCandidates(){ return getActiveCandidatesFrom(getFilteredCandidates()); }
+function getArchivedCandidates(){ return getArchivedCandidatesFrom(getFilteredCandidates()); }
+// Passed the interview but not yet moved across — the "waiting to transfer" list.
+function getPendingTransferCandidates(){
+  return getActiveCandidates().filter(c => c.status === 'accepted');
 }
 function getFilteredStudents(){
   return DB.students.filter(s => matchCourse(s.courseId) && matchYear(s.year));
@@ -2918,13 +3026,15 @@ function getCalendarEvents(){
   // Candidate interviews
   DB.candidates.forEach(c => {
     if(c.interviewDate && (DB.currentCourse === '__all__' || c.courseId === DB.currentCourse) && (DB.currentYear === '__all__' || normalizeYear(c.year) === DB.currentYear)){
+      // A converted candidate keeps their interview on the calendar; clicking it
+      // opens the student card, which is now the record that can be edited.
       events.push({
         date: c.interviewDate,
         type: 'interview',
         color: '#f97316',
         title: 'ראיון: ' + c.name,
-        details: c.interviewResult === 'passed' ? 'עבר ✓' : c.interviewResult === 'failed' ? 'לא עבר ✗' : 'טרם הוחלט',
-        onclick: 'editCandidate('+c.id+')'
+        details: (c.interviewResult === 'passed' ? 'עבר ✓' : c.interviewResult === 'failed' ? 'לא עבר ✗' : 'טרם הוחלט') + (c.converted ? ' · סטודנט/ית' : ''),
+        onclick: c.converted && c.studentId ? 'openStudentFromCandidate('+c.id+')' : 'editCandidate('+c.id+')'
       });
     }
   });
@@ -3633,8 +3743,95 @@ function removeInstitution(idx){
   renderInstitutionsSection();
 }
 
+function renderDataSafetySection(){
+  const el = document.getElementById('data-safety-section');
+  if(!el) return;
+  const points = listRestorePoints();
+  const unmigrated = DB.candidates.filter(c => c.converted === undefined).length;
+  const pending = getPendingTransferCandidates().length;
+
+  let h = '<div class="section" style="background:rgba(47,109,246,.04);border-color:rgba(47,109,246,.3)">';
+  h += '<h3 style="color:var(--primary);font-size:14px">בטיחות נתונים — מועמדים וסטודנטים</h3>';
+
+  if(TEST_MODE){
+    h += '<div class="alert alert-warning" style="margin-bottom:10px">🔒 <strong>סביבת בדיקות.</strong> הנתונים מבודדים מנתוני האמת, סנכרון הענן מנוטרל, ושליחת הודעות חסומה' +
+         (BLOCKED_SENDS.length ? ' (' + BLOCKED_SENDS.length + ' ניסיונות שליחה נחסמו במושב הזה)' : '') + '.</div>';
+  }
+
+  h += '<div style="font-size:13px;color:var(--ink);margin-bottom:10px">' +
+       'המערכת לא משנה סטטוס של סטודנטים קיימים. הקישור בין מועמד לסטודנט מוסיף לכרטיס הסטודנט שני שדות בלבד — ' +
+       '<strong>תיק המועמדות והמזהה</strong> — ולא נוגע בהכנה, בשיבוץ, בשעות, בקבצים או בקישורים. ' +
+       'כל פעולה נבדקת אוטומטית מיד אחרי הביצוע, ואם התגלה שינוי אסור היא מבוטלת מעצמה.</div>';
+
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+  h += '<button class="btn btn-sm btn-primary" onclick="runCandidateMigration()">סנכרון מועמדים ↔ סטודנטים' + (unmigrated ? ' (' + unmigrated + ')' : '') + '</button>';
+  h += '<button class="btn btn-sm btn-outline" onclick="createManualRestorePoint()">צור נקודת שחזור עכשיו</button>';
+  h += '<button class="btn btn-sm btn-info" onclick="runIntegrityCheck()">בדיקת תקינות</button>';
+  if(pending) h += '<button class="btn btn-sm btn-success" onclick="convertAllPendingCandidates()">העבר ' + pending + ' ממתינים לסטודנטים</button>';
+  h += '</div>';
+
+  h += '<div style="font-size:12px;font-weight:700;margin-bottom:6px">נקודות שחזור (' + points.length + ')</div>';
+  if(!points.length){
+    h += '<p style="font-size:12px;color:var(--muted)">אין עדיין נקודות שחזור. אחת נוצרת אוטומטית לפני כל פעולה שמשנה נתונים.</p>';
+  } else {
+    h += '<div style="max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:8px">';
+    points.forEach(p => {
+      h += '<div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">';
+      h += '<div style="flex:1;min-width:200px"><strong>' + escHtml(p.label) + '</strong>' +
+           '<div style="color:var(--muted)">' + new Date(p.at).toLocaleString('he-IL') + ' · ' +
+           p.counts.candidates + ' מועמדים · ' + p.counts.students + ' סטודנטים</div></div>';
+      h += '<button class="btn btn-sm btn-warning" onclick="restoreToPoint(\'' + p.id + '\')">שחזר לכאן</button>';
+      h += '<button class="btn btn-sm btn-outline" onclick="downloadRestorePoint(\'' + p.id + '\')">הורד JSON</button>';
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  el.innerHTML = h;
+}
+
+function createManualRestorePoint(){
+  const rp = createRestorePoint('נקודת שחזור ידנית');
+  if(rp){
+    renderDataSafetySection();
+    showToast('נקודת שחזור נשמרה — ' + rp.counts.candidates + ' מועמדים, ' + rp.counts.students + ' סטודנטים', 'success', 5000);
+  }
+}
+
+// Reports on the current data without changing anything.
+function runIntegrityCheck(){
+  const issues = [];
+  const orphanCands = DB.candidates.filter(c => c.converted && c.studentId && !DB.students.find(s => s.id === c.studentId));
+  orphanCands.forEach(c => issues.push('המועמד/ת ' + c.name + ' מסומן/ת כהומר/ה אך כרטיס הסטודנט לא נמצא'));
+  const dupLinks = {};
+  DB.candidates.forEach(c => { if(c.converted && c.studentId){ (dupLinks[c.studentId] = dupLinks[c.studentId] || []).push(c.name); } });
+  Object.entries(dupLinks).forEach(([sid, names]) => {
+    if(names.length > 1) issues.push('כרטיס סטודנט אחד (' + sid + ') מקושר ל-' + names.length + ' מועמדים: ' + names.join(', '));
+  });
+  const unmigrated = DB.candidates.filter(c => c.converted === undefined).length;
+  const nameDupes = {};
+  DB.students.forEach(s => {
+    const k = candNormName(s.name) + '|' + s.courseId + '|' + s.year;
+    (nameDupes[k] = nameDupes[k] || []).push(s.name);
+  });
+  Object.values(nameDupes).forEach(g => { if(g.length > 1) issues.push('שני כרטיסי סטודנט באותו שם, קורס ושנה: ' + g[0]); });
+
+  const lines = [
+    'מועמדים בסך הכל: ' + DB.candidates.length,
+    '  פעילים: ' + getActiveCandidatesFrom(DB.candidates).length,
+    '  הומרו לסטודנטים: ' + getArchivedCandidatesFrom(DB.candidates).length,
+    '  טרם סונכרנו: ' + unmigrated,
+    'סטודנטים: ' + DB.students.length,
+    '  עם תיק מועמדות: ' + DB.students.filter(s => s.candidacy).length,
+    '',
+    issues.length ? 'נמצאו ' + issues.length + ' נקודות לבדיקה:' : 'לא נמצאו בעיות תקינות.'
+  ].concat(issues.map(i => '• ' + i));
+  alert(lines.join('\n'));
+}
+
 function renderSettingsPage(){
   renderCloudSyncSection();
+  renderDataSafetySection();
   renderYearDatesSection();
   renderInstitutionsSection();
   document.getElementById('base-path').value = DB.settings.basePath || '';
@@ -3860,7 +4057,7 @@ function renderAll(){
 
   // Top stats
   document.getElementById('dashboard-top-stats').innerHTML = `
-    <div class="stat" onclick="showPage('candidates')"><div class="stat-value" style="color:var(--orange)">${candidates.length}</div><div class="stat-label">מועמדים</div></div>
+    <div class="stat" onclick="showPage('candidates')" title="${getArchivedCandidates().length} מועמדים נוספים כבר הומרו לסטודנטים"><div class="stat-value" style="color:var(--orange)">${getActiveCandidates().length}</div><div class="stat-label">מועמדים</div></div>
     <div class="stat" onclick="showPage('students')"><div class="stat-value">${students.length}</div><div class="stat-label">סטודנטים</div></div>
     <div class="stat" onclick="showPage('employers')"><div class="stat-value">${employers.length}</div><div class="stat-label">מעסיקים</div></div>
     <div class="stat"><div class="stat-value">${students.filter(s=>s.prepDone).length}</div><div class="stat-label">עברו הכנה</div></div>
@@ -3870,7 +4067,7 @@ function renderAll(){
     <div class="stat" style="border-color:#2563eb" onclick="showPage('lectures')"><div class="stat-value" style="color:#2563eb">${(DB.lectures||[]).filter(l => (DB.currentCourse==='__all__' || l.courseId===DB.currentCourse || !l.courseId) && (DB.currentYear==='__all__' || normalizeYear(l.year||'')===DB.currentYear)).length}</div><div class="stat-label">🎓 הרצאות</div></div>
   `;
 
-  document.getElementById('candidate-count').textContent = candidates.length;
+  document.getElementById('candidate-count').textContent = getActiveCandidates().length;
   document.getElementById('student-count').textContent = students.length;
   document.getElementById('employer-count').textContent = employers.length;
   document.getElementById('communication-count').textContent = comms.length;
@@ -3894,18 +4091,22 @@ function renderDashboard(){
   const students = getFilteredStudents();
   const employers = getFilteredEmployers();
 
-  // Candidate pipeline stats
+  // Candidate pipeline stats. Active stages count live candidates; "converted"
+  // counts the archive, so the funnel keeps the full history and the conversion
+  // rate stays truthful after people move across to the students page.
+  const activeCands = getActiveCandidatesFrom(candidates);
   const candStats = {
-    pending: candidates.filter(c=>c.status==='pending').length,
-    docs_ready: candidates.filter(c=>c.status==='docs_ready').length,
-    interview_scheduled: candidates.filter(c=>c.status==='interview_scheduled').length,
-    interviewed: candidates.filter(c=>c.status==='interviewed').length,
-    accepted: candidates.filter(c=>c.status==='accepted').length,
-    rejected: candidates.filter(c=>c.status==='rejected').length
+    pending: activeCands.filter(c=>c.status==='pending').length,
+    docs_ready: activeCands.filter(c=>c.status==='docs_ready').length,
+    interview_scheduled: activeCands.filter(c=>c.status==='interview_scheduled').length,
+    interviewed: activeCands.filter(c=>c.status==='interviewed').length,
+    accepted: activeCands.filter(c=>c.status==='accepted').length,
+    rejected: activeCands.filter(c=>c.status==='rejected').length,
+    converted: getArchivedCandidatesFrom(candidates).length
   };
   const total = candidates.length || 1;
-  const pipeColors = {pending:'#94a3b8',docs_ready:'var(--warn)',interview_scheduled:'var(--orange)',interviewed:'var(--primary)',accepted:'var(--success)',rejected:'var(--danger)'};
-  const pipeLabels = {pending:'ממתין',docs_ready:'מסמכים',interview_scheduled:'ראיון נקבע',interviewed:'רואיין',accepted:'התקבל',rejected:'נדחה'};
+  const pipeColors = {pending:'#94a3b8',docs_ready:'var(--warn)',interview_scheduled:'var(--orange)',interviewed:'var(--primary)',accepted:'var(--success)',rejected:'var(--danger)',converted:'#15803d'};
+  const pipeLabels = {pending:'ממתין',docs_ready:'מסמכים',interview_scheduled:'ראיון נקבע',interviewed:'רואיין',accepted:'התקבל',rejected:'נדחה',converted:'🎓 הומרו לסטודנטים'};
 
   let pipeHtml = '<div class="pipeline-bar">';
   Object.entries(candStats).forEach(([k,v]) => {
@@ -3936,6 +4137,11 @@ function renderDashboard(){
       }
     }
   });
+  const pendingXfer = getPendingTransferCandidates();
+  if(pendingXfer.length){
+    alertHtml += '<div class="alert alert-warning"><strong>'+pendingXfer.length+'</strong> מועמדים עברו ראיון וממתינים להעברה לסטודנטים ' +
+                 '<button class="btn btn-sm btn-success" style="margin-right:8px" onclick="showPage(\'candidates\')">לדף המועמדים</button></div>';
+  }
   const noPrepStudents = students.filter(s=>!s.prepDone && s.fromCandidate);
   if(noPrepStudents.length){
     alertHtml += '<div class="alert alert-info"><strong>'+noPrepStudents.length+'</strong> סטודנטים שהועברו ממועמדים ממתינים להכנה</div>';
@@ -4020,61 +4226,324 @@ function hideTooltip(){document.getElementById('tooltip-box').classList.remove('
 const CAND_STATUS_LABELS = {pending:'ממתין',docs_ready:'מסמכים הוגשו',interview_scheduled:'ראיון נקבע',interviewed:'רואיין',accepted:'התקבל',rejected:'נדחה'};
 const CAND_STATUS_BADGE = {pending:'badge',docs_ready:'badge badge-warning',interview_scheduled:'badge badge-orange',interviewed:'badge badge-info',accepted:'badge badge-success',rejected:'badge badge-danger'};
 
+// --- candidate row helpers -------------------------------------------------
+function daysSince(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  if(isNaN(d)) return null;
+  return Math.floor((new Date() - d) / 86400000);
+}
+function fmtShortDate(d){
+  if(!d) return '';
+  const p = String(d).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0].slice(2) : d;
+}
+// File chip driven by the record itself, linking to the folder the file lives
+// in. "not linked" is deliberately neutral, not a red alert: a candidacy cannot
+// be submitted without a CV, so a gap here means an unlinked import, not a
+// missing document.
+function candFileChip(fileObj, typeKey, label, required){
+  if(!required) return '<span class="badge" style="color:var(--muted)" title="לא נדרש בקורס זה">'+label+': לא נדרש</span>';
+  if(fileObj && fileObj.na) return '<span class="badge" style="color:var(--muted)">'+label+': לא רלוונטי</span>';
+  if(fileObj){
+    const href = fileObj.folder ? getDataFileFolderUrl(fileObj.folder) : getDataFolderUrl(typeKey);
+    return '<a href="'+href+'" target="_blank" class="file-link" title="'+escHtml(fileObj.name||label)+'">📎 '+label+'</a>';
+  }
+  return '<span class="badge" style="color:var(--muted);border:1px dashed var(--border);background:transparent" title="הקובץ לא קושר לרשומה במערכת">'+label+': לא מקושר</span>';
+}
+function evalDots(c){
+  const items = [
+    ['מחויבות', c.evalCommitment], ['מוטיבציה', c.evalMotivation],
+    ['תקשורת', c.evalCommunication], ['אנגלית', c.evalEnglish], ['היכרות', c.evalAcquaintance]
+  ].filter(x => x[1]);
+  if(!items.length) return '';
+  const glyph = v => v === 'גבוה' ? '<span style="color:var(--success)">●</span>'
+                   : v === 'בינוני' ? '<span style="color:var(--warn)">◐</span>'
+                   : '<span style="color:var(--muted)">○</span>';
+  return '<div style="margin-top:8px;font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap">' +
+    items.map(([lbl, v]) => '<span title="'+lbl+': '+escHtml(v)+'">'+lbl+' '+glyph(v)+'</span>').join('') + '</div>';
+}
+let candidateSelection = [];
+function toggleCandidateSelection(id){
+  const i = candidateSelection.indexOf(id);
+  if(i === -1) candidateSelection.push(id); else candidateSelection.splice(i, 1);
+  renderCandidates();
+}
+function clearCandidateSelection(){ candidateSelection = []; renderCandidates(); }
+function toggleSelectAllCandidates(cb){
+  candidateSelection = cb.checked ? (window.__lastCandidateList || []).map(c => c.id) : [];
+  renderCandidates();
+}
+
 function renderCandidates(){
   const clabel = document.getElementById('candidate-course-label');
   if(clabel) clabel.textContent = getCourseYearLabel();
-  const candidates = getFilteredCandidates();
+  const showArchive = !!document.getElementById('candidate-show-archive')?.checked;
+  const all = getFilteredCandidates();
+  const candidates = showArchive ? getArchivedCandidatesFrom(all) : getActiveCandidatesFrom(all);
+  const archivedCount = getArchivedCandidatesFrom(all).length;
   const search = (document.getElementById('candidate-search')?.value||'').toLowerCase();
   const filterStatus = document.getElementById('candidate-filter-status')?.value || 'all';
+  const filterDocs = document.getElementById('candidate-filter-docs')?.value || 'all';
+  const filterInterview = document.getElementById('candidate-filter-interview')?.value || 'all';
+  const sortBy = document.getElementById('candidate-sort')?.value || 'applicationDate';
 
-  // Pipeline visualization
+  // Banner: passed the interview, still sitting on this page
+  const pending = getPendingTransferCandidates();
+  const bannerEl = document.getElementById('candidates-transfer-banner');
+  if(bannerEl){
+    bannerEl.innerHTML = pending.length && !showArchive
+      ? '<div class="alert alert-warning" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">' +
+        '<strong>' + pending.length + ' מועמדים עברו ראיון וממתינים להעברה לסטודנטים</strong>' +
+        '<span style="margin-right:auto;display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button class="btn btn-sm btn-success" onclick="convertAllPendingCandidates()">העבר את כולם</button>' +
+        '<button class="btn btn-sm btn-outline" onclick="document.getElementById(\'candidate-filter-status\').value=\'accepted\';renderCandidates()">הצג רק אותם</button>' +
+        '</span></div>'
+      : '';
+  }
+
+  // Funnel — counted over the whole history so the conversion rate stays honest
   const counts = {pending:0,docs_ready:0,interview_scheduled:0,interviewed:0,accepted:0,rejected:0};
-  candidates.forEach(c => { if(counts[c.status] !== undefined) counts[c.status]++; });
+  getActiveCandidatesFrom(all).forEach(c => { if(counts[c.status] !== undefined) counts[c.status]++; });
   const pipeColors = {pending:'#94a3b8',docs_ready:'var(--warn)',interview_scheduled:'var(--orange)',interviewed:'var(--primary)',accepted:'var(--success)',rejected:'var(--danger)'};
-  let pipHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  let pipHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
   Object.entries(counts).forEach(([k,v]) => {
     const active = filterStatus===k ? 'border:2px solid var(--text);' : '';
     pipHtml += '<span class="candidate-stage" style="'+active+'background:'+pipeColors[k]+'22;color:'+pipeColors[k]+';border:1px solid '+pipeColors[k]+'44;cursor:pointer" onclick="document.getElementById(\'candidate-filter-status\').value=\''+k+'\';renderCandidates()">'+CAND_STATUS_LABELS[k]+': <strong>'+v+'</strong></span>';
   });
-  pipHtml += '<span class="candidate-stage" style="'+(filterStatus==='all'?'border:2px solid var(--text);':'')+'background:var(--chip);cursor:pointer" onclick="document.getElementById(\'candidate-filter-status\').value=\'all\';renderCandidates()">הכל: <strong>'+candidates.length+'</strong></span>';
+  pipHtml += '<span class="candidate-stage" style="'+(filterStatus==='all'&&!showArchive?'border:2px solid var(--text);':'')+'background:var(--chip);cursor:pointer" onclick="document.getElementById(\'candidate-filter-status\').value=\'all\';document.getElementById(\'candidate-show-archive\').checked=false;renderCandidates()">הכל: <strong>'+getActiveCandidatesFrom(all).length+'</strong></span>';
+  if(archivedCount) pipHtml += '<span class="candidate-stage" style="'+(showArchive?'border:2px solid var(--text);':'')+'background:rgba(23,163,74,.13);color:var(--success);border:1px solid rgba(23,163,74,.3);cursor:pointer" onclick="document.getElementById(\'candidate-show-archive\').checked=true;renderCandidates()">🎓 הומרו לסטודנטים: <strong>'+archivedCount+'</strong></span>';
   pipHtml += '</div>';
+  const totalEver = all.length;
+  if(totalEver){
+    const withInterview = all.filter(c => c.applicationDate && c.interviewDate);
+    let avgDays = null;
+    if(withInterview.length){
+      const sum = withInterview.reduce((acc,c) => {
+        const d = (new Date(c.interviewDate) - new Date(c.applicationDate)) / 86400000;
+        return acc + (isNaN(d) ? 0 : d);
+      }, 0);
+      avgDays = Math.round(sum / withInterview.length);
+    }
+    pipHtml += '<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">שיעור המרה: <strong>'+archivedCount+'/'+totalEver+
+      '</strong> ('+Math.round(archivedCount/totalEver*100)+'%)' +
+      (avgDays !== null ? ' · זמן ממוצע מהגשה לראיון: <strong>'+avgDays+'</strong> ימים' : '') + '</div>';
+  }
   document.getElementById('candidates-pipeline-vis').innerHTML = pipHtml;
 
+  const reqsFor = c => getCourseReqs(c.courseId);
   let filtered = candidates.filter(c => {
     if(search){
-      const txt = (c.name+' '+c.phone+' '+c.email+' '+c.notes+' '+c.interviewSummary).toLowerCase();
+      const txt = [c.name,c.phone,c.email,c.notes,c.interviewSummary,c.preferredArea,c.city]
+        .map(x => x||'').join(' ').toLowerCase();
       if(!txt.includes(search)) return false;
     }
     if(filterStatus!=='all' && c.status !== filterStatus) return false;
+    if(filterDocs !== 'all'){
+      const r = reqsFor(c);
+      const cvLinked = !r.requireCV || !!c.file_cv;
+      const appLinked = !r.requireApplication || !!c.file_application;
+      if(filterDocs === 'unlinked' && cvLinked && appLinked) return false;
+      if(filterDocs === 'linked' && !(cvLinked && appLinked)) return false;
+    }
+    if(filterInterview !== 'all'){
+      const dd = c.interviewDate ? daysSince(c.interviewDate) : null;
+      if(filterInterview === 'none' && c.interviewDate) return false;
+      if(filterInterview === 'scheduled' && !c.interviewDate) return false;
+      if(filterInterview === 'week' && !(dd !== null && dd <= 0 && dd >= -7)) return false;
+      if(filterInterview === 'overdue' && !(dd !== null && dd > 0 && !c.interviewResult)) return false;
+      if(filterInterview === 'passed' && c.interviewResult !== 'passed') return false;
+      if(filterInterview === 'failed' && c.interviewResult !== 'failed') return false;
+    }
     return true;
   });
 
+  const cmpStr = (a,b) => String(a||'').localeCompare(String(b||''), 'he');
+  filtered.sort((a,b) => {
+    if(sortBy === 'name') return cmpStr(a.name, b.name);
+    if(sortBy === 'interviewDate') return String(b.interviewDate||'').localeCompare(String(a.interviewDate||''));
+    if(sortBy === 'score') return (b.evalScore||0) - (a.evalScore||0);
+    if(sortBy === 'waiting') return (daysSince(b.applicationDate)||0) - (daysSince(a.applicationDate)||0);
+    return String(b.applicationDate||'').localeCompare(String(a.applicationDate||''));
+  });
+  window.__lastCandidateList = filtered;
+  candidateSelection = candidateSelection.filter(id => filtered.some(c => c.id === id));
+
+  // Bulk bar
   let html = '';
+  if(filtered.length && !showArchive){
+    html += '<div style="background:rgba(47,109,246,.06);border:1px solid rgba(47,109,246,.2);padding:10px;border-radius:8px;margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+    html += '<label class="checkbox-group" style="margin:0;cursor:pointer"><input type="checkbox" '+(candidateSelection.length&&candidateSelection.length===filtered.length?'checked':'')+' onchange="toggleSelectAllCandidates(this)"> <strong>בחר הכל</strong></label>';
+    html += '<span style="color:var(--primary);font-weight:700">'+(candidateSelection.length?candidateSelection.length+' נבחרו':'אין נבחרים')+'</span>';
+    if(candidateSelection.length){
+      html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-right:auto">';
+      html += '<button class="btn btn-sm btn-success" onclick="bulkEmailCandidates()">📧 מייל קבוצתי</button>';
+      html += '<button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="bulkConvertSelectedCandidates()">🎓 העבר לסטודנטים</button>';
+      html += '<button class="btn btn-sm btn-info" onclick="bulkSetInterviewDate()">📅 קביעת ראיון</button>';
+      html += '<button class="btn btn-sm btn-outline" onclick="clearCandidateSelection()">נקה בחירה</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
   filtered.forEach(c => {
-    html += '<div class="item">';
-    html += '<div class="item-header"><div>';
-    html += '<div class="item-name">'+escHtml(c.name)+'</div>';
-    html += '<div class="item-details">'+(c.phone||'-')+' &bull; '+(c.email||'-')+(c.city?' &bull; '+escHtml(c.city):'')+'</div>';
-    html += '</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
-    html += '<button class="btn btn-sm" onclick="showCandidateSummaryById('+c.id+')">סיכום תיק</button>';
-    html += '<button class="btn btn-sm btn-info" onclick="editCandidate('+c.id+')">ערוך</button>';
-    if(c.status==='accepted') html += '<button class="btn btn-sm btn-success" onclick="transferToStudents('+c.id+')">העבר לסטודנטים</button>';
-    html += '<button class="btn btn-sm btn-danger" onclick="deleteCandidate('+c.id+')">מחק</button>';
+    const r = reqsFor(c);
+    const isArchived = !!c.converted;
+    const dd = daysSince(c.applicationDate);
+    const idd = c.interviewDate ? daysSince(c.interviewDate) : null;
+    html += '<div class="item"'+(isArchived?' style="opacity:.62"':'')+'>';
+
+    // row 1 — identity + actions
+    html += '<div class="item-header"><div style="display:flex;align-items:flex-start;gap:10px">';
+    if(!isArchived) html += '<input type="checkbox" '+(candidateSelection.includes(c.id)?'checked':'')+' onchange="toggleCandidateSelection('+c.id+')" style="width:18px;height:18px;margin-top:4px;cursor:pointer" aria-label="בחר מועמד">';
+    html += '<div><div class="item-name">'+escHtml(c.name);
+    if(isArchived) html += ' <span class="badge badge-success" style="font-size:10px">🎓 סטודנט</span>';
+    html += '</div>';
+    const phoneLink = c.phone ? '<a href="tel:'+String(c.phone).replace(/\s/g,'')+'" style="color:inherit">'+escHtml(c.phone)+'</a>' : '-';
+    const mailLink = c.email ? '<a href="mailto:'+escHtml(c.email)+'" style="color:inherit">'+escHtml(c.email)+'</a>' : '-';
+    html += '<div class="item-details">'+phoneLink+' &bull; '+mailLink+(c.city?' &bull; '+escHtml(c.city):'')+(c.preferredArea?' &bull; '+escHtml(c.preferredArea):'')+'</div>';
+    html += '</div></div><div style="display:flex;gap:4px;flex-wrap:wrap">';
+    if(isArchived){
+      html += '<button class="btn btn-sm btn-info" onclick="openStudentFromCandidate('+c.id+')">פתח כרטיס סטודנט</button>';
+      html += '<button class="btn btn-sm" onclick="showCandidateSummaryById('+c.id+')">סיכום תיק</button>';
+      html += '<button class="btn btn-sm btn-outline" onclick="revertCandidateConversion('+c.id+')">החזר למועמדים</button>';
+    } else {
+      if(c.email) html += '<button class="btn btn-sm btn-success" onclick="quickEmailCandidate('+c.id+')">מייל</button>';
+      html += '<button class="btn btn-sm" onclick="showCandidateSummaryById('+c.id+')">סיכום תיק</button>';
+      html += '<button class="btn btn-sm btn-info" onclick="editCandidate('+c.id+')">ערוך</button>';
+      if(c.status==='accepted') html += '<button class="btn btn-sm btn-success" onclick="convertCandidateToStudent('+c.id+')">🎓 העבר</button>';
+      html += '<button class="btn btn-sm btn-danger" onclick="deleteCandidate('+c.id+')">מחק</button>';
+    }
     html += '</div></div>';
 
-    // Badges
+    // row 2 — chips
     html += '<div style="margin-top:8px">';
-    html += '<span class="'+CAND_STATUS_BADGE[c.status]+'">'+CAND_STATUS_LABELS[c.status]+'</span>';
-    html += '<a href="'+getDataFolderUrl('cv')+'" target="_blank" class="file-link" title="פתח תיקיית קורות חיים">CV</a>';
-    html += '<a href="'+getDataFolderUrl('application')+'" target="_blank" class="file-link" title="פתח תיקיית טפסי מועמדות">טופס מועמדות</a>';
-    if(c.interviewDate) html += '<span class="badge badge-info">ראיון: '+c.interviewDate+'</span>';
-    if(c.interviewResult==='passed') html += '<span class="badge badge-success">עבר ראיון</span>';
-    if(c.interviewResult==='failed') html += '<span class="badge badge-danger">לא עבר ראיון</span>';
+    html += '<span class="'+(CAND_STATUS_BADGE[c.status]||'badge')+'">'+(CAND_STATUS_LABELS[c.status]||c.status||'')+'</span>';
+    html += candFileChip(c.file_cv, 'cv', 'קורות חיים', r.requireCV);
+    html += candFileChip(c.file_application, 'application', 'טופס מועמדות', r.requireApplication);
+    if(r.requireInterview){
+      if(c.interviewDate){
+        const overdue = idd !== null && idd > 0 && !c.interviewResult;
+        const soon = idd !== null && idd <= 0 && idd >= -2;
+        const cls = overdue ? 'badge badge-danger' : soon ? 'badge badge-orange' : 'badge badge-info';
+        const txt = overdue ? '⚠ ראיון '+fmtShortDate(c.interviewDate)+' — ללא תוצאה'
+                  : (idd === 0 ? '⏰ ראיון היום' : idd === -1 ? '⏰ ראיון מחר' : '📅 ראיון '+fmtShortDate(c.interviewDate));
+        html += '<span class="'+cls+'">'+txt+'</span>';
+      } else {
+        html += '<span class="badge" style="color:var(--muted);border:1px dashed var(--border);background:transparent">ראיון: טרם נקבע</span>';
+      }
+      if(c.interviewResult==='passed') html += '<span class="badge badge-success">✓ עבר ראיון</span>';
+      if(c.interviewResult==='failed') html += '<span class="badge badge-danger">✗ לא עבר</span>';
+      if(c.evalScore || c.evalScore === 0){
+        const sc = c.evalScore;
+        const col = sc >= 85 ? 'var(--success)' : sc >= 70 ? 'var(--warn)' : 'var(--muted)';
+        html += '<span class="badge" style="color:'+col+';border:1px solid '+col+'55;background:transparent;font-variant-numeric:tabular-nums">ציון '+sc+'</span>';
+      }
+    }
+    if(!isArchived && dd !== null && dd > 7 && !c.interviewDate){
+      html += '<span class="badge '+(dd > 14 ? 'badge-danger' : 'badge-warning')+'">הוגש לפני '+dd+' ימים</span>';
+    }
+    if(isArchived && c.convertedDate) html += '<span class="badge" style="color:var(--muted)">הומר ב-'+fmtShortDate(c.convertedDate)+'</span>';
     html += '</div>';
+
+    // row 3 — evaluation dots
+    if(r.requireInterview) html += evalDots(c);
+
+    // row 4 — interview summary, readable without opening the card
+    if(c.interviewSummary){
+      html += '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--primary);font-weight:600">הצג סיכום ראיון</summary>' +
+              '<div style="margin-top:6px;font-size:13px;line-height:1.6;background:var(--panel);padding:8px 10px;border-radius:6px;border-right:3px solid var(--orange)">' +
+              escHtml(c.interviewSummary) + '</div></details>';
+    }
+    if(c.rejectionReason) html += '<div style="margin-top:6px;font-size:12px;background:rgba(229,72,77,.07);border:1px solid rgba(229,72,77,.2);padding:6px 10px;border-radius:6px"><strong>סיבת דחייה:</strong> '+escHtml(c.rejectionReason)+'</div>';
     if(c.notes) html += '<div style="margin-top:6px;color:var(--muted);font-size:12px;background:var(--panel);padding:6px 10px;border-radius:6px">'+escHtml(c.notes)+'</div>';
     html += '</div>';
   });
-  document.getElementById('candidate-list').innerHTML = html || '<p style="text-align:center;padding:40px;color:var(--muted)">אין מועמדים</p>';
+  if(!filtered.length){
+    const anyFilter = search || filterStatus !== 'all' || filterDocs !== 'all' || filterInterview !== 'all';
+    let empty;
+    if(showArchive){
+      empty = '<p style="text-align:center;padding:40px;color:var(--muted)">אין מועמדים שהומרו לסטודנטים</p>';
+    } else if(anyFilter){
+      empty = '<div style="text-align:center;padding:40px;color:var(--muted)">לא נמצאו מועמדים התואמים לסינון' +
+              '<div style="margin-top:10px"><button class="btn btn-sm btn-outline" onclick="clearCandidateFilters()">נקה סינון</button></div></div>';
+    } else if(archivedCount){
+      empty = '<div style="text-align:center;padding:40px;color:var(--muted)">כל המועמדים הומרו לסטודנטים 🎓' +
+              '<div style="margin-top:10px"><button class="btn btn-sm btn-outline" onclick="document.getElementById(\'candidate-show-archive\').checked=true;renderCandidates()">הצג ארכיון</button></div></div>';
+    } else {
+      empty = '<div style="text-align:center;padding:40px;color:var(--muted)">אין מועמדים בקורס ובשנה הנוכחיים' +
+              '<div style="margin-top:10px"><button class="btn btn-sm btn-primary" onclick="showAddCandidate()">+ מועמד</button></div></div>';
+    }
+    html += empty;
+  }
+  document.getElementById('candidate-list').innerHTML = html;
+}
+
+function clearCandidateFilters(){
+  ['candidate-search'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  const st = document.getElementById('candidate-filter-status'); if(st) st.value = 'all';
+  const dc = document.getElementById('candidate-filter-docs'); if(dc) dc.value = 'all';
+  const iv = document.getElementById('candidate-filter-interview'); if(iv) iv.value = 'all';
+  renderCandidates();
+}
+
+function openStudentFromCandidate(candId){
+  const c = DB.candidates.find(x => x.id === candId);
+  if(!c || !c.studentId){ alert('לא נמצא כרטיס סטודנט מקושר'); return; }
+  const s = DB.students.find(x => x.id === c.studentId);
+  if(!s){ alert('כרטיס הסטודנט נמחק מהמערכת'); return; }
+  showPage('students');
+  editStudent(s.id);
+}
+
+function quickEmailCandidate(candId){
+  const c = DB.candidates.find(x => x.id === candId);
+  if(!c || !c.email) return;
+  window.open('mailto:' + encodeURIComponent(c.email) +
+    '?subject=' + encodeURIComponent('פרקטיקום משאבי אנוש — ' + c.name));
+}
+
+function bulkEmailCandidates(){
+  if(!candidateSelection.length) return;
+  const emails = DB.candidates.filter(c => candidateSelection.includes(c.id) && c.email).map(c => c.email);
+  if(!emails.length){ alert('לאף אחד מהנבחרים אין כתובת מייל'); return; }
+  const subject = prompt('נושא המייל:', 'עדכון מועמדות לפרקטיקום');
+  if(subject === null) return;
+  const body = prompt('תוכן המייל:', 'שלום,\n\n');
+  if(body === null) return;
+  window.open('mailto:?bcc=' + encodeURIComponent(emails.join(',')) + '&subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
+}
+
+function bulkConvertSelectedCandidates(){
+  const sel = DB.candidates.filter(c => candidateSelection.includes(c.id));
+  const eligible = sel.filter(c => c.status === 'accepted' && !c.converted);
+  if(!eligible.length){ alert('אף אחד מהנבחרים אינו כשיר להעברה.\nניתן להעביר רק מועמדים שעברו את הראיון.'); return; }
+  if(!confirm(eligible.length + ' מתוך ' + sel.length + ' נבחרים כשירים להעברה.\n\nלהעביר אותם לרשימת הסטודנטים?')) return;
+  const r = runGuarded('לפני העברת ' + eligible.length + ' מועמדים נבחרים', () => {
+    const meta = conversionMeta();
+    return eligible.map(c => convertCandidateInPlace(c, DB.candidates, DB.students, meta));
+  });
+  if(!r.ok) return;
+  candidateSelection = [];
+  renderCandidates();
+  showToast('הועברו ' + r.result.length + ' מועמדים', 'success', 5000);
+}
+
+function bulkSetInterviewDate(){
+  if(!candidateSelection.length) return;
+  const d = prompt('תאריך ראיון אחיד לנבחרים (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+  if(!d) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert('פורמט תאריך לא תקין'); return; }
+  runGuarded('לפני קביעת תאריך ראיון קבוצתי', () => {
+    DB.candidates.forEach(c => {
+      if(candidateSelection.includes(c.id) && !c.converted){
+        c.interviewDate = d;
+        c.status = computeCandidateStatus(c);
+      }
+    });
+    return true;
+  });
+  showToast('נקבע תאריך ראיון ל-' + candidateSelection.length + ' מועמדים', 'success', 4000);
 }
 
 let pendingCandFiles = {cv:null, application:null};
@@ -4422,23 +4891,49 @@ function saveCandidate(){
   if(pendingCandFiles.application) data.file_application = pendingCandFiles.application;
 
   const id = document.getElementById('candidate-edit-id').value;
+  let saved = null;
+  let wasAccepted = false;
   if(id){
     const c = DB.candidates.find(x => x.id == id);
     if(c){
+      if(c.converted){
+        alert('המועמד/ת כבר הומר/ה לסטודנט/ית — יש לערוך בכרטיס הסטודנט.');
+        closeModal('candidate-modal');
+        return;
+      }
+      wasAccepted = c.status === 'accepted';
       if(!pendingCandFiles.cv && c.file_cv) data.file_cv = c.file_cv;
       if(!pendingCandFiles.application && c.file_application) data.file_application = c.file_application;
       Object.assign(c, data);
       c.status = computeCandidateStatus(c);
       if(c.status === 'accepted' && !c.acceptedDate) c.acceptedDate = new Date().toISOString().split('T')[0];
+      if(c.converted === undefined) c.converted = false;
+      saved = c;
     }
   } else {
     data.id = DB.candidates.length > 0 ? Math.max(...DB.candidates.map(x=>x.id))+1 : 1;
     data.status = computeCandidateStatus(data);
     if(data.status === 'accepted') data.acceptedDate = new Date().toISOString().split('T')[0];
+    data.converted = false;
     DB.candidates.push(data);
+    saved = data;
   }
   renderAll();
   closeModal('candidate-modal');
+
+  // Passing the interview makes someone a student. Offer the move right here,
+  // so nobody lingers on the candidates page with a green tick.
+  if(saved && saved.status === 'accepted' && !wasAccepted && !saved.converted){
+    setTimeout(() => {
+      if(confirm(saved.name + ' עבר/ה את הראיון.\n\nלהעביר עכשיו לרשימת הסטודנטים?\n\n' +
+                 'תיק המועמדות — טופס ההגשה, קורות החיים, סיכום הראיון וההערכות — יעבור לכרטיס הסטודנט.\n' +
+                 'אם כבר קיים סטודנט בשם הזה, התיק יצורף לכרטיס הקיים בלי לשנות בו דבר.')){
+        convertCandidateToStudent(saved.id);
+      } else {
+        showToast('נשאר ברשימת המועמדים כ"התקבל — ממתין להעברה"', 'info', 5000);
+      }
+    }, 80);
+  }
 }
 
 function deleteCandidate(id){
@@ -4706,15 +5201,93 @@ function emailCandidateSummary(){
 }
 
 // ============ TRANSFER CANDIDATE TO STUDENT ============
-function transferToStudents(candId){
-  const c = DB.candidates.find(x=>x.id===candId);
-  if(!c){alert('מועמד לא נמצא');return;}
-  if(c.status !== 'accepted'){alert('ניתן להעביר רק מועמדים שהתקבלו');return;}
-  if(!confirm('להעביר את '+c.name+' לרשימת הסטודנטים?'))return;
-  saveBeforeAction();
+/* ===== BEGIN CANDIDACY-CORE =====================================================
+   Pure logic for candidate -> student conversion. No DOM, no storage, no network,
+   so test/run-tests.js can extract this exact block and run it under Node.
+   Everything between the BEGIN/END markers must stay side-effect free.
 
-  const newStudent = {
-    id: DB.students.length > 0 ? Math.max(...DB.students.map(x=>x.id))+1 : 1,
+   THE ONE INVARIANT THIS FEATURE PROMISES:
+     On a student record that already exists, this code writes ONLY
+     `candidacy` and `candidateId`. Never a status, never a file, never a link.
+   ============================================================================ */
+
+// Every student field the conversion is forbidden to touch on an existing record.
+const PROTECTED_STUDENT_FIELDS = [
+  'id','name','phone','email','city','courseId','year',
+  'prepDone','prepDate',
+  'acceptedOrg','interviews','hired','preferences','submitted',
+  'hoursReported','hoursApproved','hoursConfirmed','orgFeedback',
+  'file_cv','file_form','file_summary','file_feedback',
+  'cvUrl','formUrl','summaryUrl','cvPath','formPath',
+  'notes','manualSummary','fromCandidate'
+];
+// The complete set this feature is allowed to add to an existing student.
+const WRITABLE_ON_EXISTING_STUDENT = ['candidacy','candidateId'];
+
+function candNormName(n){
+  return String(n || '').replace(/[֑-ׇ]/g,'').replace(/["'`׳״]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function candPhoneKey(p){
+  const digits = String(p || '').replace(/\D/g,'');
+  return digits.length >= 9 ? digits.slice(-9) : '';
+}
+function candEmailKey(e){
+  return String(e || '').trim().toLowerCase();
+}
+
+// The candidacy file that travels with the person onto the student card.
+function buildCandidacy(c, meta){
+  meta = meta || {};
+  return {
+    candidateId:      c.id,
+    applicationDate:  c.applicationDate || '',
+    interviewDate:    c.interviewDate || '',
+    interviewResult:  c.interviewResult || '',
+    interviewSummary: c.interviewSummary || '',
+    preferredArea:    c.preferredArea || '',
+    acceptedDate:     c.acceptedDate || '',
+    evalScore:        (c.evalScore === 0 || c.evalScore) ? c.evalScore : null,
+    evals: {
+      commitment:    c.evalCommitment || '',
+      motivation:    c.evalMotivation || '',
+      communication: c.evalCommunication || '',
+      english:       c.evalEnglish || '',
+      acquaintance:  c.evalAcquaintance || ''
+    },
+    manualSummary:    c.manualSummary || '',
+    candidateNotes:   c.notes || '',
+    convertedDate:    meta.date || '',
+    convertedBy:      meta.by || ''
+  };
+}
+
+// Find an existing student that is the same person. Email, then phone, then name.
+function matchStudentForCandidate(c, students){
+  const inScope = students.filter(s => s.courseId === c.courseId && s.year === c.year);
+  const em = candEmailKey(c.email);
+  if(em){
+    const hit = inScope.find(s => candEmailKey(s.email) === em);
+    if(hit) return {student: hit, by: 'email'};
+  }
+  const ph = candPhoneKey(c.phone);
+  if(ph){
+    const hit = inScope.find(s => candPhoneKey(s.phone) === ph);
+    if(hit) return {student: hit, by: 'phone'};
+  }
+  const nm = candNormName(c.name);
+  if(nm){
+    const hit = inScope.find(s => candNormName(s.name) === nm);
+    if(hit) return {student: hit, by: 'name'};
+  }
+  return null;
+}
+
+// Build the student record for a candidate who has no student record yet.
+// Files are carried across byte-for-byte: same object, same folder, same name,
+// so no existing SharePoint link changes meaning.
+function buildStudentFromCandidate(c, nextId, meta){
+  const s = {
+    id: nextId,
     name: c.name,
     phone: c.phone || '',
     email: c.email || '',
@@ -4726,21 +5299,330 @@ function transferToStudents(candId){
     hired: false,
     preferences: ['','',''],
     submitted: [],
-    notes: (c.notes ? c.notes + '\n' : '') + 'הועבר ממועמדים בתאריך: '+new Date().toISOString().split('T')[0],
+    hoursReported: 0,
+    hoursApproved: 0,
+    hoursConfirmed: false,
+    orgFeedback: '',
+    notes: c.notes || '',
     cvUrl: '', formUrl: '', summaryUrl: '',
     courseId: c.courseId,
     year: c.year,
-    fromCandidate: true
+    fromCandidate: true,
+    candidateId: c.id,
+    candidacy: buildCandidacy(c, meta)
   };
-  // Transfer files
-  if(c.file_cv) newStudent.file_cv = c.file_cv;
-  if(c.file_application) newStudent.file_form = c.file_application;
+  if(c.file_cv) s.file_cv = c.file_cv;
+  if(c.file_application) s.file_form = c.file_application;
+  return s;
+}
 
-  DB.students.push(newStudent);
-  // Remove from candidates
-  DB.candidates = DB.candidates.filter(x => x.id !== candId);
+// Attach a candidacy to a student that already exists.
+// Touches `candidacy` and `candidateId` and nothing else, ever.
+function attachCandidacyToStudent(student, c, meta){
+  if(student.candidacy && student.candidacy.candidateId) return {changed: false, reason: 'already-linked'};
+  student.candidacy = buildCandidacy(c, meta);
+  student.candidateId = c.id;
+  return {changed: true, reason: 'attached'};
+}
+
+function nextStudentId(students){
+  return students.length ? Math.max.apply(null, students.map(s => s.id)) + 1 : 1;
+}
+
+/* Convert one candidate. Mutates the arrays passed in and returns a report.
+   mode 'new'    -> a student record was created
+   mode 'merged' -> an existing student was found; only candidacy/candidateId added */
+function convertCandidateInPlace(candidate, candidates, students, meta){
+  const match = matchStudentForCandidate(candidate, students);
+  let student, mode;
+  if(match){
+    student = match.student;
+    attachCandidacyToStudent(student, candidate, meta);
+    mode = 'merged';
+  } else {
+    student = buildStudentFromCandidate(candidate, nextStudentId(students), meta);
+    students.push(student);
+    mode = 'new';
+  }
+  candidate.converted = true;
+  candidate.convertedDate = meta.date || '';
+  candidate.convertedBy = meta.by || '';
+  candidate.studentId = student.id;
+  return {mode: mode, matchedBy: match ? match.by : null, studentId: student.id, candidateId: candidate.id};
+}
+
+/* One-time backfill for data that predates the feature.
+   Deliberately conservative: it links and it archives, it never creates a
+   student and never edits one beyond candidacy/candidateId. A candidate that
+   passed the interview but has no student record stays an ACTIVE candidate and
+   is surfaced in the "waiting to transfer" banner for a human to action. */
+function migrateCandidateStudentLinks(db, meta){
+  const report = {linked: 0, pendingTransfer: 0, active: 0, alreadyDone: 0, details: []};
+  (db.candidates || []).forEach(c => {
+    if(c.converted !== undefined){ report.alreadyDone++; return; }
+    const match = matchStudentForCandidate(c, db.students || []);
+    if(match){
+      attachCandidacyToStudent(match.student, c, meta);
+      c.converted = true;
+      c.convertedDate = c.acceptedDate || meta.date || '';
+      c.convertedBy = meta.by || '';
+      c.studentId = match.student.id;
+      report.linked++;
+      report.details.push({candidate: c.name, action: 'linked', matchedBy: match.by, studentId: match.student.id});
+    } else if(c.status === 'accepted'){
+      c.converted = false;
+      report.pendingTransfer++;
+      report.details.push({candidate: c.name, action: 'pending-transfer'});
+    } else {
+      c.converted = false;
+      report.active++;
+    }
+  });
+  return report;
+}
+
+function getActiveCandidatesFrom(candidates){ return candidates.filter(c => !c.converted); }
+function getArchivedCandidatesFrom(candidates){ return candidates.filter(c => !!c.converted); }
+
+/* ---- verification: prove nothing protected moved -------------------------- */
+function stableStringify(v){
+  if(v === null || typeof v !== 'object') return JSON.stringify(v === undefined ? null : v);
+  if(Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']';
+  return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}';
+}
+
+/* Compares a before-snapshot against the current data and reports every
+   violation of the invariant. An empty violations array is the pass condition. */
+function verifyNoStudentStatusChange(beforeDb, afterDb){
+  const violations = [];
+  const beforeById = {};
+  (beforeDb.students || []).forEach(s => { beforeById[s.id] = s; });
+  const afterById = {};
+  (afterDb.students || []).forEach(s => { afterById[s.id] = s; });
+
+  (beforeDb.students || []).forEach(b => {
+    const a = afterById[b.id];
+    if(!a){ violations.push({studentId: b.id, name: b.name, field: '(record)', issue: 'student disappeared'}); return; }
+    PROTECTED_STUDENT_FIELDS.forEach(f => {
+      const bv = stableStringify(b[f]);
+      const av = stableStringify(a[f]);
+      if(bv !== av) violations.push({studentId: b.id, name: b.name, field: f, before: b[f], after: a[f], issue: 'protected field changed'});
+    });
+    Object.keys(a).forEach(k => {
+      if(!(k in b) && WRITABLE_ON_EXISTING_STUDENT.indexOf(k) === -1){
+        violations.push({studentId: b.id, name: b.name, field: k, issue: 'unexpected new field on existing student'});
+      }
+    });
+  });
+
+  const beforeCandCount = (beforeDb.candidates || []).length;
+  const afterCandCount = (afterDb.candidates || []).length;
+  if(afterCandCount < beforeCandCount){
+    violations.push({field: '(candidates)', issue: 'candidate records lost', before: beforeCandCount, after: afterCandCount});
+  }
+  return {ok: violations.length === 0, violations: violations,
+          studentsChecked: (beforeDb.students || []).length, candidatesBefore: beforeCandCount, candidatesAfter: afterCandCount};
+}
+/* ===== END CANDIDACY-CORE ===================================================== */
+
+/* ---- guarded actions ------------------------------------------------------
+   Every entry point that can modify data follows the same shape:
+     1. take a restore point
+     2. snapshot
+     3. mutate
+     4. verify the invariant
+     5. commit, or roll back automatically if verification fails
+   ------------------------------------------------------------------------- */
+function conversionMeta(){
+  return {date: new Date().toISOString().split('T')[0], by: (DB.currentUser && DB.currentUser.name) || ''};
+}
+
+// Runs `mutate` and refuses to keep the result if any protected field moved.
+function runGuarded(label, mutate){
+  const rp = createRestorePoint(label);
+  if(!rp) return {ok: false, aborted: true};
+  const before = snapshotDB();
+  saveBeforeAction();
+  let result;
+  try {
+    result = mutate();
+  } catch(err){
+    DB = before;
+    alert('הפעולה נכשלה ובוטלה במלואה:\n' + err.message);
+    return {ok: false, error: err};
+  }
+  const check = verifyNoStudentStatusChange(before, DB);
+  if(!check.ok){
+    DB = before;                       // automatic rollback
+    saveToStorage();
+    renderAll();
+    console.error('Invariant violated, rolled back:', check.violations);
+    alert('הפעולה בוטלה אוטומטית.\n\nזוהה שינוי אסור בנתוני סטודנטים קיימים:\n' +
+          check.violations.slice(0,5).map(v => '• ' + (v.name||'') + ' — ' + v.field + ' (' + v.issue + ')').join('\n') +
+          '\n\nשום דבר לא נשמר. המצב חזר לקדמותו.');
+    return {ok: false, violations: check.violations};
+  }
+  saveToStorage();
+  renderContextBar();
   renderAll();
-  alert(c.name + ' הועבר/ה לרשימת הסטודנטים. יש להשלים הכנה לפני שיבוץ לארגון.');
+  return {ok: true, result: result, restorePoint: rp, check: check};
+}
+
+function convertCandidateToStudent(candId){
+  const c = DB.candidates.find(x => x.id === candId);
+  if(!c){ alert('מועמד לא נמצא'); return; }
+  if(c.converted){ alert('המועמד/ת כבר הומר/ה לסטודנט/ית'); return; }
+  if(c.status !== 'accepted'){ alert('ניתן להעביר רק מועמדים שעברו את הראיון'); return; }
+  const match = matchStudentForCandidate(c, DB.students);
+  const msg = match
+    ? 'כבר קיים סטודנט בשם ' + match.student.name + ' (זוהה לפי ' +
+      ({email:'מייל', phone:'טלפון', name:'שם'}[match.by]) + ').\n\n' +
+      'תיק המועמדות יצורף לכרטיס הקיים. סטטוס ההכנה, השיבוץ, השעות והקבצים שלו לא ישתנו.\n\nלהמשיך?'
+    : 'להעביר את ' + c.name + ' לרשימת הסטודנטים?\n\n' +
+      'תיק המועמדות — טופס ההגשה, קורות החיים, סיכום הראיון וההערכות — יעבור לכרטיס הסטודנט.';
+  if(!confirm(msg)) return;
+
+  const r = runGuarded('לפני העברת ' + c.name + ' לסטודנטים', () =>
+    convertCandidateInPlace(c, DB.candidates, DB.students, conversionMeta()));
+  if(!r.ok) return;
+
+  showToast(c.name + (r.result.mode === 'merged' ? ' — תיק המועמדות צורף לכרטיס הסטודנט הקיים' : ' הועבר/ה לרשימת הסטודנטים'), 'success', 6000);
+}
+
+function revertCandidateConversion(candId){
+  const c = DB.candidates.find(x => x.id === candId);
+  if(!c || !c.converted){ alert('אין מה להחזיר'); return; }
+  const s = DB.students.find(x => x.id === c.studentId);
+  if(s){
+    const hasPlacement = s.acceptedOrg || (s.submitted || []).length || s.hoursReported || s.prepDone;
+    if(hasPlacement){
+      alert('לא ניתן להחזיר את ' + c.name + ' למועמדים:\n' +
+            'לסטודנט/ית כבר יש נתוני הכנה או השמה במערכת.\n' +
+            'יש לטפל בכרטיס הסטודנט ידנית.');
+      return;
+    }
+  }
+  if(!confirm('להחזיר את ' + c.name + ' לרשימת המועמדים?' + (s ? '\nכרטיס הסטודנט שנוצר יימחק.' : ''))) return;
+
+  runGuarded('לפני החזרת ' + c.name + ' למועמדים', () => {
+    if(s) DB.students = DB.students.filter(x => x.id !== c.studentId);
+    delete c.studentId; delete c.convertedDate; delete c.convertedBy;
+    c.converted = false;
+    return true;
+  });
+  showToast(c.name + ' הוחזר/ה לרשימת המועמדים', 'info', 5000);
+}
+
+function convertAllPendingCandidates(){
+  const pending = getPendingTransferCandidates();
+  if(!pending.length){ alert('אין מועמדים הממתינים להעברה'); return; }
+  if(!confirm('להעביר ' + pending.length + ' מועמדים שעברו ראיון לרשימת הסטודנטים?\n\n' +
+              'מי שכבר קיים כסטודנט — תיק המועמדות יצורף לכרטיס הקיים בלי לשנות בו דבר.')) return;
+
+  const r = runGuarded('לפני העברה קבוצתית של ' + pending.length + ' מועמדים', () => {
+    const meta = conversionMeta();
+    return pending.map(c => convertCandidateInPlace(c, DB.candidates, DB.students, meta));
+  });
+  if(!r.ok) return;
+  const created = r.result.filter(x => x.mode === 'new').length;
+  const merged = r.result.filter(x => x.mode === 'merged').length;
+  showToast('הועברו ' + r.result.length + ' מועמדים — ' + created + ' כרטיסים חדשים, ' + merged + ' צורפו לקיימים', 'success', 7000);
+}
+
+// One-time backfill. Links candidates to students that already exist; never
+// creates or edits a student beyond attaching the candidacy.
+function runCandidateMigration(silent){
+  const unmigrated = DB.candidates.filter(c => c.converted === undefined);
+  if(!unmigrated.length){
+    if(!silent) alert('אין נתונים לסנכרון — כל המועמדים כבר מסומנים.');
+    return null;
+  }
+  if(!silent && !confirm('לסנכרן ' + unmigrated.length + ' רשומות מועמדים מול רשימת הסטודנטים?\n\n' +
+      'הפעולה מקשרת בין רשומות בלבד. היא לא יוצרת סטודנטים, לא משנה סטטוס, ולא נוגעת בקבצים או בקישורים.\n' +
+      'נקודת שחזור תישמר לפני הביצוע.')) return null;
+
+  const r = runGuarded('לפני סנכרון מועמדים↔סטודנטים', () =>
+    migrateCandidateStudentLinks(DB, conversionMeta()));
+  if(!r.ok) return null;
+
+  DB.settings.candidateMigration = 'v1';
+  saveToStorage();
+  const rep = r.result;
+  const msg = 'סונכרנו ' + rep.linked + ' מועמדים לסטודנטים קיימים · ' +
+              rep.pendingTransfer + ' ממתינים להעברה · ' + rep.active + ' מועמדים פעילים';
+  if(!silent) alert('הסנכרון הושלם.\n\n' + msg + '\n\nלא בוצע שום שינוי בסטטוס של סטודנטים קיימים (' +
+                    r.check.studentsChecked + ' נבדקו).');
+  else showToast(msg, 'info', 6000);
+  return rep;
+}
+
+/* ---- restore points ------------------------------------------------------- */
+const RESTORE_INDEX_KEY = 'practicum_restore_index_v1';
+
+function snapshotDB(){ return JSON.parse(JSON.stringify(DB)); }
+
+function createRestorePoint(label){
+  const id = 'rp_' + Date.now();
+  const snap = snapshotDB();
+  const entry = {
+    id: id,
+    label: label || 'נקודת שחזור',
+    at: new Date().toISOString(),
+    counts: {
+      candidates: (snap.candidates||[]).length,
+      students: (snap.students||[]).length,
+      employers: (snap.employers||[]).length
+    },
+    hash: hashData(snap)
+  };
+  try {
+    STORE.setItem('practicum_restore_' + id, JSON.stringify(snap));
+    const idx = JSON.parse(STORE.getItem(RESTORE_INDEX_KEY) || '[]');
+    idx.unshift(entry);
+    while(idx.length > 10){
+      const drop = idx.pop();
+      STORE.removeItem('practicum_restore_' + drop.id);
+    }
+    STORE.setItem(RESTORE_INDEX_KEY, JSON.stringify(idx));
+  } catch(e){
+    alert('לא ניתן היה לשמור נקודת שחזור: ' + e.message + '\nהפעולה לא בוצעה.');
+    return null;
+  }
+  return entry;
+}
+
+function listRestorePoints(){
+  try { return JSON.parse(STORE.getItem(RESTORE_INDEX_KEY) || '[]'); } catch(e){ return []; }
+}
+
+function loadRestorePoint(id){
+  const raw = STORE.getItem('practicum_restore_' + id);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function restoreToPoint(id){
+  const snap = loadRestorePoint(id);
+  if(!snap){ alert('נקודת השחזור לא נמצאה'); return false; }
+  const entry = listRestorePoints().find(e => e.id === id);
+  if(!confirm('לשחזר את המצב לנקודה מ-' + (entry ? new Date(entry.at).toLocaleString('he-IL') : id) + '?\n' +
+              'כל שינוי שנעשה מאז יוחזר לאחור.')) return false;
+  DB = snap;
+  saveToStorage();
+  renderContextBar();
+  renderAll();
+  showToast('שוחזר בהצלחה למצב מ-' + (entry ? new Date(entry.at).toLocaleString('he-IL') : ''), 'success', 5000);
+  return true;
+}
+
+function downloadRestorePoint(id){
+  const snap = loadRestorePoint(id);
+  if(!snap) return;
+  const blob = new Blob([JSON.stringify(snap, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'practicum_restore_' + id + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
 }
 
 // ============ STUDENTS ============
@@ -4785,7 +5667,9 @@ function renderStudents(){
 
   let filtered = students.filter(s => {
     if(search){
-      const txt = (s.name+' '+s.phone+' '+s.email+' '+s.notes+' '+(s.submitted||[]).join(' ')+' '+s.acceptedOrg).toLowerCase();
+      const cy = s.candidacy || {};
+      const txt = [s.name, s.phone, s.email, s.notes, (s.submitted||[]).join(' '), s.acceptedOrg,
+                   cy.interviewSummary, cy.preferredArea].map(x => x||'').join(' ').toLowerCase();
       if(!txt.includes(search)) return false;
     }
     if(filterPrep==='prep-done' && !s.prepDone) return false;
@@ -4854,6 +5738,17 @@ function renderStudents(){
     else if(s.acceptedOrg) html += '<span class="badge badge-warning" style="font-size:10px">חוו"ד חסרה</span>';
     if(s.acceptedOrg) html += ' <span class="badge badge-success">התקבל ל-'+escHtml(s.acceptedOrg)+'</span>';
     if(s.hoursReported) html += ' <span class="badge" style="background:rgba(139,92,246,.1);color:#7c3aed">'+s.hoursReported+' שעות'+(s.hoursConfirmed?' ✓':'')+'</span>';
+    // Candidacy file carried over from the candidates page
+    if(s.candidacy){
+      const cy = s.candidacy;
+      const label = '🎓 מועמדות' + (cy.interviewResult === 'passed' ? ' ✓' : '') +
+                    (cy.interviewDate ? ' ' + fmtShortDate(cy.interviewDate) : '');
+      html += ' <span class="badge" style="background:rgba(139,92,246,.13);color:#7c3aed;cursor:pointer" onclick="editStudent('+s.id+')" title="פתח את תיק המועמדות בכרטיס">'+label+'</span>';
+      if(cy.evalScore || cy.evalScore === 0){
+        const col = cy.evalScore >= 85 ? 'var(--success)' : cy.evalScore >= 70 ? 'var(--warn)' : 'var(--muted)';
+        html += ' <span class="badge" style="color:'+col+';border:1px solid '+col+'55;background:transparent;font-variant-numeric:tabular-nums">ציון '+cy.evalScore+'</span>';
+      }
+    }
     html += '</div>';
 
     if((s.preferences||[]).filter(p=>p).length) html += '<div style="margin-top:6px"><strong style="font-size:12px">העדפות:</strong> '+(s.preferences||[]).filter(p=>p).map((p,i)=>'<span class="badge badge-primary">'+(i+1)+'. '+escHtml(p)+'</span>').join('')+'</div>';
@@ -4880,6 +5775,7 @@ function updatePrepGate(){
 function showAddStudent(){
   document.getElementById('student-modal-title').textContent = 'הוסף סטודנט';
   document.getElementById('student-edit-id').value = '';
+  renderCandidacyPanel(null);
   ['student-name','student-phone','student-email','student-city','student-notes','student-submitted','student-cv-url','student-form-url','student-summary-url'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('student-prep').checked = false;
   document.getElementById('student-prep-date').value = '';
@@ -4916,11 +5812,52 @@ function populateEmployerSelects(){
   document.getElementById('student-accepted-org').innerHTML = accOpts;
 }
 
+// Read-only candidacy file inside the student card. Rendered, never edited:
+// the candidate record stays the source of truth for its own history.
+function renderCandidacyPanel(s){
+  const el = document.getElementById('student-candidacy-section');
+  if(!el) return;
+  const cy = s && s.candidacy;
+  if(!cy){ el.innerHTML = ''; return; }
+  const V = v => (v === undefined || v === null || v === '') ? '<span style="color:var(--muted)">—</span>' : escHtml(String(v));
+  const evalsTxt = [
+    ['מחויבות', cy.evals?.commitment], ['מוטיבציה', cy.evals?.motivation],
+    ['תקשורת', cy.evals?.communication], ['אנגלית', cy.evals?.english], ['היכרות', cy.evals?.acquaintance]
+  ].filter(x => x[1]).map(x => x[0] + ' ' + escHtml(x[1])).join(' · ');
+  const result = cy.interviewResult === 'passed' ? '<strong style="color:var(--success)">✓ עבר/ה</strong>'
+               : cy.interviewResult === 'failed' ? '<strong style="color:var(--danger)">✗ לא עבר/ה</strong>' : '—';
+
+  let h = '<details class="section" style="background:rgba(139,92,246,.05);border-color:rgba(139,92,246,.3)">';
+  h += '<summary style="cursor:pointer;color:#7c3aed;font-size:14px;font-weight:700;display:flex;gap:8px;align-items:center">🎓 תיק מועמדות' +
+       '<span class="badge" style="color:var(--muted);font-weight:500;margin-right:auto">קריאה בלבד</span></summary>';
+  h += '<div style="margin-top:10px">';
+  h += '<div class="summary-row"><span>תאריך הגשה</span><span>'+V(cy.applicationDate)+'</span></div>';
+  h += '<div class="summary-row"><span>תאריך ראיון</span><span>'+V(cy.interviewDate)+'</span></div>';
+  h += '<div class="summary-row"><span>תוצאה</span><span>'+result+'</span></div>';
+  h += '<div class="summary-row"><span>תחום מבוקש</span><span>'+V(cy.preferredArea)+'</span></div>';
+  h += '<div class="summary-row"><span>ציון ממוצע</span><span>'+((cy.evalScore||cy.evalScore===0)?'<strong>'+cy.evalScore+'</strong>':'<span style="color:var(--muted)">—</span>')+'</span></div>';
+  if(evalsTxt) h += '<div style="margin-top:8px;font-size:12px"><strong>הערכת ראיון:</strong> '+evalsTxt+'</div>';
+  if(cy.interviewSummary){
+    h += '<div style="margin-top:10px"><strong style="font-size:12px">סיכום ראיון</strong>' +
+         '<div style="margin-top:4px;font-size:13px;line-height:1.6;background:var(--panel);padding:8px 10px;border-radius:6px;border-right:3px solid #7c3aed">' +
+         escHtml(cy.interviewSummary) + '</div></div>';
+  }
+  h += '<div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">';
+  if(s.file_cv && !s.file_cv.na) h += '<a href="'+(s.file_cv.folder?getDataFileFolderUrl(s.file_cv.folder):getDataFolderUrl('cv'))+'" target="_blank" class="file-link">📄 קורות חיים</a>';
+  if(s.file_form && !s.file_form.na) h += '<a href="'+(s.file_form.folder?getDataFileFolderUrl(s.file_form.folder):getDataFolderUrl('form'))+'" target="_blank" class="file-link">📝 טופס מועמדות</a>';
+  if(s.candidateId) h += '<button type="button" class="btn btn-sm btn-info" onclick="showCandidateSummaryById('+s.candidateId+')">סיכום תיק מועמדות</button>';
+  h += '</div>';
+  if(cy.convertedDate) h += '<div style="margin-top:8px;font-size:11px;color:var(--muted)">הומר ב-'+escHtml(cy.convertedDate)+(cy.convertedBy?' על ידי '+escHtml(cy.convertedBy):'')+'</div>';
+  h += '</div></details>';
+  el.innerHTML = h;
+}
+
 function editStudent(id){
   const s = DB.students.find(x=>x.id===id);
   if(!s)return;
   document.getElementById('student-modal-title').textContent = 'ערוך סטודנט';
   document.getElementById('student-edit-id').value = s.id;
+  renderCandidacyPanel(s);
   document.getElementById('student-name').value = s.name;
   document.getElementById('student-phone').value = s.phone || '';
   document.getElementById('student-email').value = s.email || '';
@@ -5109,6 +6046,26 @@ function renderStudentSummary(s){
   html += '<div class="summary-row"><span>מקור</span><span>'+(s.fromCandidate?'הועבר ממועמדים':EMPTY_PLACEHOLDER)+'</span></div>';
   html += '</div>';
 
+  // Candidacy file, carried over from the candidates page
+  if(s.candidacy){
+    const cy = s.candidacy;
+    const evalsTxt = [
+      ['מחויבות', cy.evals?.commitment], ['מוטיבציה', cy.evals?.motivation],
+      ['תקשורת', cy.evals?.communication], ['אנגלית', cy.evals?.english], ['היכרות', cy.evals?.acquaintance]
+    ].filter(x => x[1]).map(x => x[0] + ' ' + escHtml(x[1])).join(' · ');
+    html += '<div style="margin:12px 0;padding:10px;background:rgba(139,92,246,.05);border-radius:8px"><strong style="color:#7c3aed;display:block;margin-bottom:6px">▸ תיק מועמדות</strong>';
+    html += '<div class="summary-row"><span>תאריך הגשה</span><span>'+V(cy.applicationDate)+'</span></div>';
+    html += '<div class="summary-row"><span>תאריך ראיון</span><span>'+V(cy.interviewDate)+'</span></div>';
+    html += '<div class="summary-row"><span>תוצאת ראיון</span><span>'+(cy.interviewResult==='passed'?'<strong style="color:var(--success)">✓ עבר/ה</strong>':cy.interviewResult==='failed'?'<strong style="color:var(--danger)">✗ לא עבר/ה</strong>':EMPTY_PLACEHOLDER)+'</span></div>';
+    html += '<div class="summary-row"><span>ציון ממוצע</span><span>'+((cy.evalScore||cy.evalScore===0)?'<strong>'+cy.evalScore+'</strong>':EMPTY_PLACEHOLDER)+'</span></div>';
+    if(evalsTxt) html += '<div style="margin-top:6px;font-size:12px"><strong>הערכת ראיון:</strong> '+evalsTxt+'</div>';
+    if(cy.interviewSummary){
+      html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:12px;color:#7c3aed;font-weight:600">סיכום ראיון</summary>';
+      html += '<div style="margin-top:6px;font-size:13px;line-height:1.6">'+escHtml(cy.interviewSummary)+'</div></details>';
+    }
+    html += '</div>';
+  }
+
   // Preparation
   html += '<div style="margin:12px 0;padding:10px;background:rgba(246,177,0,.06);border-radius:8px"><strong style="color:#856404;display:block;margin-bottom:6px">▸ הכנה לפרקטיקום</strong>';
   html += '<div class="summary-row"><span>סטטוס</span><span>'+(s.prepDone?'<strong style="color:var(--success)">✓ עברה הכנה</strong>':'<strong style="color:var(--warn)">טרם עברה</strong>')+'</span></div>';
@@ -5207,6 +6164,20 @@ function buildStudentSummaryText(s){
   if(s.city) txt += '  עיר: ' + s.city + '\n';
   txt += '  קורס: ' + courseName + '\n';
   txt += '  שנה: ' + (s.year || '-') + '\n\n';
+  if(s.candidacy){
+    const cy = s.candidacy;
+    txt += '▸ תיק מועמדות\n';
+    if(cy.applicationDate) txt += '  תאריך הגשה: ' + cy.applicationDate + '\n';
+    if(cy.interviewDate) txt += '  תאריך ראיון: ' + cy.interviewDate + '\n';
+    txt += '  תוצאת ראיון: ' + (cy.interviewResult === 'passed' ? 'עבר/ה' : cy.interviewResult === 'failed' ? 'לא עבר/ה' : '-') + '\n';
+    if(cy.preferredArea) txt += '  תחום מבוקש: ' + cy.preferredArea + '\n';
+    if(cy.evalScore || cy.evalScore === 0) txt += '  ציון ממוצע: ' + cy.evalScore + '\n';
+    const ev = [['מחויבות',cy.evals?.commitment],['מוטיבציה',cy.evals?.motivation],['תקשורת',cy.evals?.communication],
+                ['אנגלית',cy.evals?.english],['היכרות',cy.evals?.acquaintance]].filter(x=>x[1]);
+    if(ev.length) txt += '  הערכה: ' + ev.map(x=>x[0]+' '+x[1]).join(' | ') + '\n';
+    if(cy.interviewSummary) txt += '  סיכום ראיון: ' + cy.interviewSummary + '\n';
+    txt += '\n';
+  }
   txt += '▸ הכנה\n';
   txt += '  ' + (s.prepDone ? '✓ עברה הכנה' + (s.prepDate ? ' (' + s.prepDate + ')' : '') : '✗ טרם עברה') + '\n\n';
   txt += '▸ השמה\n';
@@ -5886,16 +6857,20 @@ function refreshReport(){
 
   if(lastReportType==='candidates' || lastReportType==='full'){
     html += '<h2 style="color:var(--orange);margin:20px 0 10px">דוח מועמדים ('+candidates.length+')</h2>';
-    html += '<table><thead><tr style="background:var(--orange);color:#fff"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>תאריך הגשה</th><th>CV</th><th>טופס</th><th>ראיון</th><th>סטטוס</th></tr></thead><tbody>';
+    html += '<table><thead><tr style="background:var(--orange);color:#fff"><th>#</th><th>שם</th><th>טלפון</th><th>מייל</th><th>תאריך הגשה</th><th>CV</th><th>טופס</th><th>ראיון</th><th>ציון</th><th>סטטוס</th><th>הומר לסטודנט</th></tr></thead><tbody>';
     candidates.forEach((c,i) => {
       html += '<tr><td>'+(i+1)+'</td><td><strong>'+escHtml(c.name)+'</strong></td><td>'+(c.phone||'-')+'</td><td>'+(c.email||'-')+'</td>';
       html += '<td>'+(c.applicationDate||'-')+'</td>';
       html += '<td>'+(c.file_cv?'\u2713':'\u2717')+'</td>';
       html += '<td>'+(c.file_application?'\u2713':'\u2717')+'</td>';
       html += '<td>'+(c.interviewDate||'-')+'</td>';
-      html += '<td>'+CAND_STATUS_LABELS[c.status]+'</td></tr>';
+      html += '<td>'+((c.evalScore||c.evalScore===0)?c.evalScore:'-')+'</td>';
+      html += '<td>'+(CAND_STATUS_LABELS[c.status]||'-')+'</td>';
+      html += '<td>'+(c.converted?'\u2713 '+(c.convertedDate||''):'\u2717')+'</td></tr>';
     });
     html += '</tbody></table>';
+    const convCount = candidates.filter(c => c.converted).length;
+    if(candidates.length) html += '<p style="font-size:12px;color:var(--muted)">\u05e9\u05d9\u05e2\u05d5\u05e8 \u05d4\u05de\u05e8\u05d4 \u05dc\u05e1\u05d8\u05d5\u05d3\u05e0\u05d8\u05d9\u05dd: <strong>'+convCount+'/'+candidates.length+'</strong> ('+Math.round(convCount/candidates.length*100)+'%)</p>';
   }
 
   if(lastReportType==='students' || lastReportType==='full'){
@@ -6706,18 +7681,18 @@ function openStudentFile(type){
 // ============ RESET ============
 function resetAndReload(){
   if(!confirm('זהירות! פעולה זו תמחק את כל הנתונים מהדפדפן.\nוודא שיש לך גיבוי JSON לפני!\n\nלהמשיך?')) return;
-  localStorage.removeItem('practicum_db_v5');
-  localStorage.removeItem('practicum_undo_v5');
-  localStorage.removeItem('practicum_lastBackup_v5');
-  localStorage.removeItem('practicum_db_v4');
-  localStorage.removeItem('practicum_undo_v4');
-  localStorage.removeItem('practicum_lastBackup_v4');
-  localStorage.removeItem('practicum_students');
-  localStorage.removeItem('practicum_employers');
-  localStorage.removeItem('practicum_communications');
-  localStorage.removeItem('practicum_settings');
-  localStorage.removeItem('practicum_undo');
-  localStorage.removeItem('practicum_user_identity');
+  STORE.removeItem('practicum_db_v5');
+  STORE.removeItem('practicum_undo_v5');
+  STORE.removeItem('practicum_lastBackup_v5');
+  STORE.removeItem('practicum_db_v4');
+  STORE.removeItem('practicum_undo_v4');
+  STORE.removeItem('practicum_lastBackup_v4');
+  STORE.removeItem('practicum_students');
+  STORE.removeItem('practicum_employers');
+  STORE.removeItem('practicum_communications');
+  STORE.removeItem('practicum_settings');
+  STORE.removeItem('practicum_undo');
+  STORE.removeItem('practicum_user_identity');
   alert('הנתונים נמחקו. הדף ייטען מחדש.\nלאחר מכן טען את הגיבוי שלך.');
   dataChanged = false;
   location.reload();
@@ -6745,9 +7720,10 @@ let lastSaveHash = null; // Prevent identical saves
 let saveDebounceTimer = null;
 
 function initSupabase(){
+  if(TEST_MODE){ console.warn('[TEST MODE] cloud sync disabled'); return; }
   if(!window.supabase || !window.supabase.createClient){ console.warn('Supabase lib not loaded'); return; }
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  supabaseEnabled = localStorage.getItem('supabase_enabled') === '1';
+  supabaseEnabled = STORE.getItem('supabase_enabled') === '1';
 }
 
 async function supabaseSignIn(email, password){
@@ -6802,6 +7778,7 @@ function hashData(obj){
 }
 
 async function supabaseSaveData(force){
+  if(TEST_MODE) return false;   // never write to the shared production record
   if(!supabaseClient || !supabaseUser || !supabaseRecordId) return false;
   if(suppressSave){ return false; } // Don't save during realtime update application
   if(syncInProgress && !force){ pendingSync = true; return false; }
@@ -6973,7 +7950,7 @@ function applySupabaseData(data){
   // Merge duplicates
   try { dedupeCourses(); } catch(err){ console.warn('dedupe failed:', err); }
 
-  localStorage.setItem('practicum_db_v5', JSON.stringify(DB));
+  STORE.setItem('practicum_db_v5', JSON.stringify(DB));
   // Refresh UI
   try { renderContextBar(); } catch(err){ console.warn('renderContextBar failed:', err); }
 }
@@ -7080,7 +8057,7 @@ async function cloudSyncLogin(){
   try {
     if(!supabaseClient) initSupabase();
     await supabaseSignIn(email, password);
-    localStorage.setItem('supabase_enabled', '1');
+    STORE.setItem('supabase_enabled', '1');
     supabaseEnabled = true;
     showToast('✅ התחברת בהצלחה! מסנכרן נתונים מהענן...', 'success', 4000);
     await cloudSyncMerge();
@@ -7095,7 +8072,7 @@ async function cloudSyncLogin(){
 
 async function cloudSyncLogout(){
   if(!confirm('לנתק סנכרון ענן? הנתונים המקומיים נשמרים.'))return;
-  localStorage.setItem('supabase_enabled', '0');
+  STORE.setItem('supabase_enabled', '0');
   supabaseEnabled = false;
   stopCloudPolling();
   await supabaseSignOut();
@@ -7142,7 +8119,8 @@ async function cloudSyncMerge(){
 
 // Auto-connect if previously enabled
 async function autoConnectCloud(){
-  if(localStorage.getItem('supabase_enabled') !== '1') return;
+  if(TEST_MODE){ updateSyncIndicator('offline'); return; }
+  if(STORE.getItem('supabase_enabled') !== '1') return;
   initSupabase();
   const session = await supabaseCheckSession();
   if(session){
@@ -7170,7 +8148,7 @@ async function hashPassword(password){
 }
 
 function checkPasswordGate(){
-  const stored = localStorage.getItem('practicum_pwd_hash');
+  const stored = STORE.getItem('practicum_pwd_hash');
   const session = sessionStorage.getItem('practicum_session_ok');
 
   // Already authenticated this session
@@ -7227,21 +8205,21 @@ async function setupPassword(){
   if(p1.length < 6){ alert('הסיסמה חייבת להיות לפחות 6 תווים'); return; }
   if(p1 !== p2){ alert('הסיסמאות לא תואמות'); return; }
   const hash = await hashPassword(p1);
-  localStorage.setItem('practicum_pwd_hash', hash);
+  STORE.setItem('practicum_pwd_hash', hash);
   sessionStorage.setItem('practicum_session_ok', '1');
   location.reload();
 }
 
 function skipPassword(){
   if(!confirm('האם אתה בטוח שאתה רוצה להמשיך ללא סיסמה? כל מי שייגש למחשב יראה את הנתונים.')) return;
-  localStorage.setItem('practicum_pwd_skip', '1');
+  STORE.setItem('practicum_pwd_skip', '1');
   sessionStorage.setItem('practicum_session_ok', '1');
   location.reload();
 }
 
 async function verifyPassword(){
   const pwd = document.getElementById('login-password').value;
-  const stored = localStorage.getItem('practicum_pwd_hash');
+  const stored = STORE.getItem('practicum_pwd_hash');
   const hash = await hashPassword(pwd);
   if(hash === stored){
     sessionStorage.setItem('practicum_session_ok', '1');
@@ -7255,14 +8233,14 @@ async function verifyPassword(){
 
 function resetPassword(){
   if(!confirm('פעולה זו תמחק את הסיסמה ותדרוש ממך לטעון גיבוי ולהגדיר סיסמה חדשה. להמשיך?'))return;
-  localStorage.removeItem('practicum_pwd_hash');
-  localStorage.removeItem('practicum_db_v5');
+  STORE.removeItem('practicum_pwd_hash');
+  STORE.removeItem('practicum_db_v5');
   location.reload();
 }
 
 // Check skip flag on gate
 function checkPasswordGate_checkSkip(){
-  if(localStorage.getItem('practicum_pwd_skip') === '1'){
+  if(STORE.getItem('practicum_pwd_skip') === '1'){
     sessionStorage.setItem('practicum_session_ok', '1');
     return true;
   }
@@ -7271,6 +8249,9 @@ function checkPasswordGate_checkSkip(){
 // Override gate to check skip first
 const originalGate = checkPasswordGate;
 checkPasswordGate = function(){
+  // The test environment holds no production data: storage is namespaced, cloud
+  // sync is off and sending is blocked. Gating it would only stop the tests.
+  if(TEST_MODE){ sessionStorage.setItem('practicum_session_ok', '1'); return true; }
   if(sessionStorage.getItem('practicum_session_ok') === '1') return true;
   if(checkPasswordGate_checkSkip()) return true;
   return originalGate();
@@ -7310,7 +8291,7 @@ function showInstallButton(){
     if(outcome === 'accepted'){
       btn.remove();
       deferredInstallPrompt = null;
-      localStorage.setItem('pwa_installed', '1');
+      STORE.setItem('pwa_installed', '1');
     }
   };
   document.body.appendChild(btn);
@@ -7321,7 +8302,7 @@ function showInstallButton(){
 window.addEventListener('appinstalled', () => {
   const btn = document.getElementById('pwa-install-btn');
   if(btn) btn.remove();
-  localStorage.setItem('pwa_installed', '1');
+  STORE.setItem('pwa_installed', '1');
 });
 
 // Detect if launched as installed PWA
