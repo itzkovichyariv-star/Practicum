@@ -1,0 +1,483 @@
+<title>אישור שינויים במועמדים ובסטודנטים</title>
+<style>
+:root{
+  --bg:#f7f8fa; --panel:#ffffff; --text:#0b1425; --muted:#64728a;
+  --primary:#2f6df6; --primary-2:#6aa6ff; --accent:#20c997;
+  --surface:#eef2f7; --border:#e6e9ef; --chip:#f1f4f9;
+  --danger:#e5484d; --warn:#f6b100; --success:#17a34a;
+  --orange:#f97316; --teal:#0891b2; --purple:#7c3aed;
+  --doc-bg:#f2f4f8; --doc-ink:#12171f; --doc-mute:#5a6472; --doc-line:#dce2ea; --doc-card:#fff;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --doc-bg:#0e1218; --doc-ink:#e8ecf2; --doc-mute:#98a3b3; --doc-line:#262e3a; --doc-card:#161b23;
+  }
+}
+:root[data-theme="dark"]{
+  --doc-bg:#0e1218; --doc-ink:#e8ecf2; --doc-mute:#98a3b3; --doc-line:#262e3a; --doc-card:#161b23;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--doc-bg);color:var(--doc-ink);direction:rtl;text-align:right;
+  font-family:Heebo,Assistant,"Noto Sans Hebrew",system-ui,Arial,sans-serif;font-size:15px;line-height:1.7}
+.wrap{max-width:1060px;margin:0 auto;padding:0 20px 90px}
+header.top{padding:54px 0 24px;border-bottom:1px solid var(--doc-line)}
+h1{font-size:clamp(25px,4vw,34px);font-weight:800;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+.lede{font-size:17px;color:var(--doc-mute);margin:0;max-width:62ch}
+.part{margin-top:56px;padding-top:26px;border-top:3px solid var(--doc-ink)}
+.part-eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.14em;color:var(--orange);margin-bottom:8px}
+.part h2{font-size:27px;font-weight:800;margin:0 0 8px;letter-spacing:-.02em}
+.part .sub{color:var(--doc-mute);margin:0 0 6px;font-size:16px}
+h3{font-size:19px;font-weight:800;margin:38px 0 4px;display:flex;gap:10px;align-items:center}
+h3 .pill{font-size:11px;font-weight:700;letter-spacing:.08em;padding:3px 10px;border-radius:5px}
+h3 .pill.design{background:rgba(249,115,22,.15);color:var(--orange)}
+h3 .pill.func{background:rgba(47,109,246,.15);color:var(--primary)}
+p{margin:0 0 12px;max-width:70ch}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.85em;background:rgba(47,109,246,.1);color:var(--primary);
+  padding:1px 5px;border-radius:4px;direction:ltr;unicode-bidi:isolate;display:inline-block}
+.big-none{background:rgba(23,163,74,.1);border:2px solid rgba(23,163,74,.4);border-radius:12px;padding:22px 24px;margin:18px 0}
+.big-none .t{font-size:21px;font-weight:800;color:var(--success);margin-bottom:6px}
+.note{background:rgba(47,109,246,.07);border:1px solid rgba(47,109,246,.25);border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px}
+.warn{background:rgba(246,177,0,.1);border:1px solid rgba(246,177,0,.35);border-radius:8px;padding:14px 18px;margin:16px 0;font-size:14px}
+
+/* change block */
+.chg{border:1px solid var(--doc-line);border-radius:10px;background:var(--doc-card);margin:16px 0;overflow:hidden}
+.chg > .h{display:flex;gap:11px;align-items:flex-start;padding:14px 18px;background:rgba(127,127,127,.05);border-bottom:1px solid var(--doc-line)}
+.chg > .h .id{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:#fff;background:var(--orange);
+  border-radius:5px;padding:2px 8px;flex:none;margin-top:3px}
+.chg > .h .t{font-weight:700;font-size:16px;line-height:1.45}
+.chg .rows{padding:4px 18px 14px}
+.row{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:10px 0;border-bottom:1px dashed var(--doc-line)}
+.row:last-child{border-bottom:none}
+.row .k{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--doc-mute);padding-top:3px;min-width:56px}
+.row .v{font-size:14.5px}
+.row.eg{background:rgba(127,127,127,.05);margin:6px -18px 0;padding:12px 18px;border-bottom:none}
+.row.eg .k{color:var(--primary)}
+.row.eg .v{font-size:14px}
+
+/* the live app mock — the app's own styles */
+.app{background:var(--bg);color:var(--text);border:1px solid var(--doc-line);border-radius:12px;padding:16px;
+  font-family:Inter,Heebo,system-ui,Arial;font-size:14px;line-height:1.55;overflow-x:auto;margin:14px 0}
+.app .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin:0}
+.app .card h2{margin:0 0 12px;font-size:18px;color:var(--text)}
+.app .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px}
+.app .btn{border:1px solid var(--border);background:var(--panel);color:var(--text);padding:8px 12px;border-radius:10px;
+  cursor:default;font-weight:600;font-size:13px;font-family:inherit;display:inline-block}
+.app .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;border-color:transparent}
+.app .btn-success{background:var(--success);color:#fff;border-color:transparent}
+.app .btn-info{background:var(--primary);color:#fff;border-color:transparent}
+.app .btn-danger{background:var(--danger);color:#fff;border-color:transparent}
+.app .btn-outline{background:transparent;border:1px solid var(--primary);color:var(--primary)}
+.app .btn-sm{padding:5px 9px;font-size:12px}
+.app .filter-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.app .filter-bar input,.app .filter-bar select{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+  padding:8px;font-size:13px;min-width:140px;font-family:inherit;color:var(--text)}
+.app .filter-bar input[type=text]{flex:1;min-width:200px}
+.app .item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
+.app .item-header{display:flex;justify-content:space-between;align-items:start;gap:10px}
+.app .item-details{color:var(--muted);font-size:12px;margin-top:3px}
+.app .item-name{font-weight:700;font-size:15px}
+.app .badge{display:inline-flex;padding:3px 9px;border-radius:999px;font-size:11px;background:var(--chip);
+  border:1px solid var(--border);margin:2px}
+.app .badge-success{background:rgba(32,201,151,.13);color:#17a34a}
+.app .badge-info{background:rgba(47,109,246,.13);color:var(--primary)}
+.app .badge-primary{background:rgba(47,109,246,.13);color:var(--primary)}
+.app .badge-purple{background:rgba(139,92,246,.13);color:#7c3aed}
+.app .badge-warning{background:rgba(246,177,0,.13);color:#856404}
+.app .badge-danger{background:rgba(229,72,77,.13);color:var(--danger)}
+.app .file-link{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(32,201,151,.1);
+  border:1px solid var(--accent);border-radius:8px;color:var(--accent);text-decoration:none;font-size:12px;font-weight:600;margin:2px}
+.app .candidate-stage{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;margin:3px}
+.app .alert{padding:12px;border-radius:10px;margin-bottom:14px;border:1px solid;font-size:13px}
+.app .alert-warning{background:rgba(246,177,0,.08);border-color:rgba(246,177,0,.3)}
+.app .checkbox-group{display:flex;align-items:center;gap:8px}
+.app input[type=checkbox]{width:18px;height:18px}
+.app .bulkbar{background:rgba(47,109,246,.06);border:1px solid rgba(47,109,246,.2);padding:10px;border-radius:8px;
+  margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.app .cb{width:18px;height:18px;border:1.5px solid var(--muted);border-radius:4px;display:inline-block;flex:none;margin-top:4px}
+.app details summary{cursor:pointer;font-size:12px;color:var(--primary);font-weight:600}
+.app .notes{margin-top:6px;color:var(--muted);font-size:12px;background:var(--panel);padding:6px 10px;border-radius:6px}
+.app .evaldots{margin-top:8px;font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+
+.switcher{display:flex;gap:8px;align-items:center;margin:18px 0 0;flex-wrap:wrap}
+.switcher button{font-family:inherit;font-size:14px;font-weight:700;padding:9px 16px;border-radius:10px;
+  border:1px solid var(--doc-line);background:var(--doc-card);color:var(--doc-ink);cursor:pointer}
+.switcher button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.caption{font-size:13.5px;color:var(--doc-mute);margin:10px 0 0;max-width:72ch}
+.tw{overflow-x:auto;border:1px solid var(--doc-line);border-radius:10px;background:var(--doc-card);margin:16px 0}
+table.list{width:100%;border-collapse:collapse;font-size:14px}
+table.list th{text-align:right;font-size:11.5px;letter-spacing:.05em;color:var(--doc-mute);padding:10px 14px;border-bottom:1px solid var(--doc-line)}
+table.list td{padding:10px 14px;border-bottom:1px solid var(--doc-line);vertical-align:top}
+table.list tr:last-child td{border-bottom:none}
+.yes{color:var(--success);font-weight:700}
+footer{margin-top:70px;padding-top:22px;border-top:1px solid var(--doc-line);font-size:13px;color:var(--doc-mute)}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <h1>מה משתנה בכל דף — לאישור לפני ביצוע</h1>
+  <p class="lede">שום דבר לא הוטמע. הכול בענף נפרד, לא מוזג, והמערכת שאתה עובד בה לא השתנתה. כל שינוי מופיע כאן בשפה פשוטה, עם דוגמה, ומחולק לעיצוב מול תפקוד.</p>
+</header>
+
+<!-- ============ PART 1 ============ -->
+<section class="part">
+  <div class="part-eyebrow">חלק א</div>
+  <h2>דף הסטודנטים</h2>
+  <p class="sub">מה שביקשת: שום שינוי חזותי.</p>
+
+  <h3><span class="pill design">עיצוב</span> מה משתנה</h3>
+  <div class="big-none">
+    <div class="t">כלום.</div>
+    <div>הרצתי השוואה אוטומטית בין הדף הישן לחדש עם אותם נתונים. התוצאה: <b>זהה, תו בתו</b> — גם הרשימה וגם הכרטיס שנפתח. הפאנל שהוספתי קודם והצ׳יפים הסגולים הוסרו במלואם.</div>
+  </div>
+  <p>כך זה נראה, ובדיוק כך זה ייראה אחרי:</p>
+  <div class="app" id="student-ref"></div>
+
+  <h3><span class="pill func">תפקוד</span> מה משתנה</h3>
+  <p>שני דברים בלבד. הראשון בלתי נראה, השני הוא החלטה שלך.</p>
+
+  <div class="chg">
+    <div class="h"><span class="id">ס-1</span><div class="t">מספר קישור נסתר על רשומת הסטודנט</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">אין קשר בין רשומת הסטודנט לרשומת המועמדות שממנה הוא הגיע.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">נשמר מספר אחד, <code>candidateId</code>. הוא לא מוצג בשום מסך ולא משנה שום שדה קיים.</div></div>
+      <div class="row"><div class="k">בשביל מה</div><div class="v">בלעדיו המערכת לא יודעת שדנה־המועמדת ודנה־הסטודנטית הן אותה אדם, ועלולה ליצור כרטיס כפול.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">דנה כהן כבר סטודנטית עם שיבוץ ל«מעוף» ו־60 שעות. אתה מעביר את רשומת המועמדות שלה. <b>הכרטיס שלה לא זז:</b> אותה הכנה, אותו שיבוץ, אותן שעות, אותם קבצים. נוסף רק המספר הנסתר. אם משהו אחר בכל זאת יזוז — הפעולה מתבטלת מעצמה ומחזירה הכול לאחור.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">ס-2</span><div class="t">האם מתג «קישור לקובץ» ישפיע גם על דף הסטודנטים? <span style="font-weight:400;color:var(--doc-mute)">— צריך את ההחלטה שלך</span></div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">לחיצה על צ׳יפ «CV» בשורת הסטודנט פותחת את <b>התיקייה</b> של הקורס — כלומר את קורות החיים של כל הסטודנטים, לא רק שלו.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">נוסף מתג בהגדרות, <b>כבוי כברירת מחדל</b>. כשהוא כבוי — הכול בדיוק כמו היום. כשמדליקים — הצ׳יפ מוביל לקובץ עצמו.</div></div>
+      <div class="row"><div class="k">ההחלטה</div><div class="v"><b>כן</b> = המתג יעבוד גם בסטודנטים. <b>לא</b> = יוגבל למועמדים בלבד, ודף הסטודנטים יישאר בהתנהגות הקיימת לתמיד.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">אתה שולח לארגון «מעוף» את קורות החיים של אורי דגן. היום הקישור פותח תיקייה עם הקו״ח של כולם. אם תאשר ותדליק — הוא יוביל לקובץ של אורי בלבד. <b>שים לב:</b> שינוי שמות קבצים לא נכלל, ולכן שום קישור שכבר שלחת לא נשבר.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART 2 ============ -->
+<section class="part">
+  <div class="part-eyebrow">חלק ב</div>
+  <h2>דף המועמדים</h2>
+  <p class="sub">מה שביקשת: תצוגה דומה לדף הסטודנטים, עם נתונים של מועמדים.</p>
+
+  <h3><span class="pill design">עיצוב</span> מה משתנה</h3>
+  <p>כאן טעיתי. בניתי דף אחר לגמרי — צפוף, עם שישה מסננים, נקודות הערכה ופאנלים נפתחים. החלף בין השלושה ותראה:</p>
+
+  <div class="switcher">
+    <button id="b-now" class="on" onclick="showVar('now')">המצב היום</button>
+    <button id="b-built" onclick="showVar('built')">מה שבניתי — לא מאושר</button>
+    <button id="b-prop" onclick="showVar('prop')">מוצע — כמו הסטודנטים</button>
+  </div>
+  <div id="var-now" class="app"></div>
+  <div id="var-built" class="app" style="display:none"></div>
+  <div id="var-prop" class="app" style="display:none"></div>
+  <p class="caption" id="var-caption"></p>
+
+  <div class="chg">
+    <div class="h"><span class="id">מ-1</span><div class="t">שורת המועמד תיראה כמו שורת הסטודנט</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">שם, שורת פרטים, ושורת תגים אחת. אין תיבת בחירה ואין כפתור מייל.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">אותו מבנה בדיוק כמו הסטודנט: תיבת בחירה ושם · שורת פרטים · שורת תגים אחת · שורת מידע נוספת · תיבת הערות.</div></div>
+      <div class="row"><div class="k">יורד ממה שבניתי</div><div class="v">חמש נקודות ההערכה, הפאנל הנפתח, צ׳יפ «הוגש לפני N ימים», ושורת שיעור ההמרה.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">אצל הסטודנט אורי דגן שורת «העדפות: 1. מעוף 2. נישה פרו». אצל המועמדת דנה כהן, באותו מקום בדיוק, יופיע «סיכום ראיון: מוטיבציה גבוהה…». אותו עיצוב, נתון אחר.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">מ-2</span><div class="t">צ׳יפ הקובץ יוביל לקובץ של המועמד</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">שני הצ׳יפים ירוקים אצל כולם ומובילים לאותה תיקייה — גם אצל מי שלא הועלה לו שום קובץ.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">הצ׳יפ נגזר מהרשומה עצמה. אין קובץ — מוצג אפור מקווקו «לא מקושר», לא באדום.</div></div>
+      <div class="row"><div class="k">למה לא אדום</div><div class="v">כי אי אפשר להגיש מועמדות בלי קורות חיים. חוסר כאן מעיד על רשומה שיובאה ולא קושרה, לא על מועמד שלא הגיש.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">בטבלה למעלה, טל אבני מציג היום שני צ׳יפים ירוקים למרות שאין לו קבצים. במוצע יופיע אצלו «קו״ח: לא מקושר» באפור.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">מ-3</span><div class="t">תיבות בחירה ופעולות קבוצתיות</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">אין. כל פעולה נעשית מועמד־מועמד.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">בדיוק כמו בדף הסטודנטים: «בחר הכל», מונה נבחרים, ושלוש פעולות — מייל קבוצתי, העברה לסטודנטים, קביעת תאריך ראיון.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">שנים־עשר מועמדים השלימו מסמכים. במקום לפתוח כל אחד, מסמנים את כולם ולוחצים «קביעת ראיון» פעם אחת.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">מ-4</span><div class="t">מסננים — ארבעה, כמו בסטודנטים</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">שניים: חיפוש וסטטוס.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">ארבעה: חיפוש · סטטוס · ראיון · מתג «הצג מומרים». בדף הסטודנטים יש ארבעה, אז זה אותו משקל.</div></div>
+      <div class="row"><div class="k">יורד ממה שבניתי</div><div class="v">מסנן המסמכים ותפריט המיון.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">מסנן «ראיון» ← «עבר התאריך ללא תוצאה» מציג את מי שרואיין ולא הוזן לו מה קרה.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">מ-5</span><div class="t">באנר «ממתינים להעברה» בראש הדף</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">אין. מי שעבר ראיון פשוט יושב ברשימה עם נקודה ירוקה.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">שורה צהובה בראש הדף כשיש כאלה, עם כפתור «העבר את כולם».</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">שלושה עברו ראיון בשבוע שעבר ואיש לא העביר אותם. במקום לגלות את זה בגלילה, זה כתוב בשורה הראשונה.</div></div>
+    </div>
+  </div>
+
+  <h3><span class="pill func">תפקוד</span> מה משתנה</h3>
+
+  <div class="chg">
+    <div class="h"><span class="id">ת-1</span><div class="t">מי שעבר ראיון עובר לסטודנטים ויורד מהרשימה</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">סימון «עבר ראיון» הופך את הסטטוס ל«התקבל», והמועמד נשאר בדף המועמדים לנצח. ההעברה היא כפתור שאיש לא חייב ללחוץ.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">בשמירה נשאלת שאלה: «להעביר עכשיו לסטודנטים?». כן — הוא עובר ויורד מהרשימה. לא — נשאר, ומופיע בבאנר.</div></div>
+      <div class="row"><div class="k">חשוב</div><div class="v">רשומת המועמדות <b>לא נמחקת</b>. היא עוברת לארכיון עם כל סיכום הראיון וההערכות. היום ההעברה הקיימת מוחקת אותה ומאבדת את הסיכום.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">דנה עברה ראיון ב־6.8. אתה שומר, מאשר, והיא עוברת. דף המועמדים מציג מעכשיו רק את מי שעדיין מועמד. אם תרצה לראות מה נכתב עליה בראיון — מדליקים «הצג מומרים» ולוחצים «סיכום תיק».</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">ת-2</span><div class="t">מועמד שכבר קיים כסטודנט — יצורף, לא ייווצר פעמיים</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">ההעברה יוצרת כרטיס סטודנט חדש תמיד, בלי לבדוק אם הוא כבר קיים.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">המערכת מזהה לפי מייל, ואם אין — לפי טלפון, ואם אין — לפי שם, באותו קורס ושנה. אם נמצא, היא מקשרת לכרטיס הקיים.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">דנה כבר סטודנטית עם שיבוץ ו־60 שעות. ההעברה <b>לא</b> תיצור «דנה כהן» שנייה — היא תקשר לכרטיס הקיים ולא תיגע בו.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">ת-3</span><div class="t">נקודת שחזור לפני כל פעולה + ביטול אוטומטי</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">היום</div><div class="v">יש «ביטול» של פעולה אחת אחורה, שנעלם ברענון.</div></div>
+      <div class="row"><div class="k">אחרי</div><div class="v">לפני כל פעולה שמשנה נתונים נשמרת נקודת שחזור. עשר האחרונות בהגדרות, עם שחזור והורדה כ־JSON.</div></div>
+      <div class="row"><div class="k">בנוסף</div><div class="v">אחרי כל פעולה המערכת בודקת את עצמה. אם משהו מוגן בסטודנט זז — הפעולה מתבטלת לבד וחוזרת אחורה.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">העברת בטעות מועמד לא נכון. נכנסים להגדרות, לוחצים «שחזר לכאן» על הנקודה שלפני, והכול חוזר בדיוק כפי שהיה.</div></div>
+    </div>
+  </div>
+
+  <div class="chg">
+    <div class="h"><span class="id">ת-4</span><div class="t">כפתור «סנכרון מועמדים ↔ סטודנטים» לנתונים הקיימים</div></div>
+    <div class="rows">
+      <div class="row"><div class="k">בשביל מה</div><div class="v">לזנב שכבר הצטבר — מי שכבר סטודנט אבל הרשומה שלו עדיין יושבת במועמדים.</div></div>
+      <div class="row"><div class="k">מה הוא עושה</div><div class="v">מקשר בין רשומות בלבד. <b>לא יוצר סטודנטים, לא משנה סטטוס, לא נוגע בקבצים.</b> מי שעבר ראיון ואין לו כרטיס — נשאר מועמד ומופיע בבאנר, שתחליט עליו בעצמך.</div></div>
+      <div class="row"><div class="k">מתי</div><div class="v">רק בלחיצה. <b>לא רץ מעצמו.</b> פתיחת המערכת לא משנה שום נתון — נבדק.</div></div>
+      <div class="row eg"><div class="k">דוגמה</div><div class="v">בסוף מוצגת הודעה: «סונכרנו 14 מועמדים לסטודנטים קיימים · 3 ממתינים להעברה · 27 מועמדים פעילים», ולא בוצע שינוי בסטטוס של אף סטודנט.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART 3 ============ -->
+<section class="part">
+  <div class="part-eyebrow">חלק ג</div>
+  <h2>שאר המסכים</h2>
+
+  <div class="tw"><table class="list">
+    <thead><tr><th style="width:34%">מסך</th><th>מה קורה</th></tr></thead>
+    <tbody>
+      <tr><td><b>סטודנטים</b> · <b>כרטיס סטודנט</b></td><td class="yes">זהה לחלוטין — נבדק אוטומטית</td></tr>
+      <tr><td>מעסיקים · תקשורת · הרצאות · דוחות</td><td class="yes">לא נגעתי</td></tr>
+      <tr><td>מייל · מסמכים · לוח שנה · גיבוי</td><td class="yes">לא נגעתי</td></tr>
+      <tr><td><b>דשבורד</b></td><td>שני פריטים: מקטע «הומרו» במשפך, והתראה «N ממתינים להעברה». בלי הראשון שיעור ההמרה יהיה שגוי אחרי שמועמדים יורדים מהרשימה.</td></tr>
+      <tr><td><b>הגדרות</b></td><td>שני כרטיסים חדשים: «בטיחות נתונים ושחזור», ו«קישורי קבצים» — הטבלה שבה תבדוק איזו צורת קישור עובדת מול SharePoint.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="part">
+  <div class="part-eyebrow">חלק ד</div>
+  <h2>איך לענות</h2>
+  <p>מספיק לכתוב אילו פריטים לפסול. לדוגמה: «פסול מ-5, ס-2 = לא». כל השאר ייחשב מאושר.</p>
+  <p>אם שורת המועמד המוצעת עדיין לא מה שרצית — תאר במילים שלך מה צריך להופיע בה, ואבנה מחדש לפני שאני נוגע בקוד.</p>
+  <div class="note">גם אחרי אישור, שום דבר לא עולה לאוויר. המיזוג נשאר בידיים שלך.</div>
+</section>
+
+<footer>ענף <code>claude/practicum-candidates-students-view-g57fl2</code> · הבסיס <code>main@7b42232</code> ללא שינוי · לא מוזג</footer>
+</div>
+
+<script>
+var DATA = [
+  {name:'דנה כהן', phone:'052-1234567', email:'dana@example.com', city:'פתח תקווה', area:'גיוס ומיון',
+   statusLabel:'התקבל', statusCls:'badge-success', cv:true, form:true,
+   interview:'06/08/26', result:'passed', score:88, waiting:28,
+   summary:'מוטיבציה גבוהה, ניסיון קודם בגיוס במסגרת התנדבותית. ממליץ לקבל.',
+   evals:[['מחויבות','hi'],['מוטיבציה','hi'],['תקשורת','mid'],['אנגלית','hi'],['היכרות','lo']],
+   notes:'מעדיפה ימי שני ורביעי', accepted:true},
+  {name:'מאיה בר', phone:'054-1112222', email:'maya@example.com', city:'כפר סבא', area:'',
+   statusLabel:'מסמכים הוגשו', statusCls:'badge-warning', cv:true, form:true,
+   interview:'', result:'', score:null, waiting:9, summary:'', evals:[], notes:''},
+  {name:'רון שגב', phone:'050-3334444', email:'ron@example.com', city:'', area:'',
+   statusLabel:'נדחה', statusCls:'badge-danger', cv:true, form:false,
+   interview:'27/07/26', result:'failed', score:null, waiting:40, summary:'', evals:[],
+   notes:'', reject:'לא הציג התאמה לתחום'},
+  {name:'טל אבני', phone:'058-7778888', email:'tal@example.com', city:'', area:'',
+   statusLabel:'ממתין', statusCls:'badge', cv:false, form:false,
+   interview:'', result:'', score:null, waiting:16, summary:'', evals:[], notes:'טרם הועלו מסמכים'}
+];
+
+function head(){
+  return '<div class="card-header"><div><h2>מועמדים (4)</h2>' +
+    '<div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:2px">פרקטיקום משאבי אנוש | תשפ״ו</div></div>' +
+    '<div style="display:flex;gap:8px"><span class="btn btn-primary">+ מועמד</span>' +
+    '<span class="btn btn-outline">ייבוא CSV/Excel</span><span class="btn btn-outline">ייבוא JSON</span></div></div>';
+}
+function funnel(){
+  var s=[['ממתין',1,'#94a3b8'],['מסמכים הוגשו',1,'var(--warn)'],['ראיון נקבע',0,'var(--orange)'],
+         ['רואיין',0,'var(--primary)'],['התקבל',1,'var(--success)'],['נדחה',1,'var(--danger)']];
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  s.forEach(function(x){ h+='<span class="candidate-stage" style="background:'+x[2]+'22;color:'+x[2]+';border:1px solid '+x[2]+'44">'+x[0]+': <strong>'+x[1]+'</strong></span>'; });
+  h+='<span class="candidate-stage" style="background:var(--chip)">הכל: <strong>4</strong></span></div>';
+  return h;
+}
+function actions(c, v){
+  var b='';
+  if(v!=='now') b+='<span class="btn btn-sm btn-success">מייל</span>';
+  b+='<span class="btn btn-sm">סיכום תיק</span><span class="btn btn-sm btn-info">ערוך</span>';
+  if(c.accepted) b+='<span class="btn btn-sm btn-success">'+(v==='now'?'העבר לסטודנטים':'העבר')+'</span>';
+  b+='<span class="btn btn-sm btn-danger">מחק</span>';
+  return b;
+}
+function chipFile(has,label,v){
+  if(v==='now') return '<a class="file-link">'+label+'</a>';
+  if(has) return '<a class="file-link">'+label+'</a>';
+  return '<span class="badge" style="color:var(--muted);border:1px dashed var(--border);background:transparent">'+label+': לא מקושר</span>';
+}
+function nameBlock(c, withCb){
+  var inner='<div><div class="item-name">'+c.name+'</div><div class="item-details">'+c.phone+' • '+c.email+
+    (c.city?' • '+c.city:'')+'</div></div>';
+  return withCb ? '<div style="display:flex;align-items:flex-start;gap:10px"><span class="cb"></span>'+inner+'</div>' : inner;
+}
+
+function renderNow(){
+  var h=head()+funnel()+'<div class="filter-bar"><input type="text" placeholder="חיפוש מועמד..."><select><option>כל הסטטוסים</option></select></div>';
+  DATA.forEach(function(c){
+    h+='<div class="item"><div class="item-header">'+nameBlock(c,false)+
+       '<div style="display:flex;gap:4px;flex-wrap:wrap">'+actions(c,'now')+'</div></div>'+
+       '<div style="margin-top:8px"><span class="badge '+c.statusCls+'">'+c.statusLabel+'</span>'+
+       '<a class="file-link">CV</a><a class="file-link">טופס מועמדות</a>'+
+       (c.interview?'<span class="badge badge-info">ראיון: '+c.interview+'</span>':'')+
+       (c.result==='passed'?'<span class="badge badge-success">עבר ראיון</span>':'')+
+       (c.result==='failed'?'<span class="badge badge-danger">לא עבר ראיון</span>':'')+'</div>'+
+       (c.notes?'<div class="notes">'+c.notes+'</div>':'')+'</div>';
+  });
+  return '<div class="card">'+h+'</div>';
+}
+
+function renderBuilt(){
+  var h=head()+
+    '<div class="alert alert-warning" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+    '<strong>1 מועמדים עברו ראיון וממתינים להעברה לסטודנטים</strong>'+
+    '<span style="margin-right:auto;display:flex;gap:6px"><span class="btn btn-sm btn-success">העבר את כולם</span>'+
+    '<span class="btn btn-sm btn-outline">הצג רק אותם</span></span></div>'+funnel()+
+    '<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">שיעור המרה: <strong>0/4</strong> (0%) · זמן ממוצע מהגשה לראיון: <strong>22</strong> ימים</div>'+
+    '<div class="filter-bar"><input type="text" placeholder="חיפוש בשם, טלפון, מייל, הערות וסיכום ראיון...">'+
+    '<select><option>כל הסטטוסים</option></select><select><option>כל המסמכים</option></select>'+
+    '<select><option>כל הראיונות</option></select><select><option>מיון: תאריך הגשה</option></select>'+
+    '<label class="checkbox-group" style="white-space:nowrap"><input type="checkbox"><span>הצג מומרים לסטודנטים</span></label></div>'+
+    '<div class="bulkbar"><label class="checkbox-group" style="margin:0"><input type="checkbox"> <strong>בחר הכל</strong></label>'+
+    '<span style="color:var(--primary);font-weight:700">אין נבחרים</span></div>';
+  DATA.forEach(function(c){
+    h+='<div class="item"><div class="item-header">'+nameBlock(c,true)+
+       '<div style="display:flex;gap:4px;flex-wrap:wrap">'+actions(c,'built')+'</div></div>'+
+       '<div style="margin-top:8px"><span class="badge '+c.statusCls+'">'+c.statusLabel+'</span>'+
+       chipFile(c.cv,'📎 קורות חיים','built')+chipFile(c.form,'📎 טופס מועמדות','built')+
+       (c.interview?'<span class="badge badge-info">📅 ראיון '+c.interview+'</span>':'<span class="badge" style="color:var(--muted);border:1px dashed var(--border);background:transparent">ראיון: טרם נקבע</span>')+
+       (c.result==='passed'?'<span class="badge badge-success">✓ עבר ראיון</span>':'')+
+       (c.result==='failed'?'<span class="badge badge-danger">✗ לא עבר</span>':'')+
+       (c.score?'<span class="badge" style="color:var(--success);border:1px solid rgba(23,163,74,.4);background:transparent">ציון '+c.score+'</span>':'')+
+       (c.waiting>7&&!c.interview?'<span class="badge '+(c.waiting>14?'badge-danger':'badge-warning')+'">הוגש לפני '+c.waiting+' ימים</span>':'')+'</div>';
+    if(c.evals.length){
+      h+='<div class="evaldots">';
+      c.evals.forEach(function(e){
+        var g=e[1]==='hi'?'<span style="color:var(--success)">●</span>':e[1]==='mid'?'<span style="color:var(--warn)">◐</span>':'<span style="color:var(--muted)">○</span>';
+        h+='<span>'+e[0]+' '+g+'</span>';
+      });
+      h+='</div>';
+    }
+    if(c.summary) h+='<details style="margin-top:8px" open><summary>הצג סיכום ראיון</summary><div style="margin-top:6px;font-size:13px;background:var(--panel);padding:8px 10px;border-radius:6px;border-right:3px solid var(--orange)">'+c.summary+'</div></details>';
+    if(c.reject) h+='<div style="margin-top:6px;font-size:12px;background:rgba(229,72,77,.07);border:1px solid rgba(229,72,77,.2);padding:6px 10px;border-radius:6px"><strong>סיבת דחייה:</strong> '+c.reject+'</div>';
+    if(c.notes) h+='<div class="notes">'+c.notes+'</div>';
+    h+='</div>';
+  });
+  return '<div class="card">'+h+'</div>';
+}
+
+function renderProp(){
+  var h=head()+
+    '<div class="alert alert-warning" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+
+    '<strong>1 מועמדים עברו ראיון וממתינים להעברה</strong>'+
+    '<span style="margin-right:auto"><span class="btn btn-sm btn-success">העבר את כולם</span></span></div>'+funnel()+
+    '<div class="filter-bar"><input type="text" placeholder="חיפוש חופשי...">'+
+    '<select><option>כל הסטטוסים</option></select><select><option>כל הראיונות</option></select>'+
+    '<label class="checkbox-group" style="white-space:nowrap"><input type="checkbox"><span>הצג מומרים</span></label></div>'+
+    '<div class="bulkbar"><label class="checkbox-group" style="margin:0"><input type="checkbox"> <strong>בחר הכל</strong></label>'+
+    '<span style="color:var(--primary);font-weight:700">אין נבחרים</span></div>';
+  DATA.forEach(function(c){
+    h+='<div class="item"><div class="item-header">'+nameBlock(c,true)+
+       '<div style="display:flex;gap:4px;flex-wrap:wrap">'+actions(c,'prop')+'</div></div>'+
+       '<div style="margin-top:8px"><span class="badge '+c.statusCls+'">'+c.statusLabel+'</span>'+
+       chipFile(c.cv,'קו״ח','prop')+chipFile(c.form,'טופס','prop')+
+       (c.interview?'<span class="badge badge-info">ראיון '+c.interview+'</span>':'')+
+       (c.result==='passed'?'<span class="badge badge-success">עבר ראיון</span>':'')+
+       (c.result==='failed'?'<span class="badge badge-danger">לא עבר ראיון</span>':'')+
+       (c.score?'<span class="badge badge-purple">ציון '+c.score+'</span>':'')+'</div>';
+    if(c.summary) h+='<div style="margin-top:6px"><strong style="font-size:12px">סיכום ראיון:</strong> <span style="font-size:12px;color:var(--muted)">'+c.summary+'</span></div>';
+    if(c.reject) h+='<div style="margin-top:6px"><strong style="font-size:12px">סיבת דחייה:</strong> <span style="font-size:12px;color:var(--danger)">'+c.reject+'</span></div>';
+    if(c.notes) h+='<div class="notes">'+c.notes+'</div>';
+    h+='</div>';
+  });
+  return '<div class="card">'+h+'</div>';
+}
+
+function renderStudentRef(){
+  return '<div class="card">'+
+    '<div class="card-header"><div><h2>סטודנטים (2)</h2>'+
+    '<div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:2px">פרקטיקום משאבי אנוש | תשפ״ו</div></div>'+
+    '<div style="display:flex;gap:8px"><span class="btn btn-primary">+ סטודנט</span>'+
+    '<span class="btn btn-outline">ייבוא CSV/Excel</span></div></div>'+
+    '<div class="filter-bar"><input type="text" placeholder="חיפוש חופשי...">'+
+    '<select><option>כל ההכנות</option></select><select><option>כל הסטטוסים</option></select>'+
+    '<select><option>כל הארגונים</option></select></div>'+
+    '<div class="bulkbar"><label class="checkbox-group" style="margin:0"><input type="checkbox"> <strong>בחר הכל</strong></label>'+
+    '<span style="color:var(--primary);font-weight:700">אין נבחרים</span></div>'+
+    '<div class="item"><div class="item-header">'+
+    '<div style="display:flex;align-items:flex-start;gap:10px"><span class="cb"></span>'+
+    '<div><div class="item-name">אורי דגן</div><div class="item-details">058-5556666 • uri@example.com • אריאל</div></div></div>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap"><span class="btn btn-sm btn-success">מייל</span>'+
+    '<span class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:transparent">סיכום</span>'+
+    '<span class="btn btn-sm btn-info">ערוך</span><span class="btn btn-sm btn-danger">מחק</span></div></div>'+
+    '<div style="margin-top:8px"><span class="badge badge-success">עבר הכנה</span>'+
+    '<a class="file-link">CV</a><a class="file-link">טופס</a>'+
+    '<span class="badge badge-success">התקבל ל-מעוף</span><span class="badge badge-purple">60 שעות ✓</span></div>'+
+    '<div style="margin-top:6px"><strong style="font-size:12px">העדפות:</strong> <span class="badge badge-primary">1. מעוף</span><span class="badge badge-primary">2. נישה פרו</span></div>'+
+    '<div style="margin-top:4px"><strong style="font-size:12px">הגישו:</strong> <span class="badge badge-purple">מעוף</span><span class="badge badge-purple">נישה פרו</span></div>'+
+    '</div>'+
+    '<div class="item"><div class="item-header">'+
+    '<div style="display:flex;align-items:flex-start;gap:10px"><span class="cb"></span>'+
+    '<div><div class="item-name">נועה שקד</div><div class="item-details">052-2223333 • noa@example.com • רעננה</div></div></div>'+
+    '<div style="display:flex;gap:4px;flex-wrap:wrap"><span class="btn btn-sm btn-success">מייל</span>'+
+    '<span class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:transparent">סיכום</span>'+
+    '<span class="btn btn-sm btn-info">ערוך</span><span class="btn btn-sm btn-danger">מחק</span></div></div>'+
+    '<div style="margin-top:8px"><span class="badge badge-warning">ממתין להכנה</span>'+
+    '<a class="file-link">CV</a><a class="file-link">טופס</a></div></div>'+
+    '</div>';
+}
+
+var CAPTIONS = {
+  now:'המצב היום. שימו לב לטל אבני בתחתית — שני צ׳יפים ירוקים למרות שלא הועלו לו מסמכים, ושניהם מובילים לאותה תיקייה כמו אצל כולם.',
+  built:'מה שבניתי, וזה מה שראית בצילומים. שישה מסננים, שורת שיעור המרה, נקודות הערכה ופאנל נפתח. זה לא דומה לדף הסטודנטים — וזו הטעות.',
+  prop:'המוצע. אותו מבנה שורה בדיוק כמו אורי דגן למעלה: תיבת בחירה ושם, שורת פרטים, שורת תגים אחת, שורת מידע נוספת, תיבת הערות. ארבעה מסננים כמו בסטודנטים.'
+};
+
+function showVar(v){
+  ['now','built','prop'].forEach(function(x){
+    document.getElementById('var-'+x).style.display=(x===v)?'block':'none';
+    document.getElementById('b-'+x).className=(x===v)?'on':'';
+  });
+  document.getElementById('var-caption').textContent=CAPTIONS[v];
+}
+
+document.getElementById('var-now').innerHTML=renderNow();
+document.getElementById('var-built').innerHTML=renderBuilt();
+document.getElementById('var-prop').innerHTML=renderProp();
+document.getElementById('student-ref').innerHTML=renderStudentRef();
+document.getElementById('var-caption').textContent=CAPTIONS.now;
+</script>
